@@ -1,29 +1,43 @@
 'use client';
 
-import { RiGithubLine } from '@remixicon/react';
 import * as React from 'react';
+import { LogOut } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
-import { HelpButton } from '@/components/layout/sidebar/help-button';
-import { NavInbox } from '@/components/layout/sidebar/nav-inbox';
-import { NavTeams } from '@/components/layout/sidebar/nav-teams';
-import { NavWorkspace } from '@/components/layout/sidebar/nav-workspace';
+import { NavOps } from '@/components/layout/sidebar/nav-ops';
 import { NavSettings } from '@/components/layout/sidebar/nav-settings';
 import { NavTeamsSettings } from '@/components/layout/sidebar/nav-teams-settings';
-import { OrgSwitcher } from '@/components/layout/sidebar/org-switcher';
+import { BackToApp } from '@/components/layout/sidebar/back-to-app';
 import { Button } from '@/components/ui/button';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
-import Link from 'next/link';
-import { X } from 'lucide-react';
-import { usePathname } from 'next/navigation';
-import { BackToApp } from '@/components/layout/sidebar/back-to-app';
+
+function signOut() {
+   fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sign_out' }),
+   }).finally(() => {
+      window.location.href = '/login';
+   });
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-   const [open, setOpen] = React.useState(true);
    const pathname = usePathname();
    const isSettings = pathname.includes('/settings');
    return (
       <Sidebar collapsible="offcanvas" {...props}>
-         <SidebarHeader>{isSettings ? <BackToApp /> : <OrgSwitcher />}</SidebarHeader>
+         <SidebarHeader>
+            {isSettings ? (
+               <BackToApp />
+            ) : (
+               <div className="flex items-center gap-2 px-2 py-1.5">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-[#5e6ad2] text-[10px] font-bold text-white">
+                     OPS
+                  </div>
+                  <span className="text-sm font-semibold">Shortcastle Ops</span>
+               </div>
+            )}
+         </SidebarHeader>
          <SidebarContent>
             {isSettings ? (
                <>
@@ -31,77 +45,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <NavTeamsSettings />
                </>
             ) : (
-               <>
-                  <NavInbox />
-                  <NavWorkspace />
-                  <NavTeams />
-               </>
+               <NavOps />
             )}
          </SidebarContent>
          <SidebarFooter>
-            <div className="w-full flex flex-col gap-2">
-               <p className="text-center text-[11px] text-muted-foreground">
-                  BaseUI code on{' '}
-                  <Link
-                     href="https://pro.lndevui.com/templates/circle-baseui"
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="underline hover:text-foreground transition-colors"
-                  >
-                     Square UI Pro
-                  </Link>
-               </p>
-               {open && (
-                  <div className="group/sidebar relative flex flex-col gap-2 rounded-lg border p-4 text-sm w-full">
-                     <div
-                        className="absolute top-2.5 right-2 z-10 cursor-pointer"
-                        onClick={() => setOpen(!open)}
-                        role="button"
-                     >
-                        <X className="size-4" />
-                     </div>
-                     <div className="text-balance text-lg font-semibold leading-tight group-hover/sidebar:underline">
-                        Open-source layouts by lndev-ui
-                     </div>
-                     <div>
-                        Collection of beautifully crafted open-source layouts UI built with
-                        shadcn/ui.
-                     </div>
-                     <Link
-                        target="_blank"
-                        rel="noreferrer"
-                        className="absolute inset-0"
-                        href="https://square.lndev.me"
-                     >
-                        <span className="sr-only">Square by lndev-ui</span>
-                     </Link>
-                     <Button size="sm" className="w-full">
-                        <Link
-                           href="https://square.lndev.me"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                        >
-                           square.lndev.me
-                        </Link>
-                     </Button>
-                  </div>
-               )}
-               <a className="my-1.5" href="https://vercel.com/oss">
-                  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-               </a>
-               <div className="w-full flex items-center justify-between">
-                  <HelpButton />
-                  <Button size="icon" variant="secondary" asChild>
-                     <Link
-                        href="https://github.com/ln-dev7/circle"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                     >
-                        <RiGithubLine className="size-4" />
-                     </Link>
-                  </Button>
-               </div>
-            </div>
+            <Button
+               variant="ghost"
+               size="sm"
+               className="w-full justify-start gap-2 text-muted-foreground"
+               onClick={signOut}
+            >
+               <LogOut className="size-4" /> Sign out
+            </Button>
          </SidebarFooter>
       </Sidebar>
    );
