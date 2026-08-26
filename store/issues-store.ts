@@ -1,10 +1,20 @@
-import { groupIssuesByStatus, Issue, issues as mockIssues } from '@/mock-data/issues';
+import { groupIssuesByStatus, Issue } from '@/mock-data/issues';
 import { LabelInterface } from '@/mock-data/labels';
 import { Priority } from '@/mock-data/priorities';
 import { Project } from '@/mock-data/projects';
 import { Status } from '@/mock-data/status';
 import { User } from '@/mock-data/users';
+import { hydrateIssue, issuePatchToRaw, type RawIssue } from '@/lib/ops-hydrate';
 import { create } from 'zustand';
+
+// Persist a change to the ops backend (fire-and-forget; local state is optimistic).
+function persist(path: string, method: string, body?: unknown) {
+   return fetch(`/api/ops/${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+   }).catch(() => {});
+}
 
 interface FilterOptions {
    status?: string[];
@@ -20,6 +30,11 @@ interface IssuesState {
    // Data
    issues: Issue[];
    issuesByStatus: Record<string, Issue[]>;
+   members: User[];
+
+   // Real-data bootstrap
+   setIssues: (issues: Issue[]) => void;
+   setMembers: (members: User[]) => void;
 
    //
    getAllIssues: () => Issue[];
@@ -60,22 +75,49 @@ interface IssuesState {
 }
 
 export const useIssuesStore = create<IssuesState>((set, get) => ({
-   // Initial state
-   issues: mockIssues.sort((a, b) => b.rank.localeCompare(a.rank)),
-   issuesByStatus: groupIssuesByStatus(mockIssues),
+   // Initial state — empty; hydrated from the ops backend on mount.
+   issues: [],
+   issuesByStatus: {},
+   members: [],
+
+   setIssues: (issues: Issue[]) => {
+      const sorted = [...issues].sort((a, b) => b.rank.localeCompare(a.rank));
+      set({ issues: sorted, issuesByStatus: groupIssuesByStatus(sorted) });
+   },
+   setMembers: (members: User[]) => set({ members }),
 
    //
    getAllIssues: () => get().issues,
 
-   // Actions
+   // Actions — optimistic local update + persist to the backend.
    addIssue: (issue: Issue) => {
       set((state) => {
          const newIssues = [...state.issues, issue];
-         return {
-            issues: newIssues,
-            issuesByStatus: groupIssuesByStatus(newIssues),
-         };
+         return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
       });
+      // Persist and reconcile the server-generated id/identifier back into place.
+      persist('issues', 'POST', {
+         title: issue.title,
+         description: issue.description,
+         status_id: issue.status.id,
+         priority_id: issue.priority.id,
+         assignee_id: issue.assignee ? issue.assignee.id : null,
+         label_ids: issue.labels.map((l) => l.id),
+         rank: issue.rank,
+         due_date: issue.dueDate ?? null,
+      })
+         .then((r) => (r && 'json' in r ? (r as Response).json() : null))
+         .then((d: { issue?: RawIssue } | null) => {
+            if (!d?.issue) return;
+            set((state) => {
+               const newIssues = state.issues.map((i) =>
+                  i.id === issue.id
+                     ? { ...i, id: d.issue!.id, identifier: d.issue!.identifier || i.identifier }
+                     : i
+               );
+               return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
+            });
+         });
    },
 
    updateIssue: (id: string, updatedIssue: Partial<Issue>) => {
@@ -83,22 +125,18 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
          const newIssues = state.issues.map((issue) =>
             issue.id === id ? { ...issue, ...updatedIssue } : issue
          );
-
-         return {
-            issues: newIssues,
-            issuesByStatus: groupIssuesByStatus(newIssues),
-         };
+         return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
       });
+      const raw = issuePatchToRaw(updatedIssue);
+      if (Object.keys(raw).length > 0) persist(`issues/${id}`, 'PATCH', raw);
    },
 
    deleteIssue: (id: string) => {
       set((state) => {
          const newIssues = state.issues.filter((issue) => issue.id !== id);
-         return {
-            issues: newIssues,
-            issuesByStatus: groupIssuesByStatus(newIssues),
-         };
+         return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
       });
+      persist(`issues/${id}`, 'DELETE');
    },
 
    // Filters
