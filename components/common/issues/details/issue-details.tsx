@@ -2,13 +2,11 @@
 
 import { getIssueDetail } from '@/mock-data/issue-details';
 import { useIssuesStore } from '@/store/issues-store';
-import { Paperclip, Plus, SmilePlus } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo } from 'react';
-import { AssigneeUser } from '../assignee-user';
-import { ActivityFeed } from './activity-feed';
-import { ContentBlocks } from './content-blocks';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
 
 /**
@@ -37,76 +35,39 @@ export default function IssueDetails() {
       );
    }
 
-   const subIssues = (detail.subIssueIds ?? [])
-      .map((identifier) => issues.find((candidate) => candidate.identifier === identifier))
-      .filter((candidate) => candidate !== undefined);
+   const prose =
+      'text-sm leading-relaxed text-foreground/90 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-0.5 [&_a]:text-[#8b93e0] [&_a]:underline [&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/40 [&_pre]:p-3';
 
    return (
       <div className="w-full h-full flex overflow-hidden">
          {/* Main column */}
          <div className="flex-1 min-w-0 h-full overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-8 py-10">
-               <h1 className="text-3xl font-semibold leading-tight text-balance">{issue.title}</h1>
+            <div className="max-w-3xl mx-auto px-6 py-8 sm:px-8 sm:py-10">
+               <h1 className="text-2xl font-semibold leading-tight text-balance sm:text-3xl">{issue.title}</h1>
 
-               <div className="mt-6">
-                  <ContentBlocks blocks={detail.description} />
-               </div>
-
-               {/* Quick actions */}
-               <div className="flex items-center gap-3 mt-6 text-muted-foreground">
-                  <button className="hover:text-foreground" aria-label="Add reaction">
-                     <SmilePlus className="size-4" />
-                  </button>
-                  <button className="hover:text-foreground" aria-label="Attach file">
-                     <Paperclip className="size-4" />
-                  </button>
-               </div>
-
-               {/* Sub-issues */}
-               <div className="mt-8">
-                  {subIssues.length > 0 ? (
-                     <>
-                        <h2 className="text-sm font-medium mb-1">
-                           Sub-issues{' '}
-                           <span className="text-muted-foreground">
-                              {
-                                 subIssues.filter(
-                                    (subIssue) => subIssue.status.category === 'completed'
-                                 ).length
-                              }
-                              /{subIssues.length}
-                           </span>
-                        </h2>
-                        <div className="flex flex-col border-t border-border/50">
-                           {subIssues.map((subIssue) => (
-                              <Link
-                                 key={subIssue.id}
-                                 href={`/${orgId ?? 'lndev-ui'}/issue/${subIssue.identifier}`}
-                                 className="flex items-center gap-2.5 h-10 px-1 border-b border-border/50 hover:bg-sidebar/50 text-sm min-w-0"
-                              >
-                                 <subIssue.status.icon />
-                                 <span className="text-muted-foreground shrink-0 text-xs font-medium">
-                                    {subIssue.identifier}
-                                 </span>
-                                 <span className="truncate font-medium">{subIssue.title}</span>
-                                 <span className="ml-auto shrink-0">
-                                    <AssigneeUser user={subIssue.assignee} />
-                                 </span>
-                              </Link>
-                           ))}
-                        </div>
-                     </>
+               <div className="mt-5">
+                  {issue.description?.trim() ? (
+                     <div className={prose}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.description}</ReactMarkdown>
+                     </div>
                   ) : (
-                     <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-                        <Plus className="size-4" />
-                        Add sub-issues
-                     </button>
+                     <p className="text-sm text-muted-foreground">No description.</p>
                   )}
                </div>
 
-               <div className="border-t border-border/60 mt-8" />
-
-               <ActivityFeed activity={detail.activity} />
+               {/* Progress log — appended by `ops note` / agents as they work */}
+               {issue.progress?.trim() && (
+                  <div className="mt-8">
+                     <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Progress
+                     </h2>
+                     <div className="rounded-lg border bg-container p-3">
+                        <div className={prose}>
+                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.progress}</ReactMarkdown>
+                        </div>
+                     </div>
+                  </div>
+               )}
             </div>
          </div>
 

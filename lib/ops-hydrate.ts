@@ -24,6 +24,7 @@ export interface RawIssue {
   label_ids: string[];
   rank: string;
   due_date: string | null;
+  progress?: string;
   created_at: string;
 }
 
@@ -65,6 +66,7 @@ export function hydrateIssue(row: RawIssue, users: User[]): Issue {
     subissues: [],
     rank: row.rank || "0|hzzzzz:",
     dueDate: row.due_date || undefined,
+    progress: row.progress || "",
   };
 }
 

@@ -21,6 +21,8 @@ export interface Issue {
    subissues?: string[];
    rank: string;
    dueDate?: string;
+   /** Append-only progress log (from `ops note` / agents). */
+   progress?: string;
 }
 
 /* -------------------------------------------------------------------------- */
