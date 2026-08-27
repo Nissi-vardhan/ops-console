@@ -34,6 +34,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
    paused: { label: 'Paused', cls: 'bg-amber-500/15 text-amber-500' },
    blocked: { label: 'Blocked', cls: 'bg-red-500/15 text-red-500' },
    done: { label: 'Done', cls: 'bg-[#5e6ad2]/15 text-[#8b93e0]' },
+   closed: { label: 'Closed manually', cls: 'bg-muted/60 text-foreground/70' },
 };
 const STATUSES = Object.keys(STATUS_META);
 
@@ -114,53 +115,71 @@ export function CadencesView() {
                         </div>
                      </div>
 
-                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {c.audience && <span><span className="text-foreground/70">Audience:</span> {c.audience}</span>}
-                        <span className="flex items-center gap-1.5">
-                           {chans.map((ch) => (
-                              <span key={ch} className="inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5">
-                                 <ChannelIcon channel={ch} className="size-3" /> {ch}
-                              </span>
-                           ))}
-                        </span>
-                        {linked && (
-                           <Link href={`/${orgId || 'lndev-ui'}/issue/${linked.identifier}`} className="inline-flex items-center gap-1 text-[#8b93e0] hover:underline">
-                              <Link2 className="size-3" /> {linked.identifier}
-                           </Link>
-                        )}
-                     </div>
+                     {/* left = summary · right = checkpoints/blockers, side by side */}
+                     <div className="mt-3 grid gap-x-6 gap-y-4 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                        {/* LEFT: the cadence itself */}
+                        <div className="space-y-2.5 text-xs">
+                           {c.audience && (
+                              <div>
+                                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Audience</div>
+                                 <div className="text-foreground/90">{c.audience}</div>
+                              </div>
+                           )}
+                           {chans.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                 {chans.map((ch) => (
+                                    <span key={ch} className="inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
+                                       <ChannelIcon channel={ch} className="size-3" /> {ch}
+                                    </span>
+                                 ))}
+                              </div>
+                           )}
+                           {linked && (
+                              <Link href={`/${orgId || 'lndev-ui'}/issue/${linked.identifier}`} className="inline-flex items-center gap-1 text-[#8b93e0] hover:underline">
+                                 <Link2 className="size-3" /> {linked.identifier}
+                              </Link>
+                           )}
+                           {c.notes && <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{c.notes}</p>}
+                        </div>
 
-                     {/* touch timeline */}
-                     {c.touches.length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                           {c.touches.slice().sort((a, b) => a.n - b.n).map((t, idx) => {
-                              const done = t.status === 'sent';
-                              const skipped = t.status === 'skipped';
-                              return (
-                                 <div key={idx} className="flex items-center gap-2.5 text-xs">
-                                    <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${done ? 'bg-emerald-500/20 text-emerald-500' : skipped ? 'bg-muted/60 text-muted-foreground line-through' : 'border text-muted-foreground'}`}>{t.n}</span>
-                                    <ChannelIcon channel={t.channel} className={`size-3.5 shrink-0 ${done ? 'text-emerald-500' : 'text-muted-foreground'}`} />
-                                    <span className={`${skipped ? 'text-muted-foreground line-through' : ''}`}>{t.label || '(untitled touch)'}</span>
-                                    {t.timing && <span className="text-muted-foreground">· {t.timing}</span>}
-                                    {done && <span className="ml-auto text-emerald-500">{t.sent != null ? `sent ${t.sent}` : 'sent'}</span>}
-                                    {!done && !skipped && <span className="ml-auto text-muted-foreground">planned</span>}
+                        {/* RIGHT: checkpoints + blockers */}
+                        <div className="space-y-3 md:border-l md:pl-6">
+                           <div>
+                              <div className="mb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground/70">Checkpoints</div>
+                              {c.touches.length > 0 ? (
+                                 <div className="space-y-1.5">
+                                    {c.touches.slice().sort((a, b) => a.n - b.n).map((t, idx) => {
+                                       const done = t.status === 'sent';
+                                       const skipped = t.status === 'skipped';
+                                       return (
+                                          <div key={idx} className="flex items-center gap-2.5 text-xs">
+                                             <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${done ? 'bg-emerald-500/20 text-emerald-500' : skipped ? 'bg-muted/60 text-muted-foreground line-through' : 'border text-muted-foreground'}`}>{t.n}</span>
+                                             <ChannelIcon channel={t.channel} className={`size-3.5 shrink-0 ${done ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                                             <span className={`${skipped ? 'text-muted-foreground line-through' : ''}`}>{t.label || '(untitled touch)'}</span>
+                                             {t.timing && <span className="text-muted-foreground">· {t.timing}</span>}
+                                             {done && <span className="ml-auto text-emerald-500">{t.sent != null ? `sent ${t.sent}` : 'sent'}</span>}
+                                             {!done && !skipped && <span className="ml-auto text-muted-foreground">planned</span>}
+                                          </div>
+                                       );
+                                    })}
                                  </div>
-                              );
-                           })}
-                        </div>
-                     )}
+                              ) : (
+                                 <p className="text-xs text-muted-foreground">
+                                    {c.status === 'closed' ? 'Sent manually — no automated cadence steps.' : 'No steps yet — add the sequence.'}
+                                 </p>
+                              )}
+                           </div>
 
-                     {/* blockers */}
-                     {c.blockers.length > 0 && (
-                        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-2.5">
-                           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-red-500"><AlertTriangle className="size-3.5" /> Blocked on</div>
-                           <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
-                              {c.blockers.map((b, i) => <li key={i}>{b}</li>)}
-                           </ul>
+                           {c.blockers.length > 0 && (
+                              <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-2.5">
+                                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-red-500"><AlertTriangle className="size-3.5" /> Blocked on</div>
+                                 <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
+                                    {c.blockers.map((b, i) => <li key={i}>{b}</li>)}
+                                 </ul>
+                              </div>
+                           )}
                         </div>
-                     )}
-
-                     {c.notes && <p className="mt-3 whitespace-pre-wrap text-xs text-muted-foreground">{c.notes}</p>}
+                     </div>
                   </div>
                );
             })}
