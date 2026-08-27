@@ -18,7 +18,7 @@ interface Doc {
 const PROSE =
    'text-sm leading-relaxed text-foreground/90 ' +
    '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold ' +
-   '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold ' +
+   '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:border-l-2 [&_h2]:border-[#5e6ad2] [&_h2]:pl-2.5 ' +
    '[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold ' +
    '[&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 ' +
    '[&_a]:text-[#8b93e0] [&_a]:underline [&_strong]:font-semibold ' +
