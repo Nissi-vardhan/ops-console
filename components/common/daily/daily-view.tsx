@@ -56,7 +56,7 @@ export function DailyView() {
    const load = useCallback(async (day: string, regen = false) => {
       if (!day) return;
       if (regen) setBusy(true); else setLoading(true);
-      const d = await fetch(`/api/ops/daily?date=${day}`, { method: regen ? 'POST' : 'GET', cache: 'no-store' })
+      const d = await fetch(`/api/ops/daily?date=${day}${regen ? '&force=1' : ''}`, { method: regen ? 'POST' : 'GET', cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (d?.update) { setUpdate(d.update); setOpen(new Set()); setEditing(false); }
       setLoading(false); setBusy(false);

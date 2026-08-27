@@ -17,12 +17,18 @@ export async function GET(request: Request) {
   return NextResponse.json({ update: await getDailyUpdate(date) });
 }
 
-// Regenerate (a Refresh button, or the nightly scheduler). Defaults to today (IST).
+// Regenerate. ?force=1 (the Refresh button) always regenerates. Without force
+// (the nightly 11PM scheduler) it refreshes only if the update hasn't been
+// hand-edited — so a saved edit is never silently clobbered.
 export async function POST(request: Request) {
   if (!(await opsAuthorized(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const url = new URL(request.url);
   const date = url.searchParams.get("date") || istToday();
   if (!DAY_RE.test(date)) return NextResponse.json({ error: "bad date" }, { status: 400 });
+  if (url.searchParams.get("force") !== "1") {
+    const existing = await getDailyUpdate(date); // get-or-generate
+    if (existing.edited) return NextResponse.json({ update: existing });
+  }
   return NextResponse.json({ update: await getDailyUpdate(date, true) });
 }
 
