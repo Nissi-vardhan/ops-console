@@ -9,24 +9,27 @@ import { hydrateIssue, memberToUser, type RawIssue, type RawMember } from "@/lib
 export function OpsBootstrap() {
   const setIssues = useIssuesStore((s) => s.setIssues);
   const setMembers = useIssuesStore((s) => s.setMembers);
+  const setCurrentUser = useIssuesStore((s) => s.setCurrentUser);
 
   useEffect(() => {
     let live = true;
     (async () => {
-      const [mRes, iRes] = await Promise.all([
+      const [mRes, iRes, meRes] = await Promise.all([
         fetch("/api/ops/members", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/ops/issues", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/ops/me", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       if (!live) return;
       const users = ((mRes?.members ?? []) as RawMember[]).map(memberToUser);
       setMembers(users);
+      setCurrentUser(meRes?.user?.id ?? null);
       const issues = ((iRes?.issues ?? []) as RawIssue[]).map((row) => hydrateIssue(row, users));
       setIssues(issues);
     })();
     return () => {
       live = false;
     };
-  }, [setIssues, setMembers]);
+  }, [setIssues, setMembers, setCurrentUser]);
 
   return null;
 }

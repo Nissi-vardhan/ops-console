@@ -25,13 +25,13 @@ export default function MyIssues() {
    const { isSearchOpen, searchQuery } = useSearchStore();
    const { viewType } = useViewStore();
    const { filters } = useFilterStore();
-   const { issues } = useIssuesStore();
+   const { issues, currentUserId } = useIssuesStore();
    const { openPanel } = useRightPanelStore();
 
    const isSearching = isSearchOpen && searchQuery.trim() !== '';
    const isViewTypeGrid = viewType === 'grid';
 
-   const scopedIssues = useMemo(() => scopeMyIssues(issues, tab), [issues, tab]);
+   const scopedIssues = useMemo(() => scopeMyIssues(issues, tab, currentUserId), [issues, tab, currentUserId]);
 
    const displayedIssues = useMemo(
       () => applyIssueFilters(scopedIssues, filters),

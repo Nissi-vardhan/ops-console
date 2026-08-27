@@ -31,10 +31,12 @@ interface IssuesState {
    issues: Issue[];
    issuesByStatus: Record<string, Issue[]>;
    members: User[];
+   currentUserId: string | null;
 
    // Real-data bootstrap
    setIssues: (issues: Issue[]) => void;
    setMembers: (members: User[]) => void;
+   setCurrentUser: (id: string | null) => void;
 
    //
    getAllIssues: () => Issue[];
@@ -79,12 +81,14 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
    issues: [],
    issuesByStatus: {},
    members: [],
+   currentUserId: null,
 
    setIssues: (issues: Issue[]) => {
       const sorted = [...issues].sort((a, b) => b.rank.localeCompare(a.rank));
       set({ issues: sorted, issuesByStatus: groupIssuesByStatus(sorted) });
    },
    setMembers: (members: User[]) => set({ members }),
+   setCurrentUser: (id: string | null) => set({ currentUserId: id }),
 
    //
    getAllIssues: () => get().issues,
