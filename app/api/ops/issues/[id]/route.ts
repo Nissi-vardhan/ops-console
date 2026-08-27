@@ -17,7 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return NextResponse.json({ issue });
 }
 
-// Append a progress note: POST { note, author_id? }
+// Append a progress note: POST { note, author_id?, session? }
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await opsAuthorized(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = await resolve((await params).id);
@@ -25,7 +25,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => null);
   const note = typeof body?.note === "string" ? body.note.trim() : "";
   if (!note) return NextResponse.json({ error: "note is required" }, { status: 400 });
-  const issue = await appendIssueProgress(id, note, body?.author_id ?? null);
+  const session = typeof body?.session === "string" ? body.session : null;
+  const issue = await appendIssueProgress(id, note, body?.author_id ?? null, session);
   if (!issue) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ issue });
 }

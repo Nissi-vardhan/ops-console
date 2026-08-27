@@ -123,6 +123,15 @@ CREATE TABLE IF NOT EXISTS app_json (
   value      jsonb,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Compiled end-of-day updates (one per IST calendar day). content = the clean,
+-- copy-ready summary; raw = the deterministic per-task digest it was built from.
+CREATE TABLE IF NOT EXISTS ops_daily_updates (
+  day          date PRIMARY KEY,
+  content      text NOT NULL DEFAULT '',
+  raw          text NOT NULL DEFAULT '',
+  generated_at timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 let migrated = false;

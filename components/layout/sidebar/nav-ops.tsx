@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleDot, LayoutDashboard, UserRound, Box, FileText, Server, Settings, Radio, Sparkles } from 'lucide-react';
+import { CircleDot, LayoutDashboard, UserRound, Box, FileText, Server, Settings, Radio, Sparkles, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import {
@@ -21,6 +21,7 @@ export function NavOps() {
       { name: 'Issues', icon: CircleDot, url: `${base}/team/CORE/all` },
       { name: 'My Issues', icon: UserRound, url: `${base}/my-issues` },
       { name: 'Dashboard', icon: LayoutDashboard, url: `${base}/dashboard` },
+      { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily` },
       { name: 'Projects', icon: Box, url: `${base}/projects` },
       { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
       { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },

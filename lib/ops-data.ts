@@ -191,14 +191,15 @@ export async function resolveOpsIssueId(idOrIdentifier: string): Promise<string 
 }
 
 // Append a timestamped line to an issue's progress log.
-export async function appendIssueProgress(id: string, note: string, authorId?: string | null): Promise<OpsIssue | null> {
+export async function appendIssueProgress(id: string, note: string, authorId?: string | null, session?: string | null): Promise<OpsIssue | null> {
   let author: string | null = null;
   if (authorId && UUID_RE.test(authorId)) {
     author = (await queryOne<{ username: string }>("SELECT username FROM users WHERE id = $1", [authorId]))?.username ?? null;
   }
   // Stamp in IST (Asia/Kolkata) so the date matches the user's calendar day.
   const stamp = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).slice(0, 16);
-  const line = `- [${stamp}${author ? " · " + author : ""}] ${note}`;
+  const sess = (session || "").toString().trim().slice(0, 40).replace(/[[\]·\n]/g, "");
+  const line = `- [${stamp}${author ? " · " + author : ""}${sess ? " · " + sess : ""}] ${note}`;
   const rows = await query<OpsIssue>(
     `UPDATE ops_issues
        SET progress = CASE WHEN progress = '' THEN $1 ELSE progress || E'\\n' || $1 END, updated_at = now()
