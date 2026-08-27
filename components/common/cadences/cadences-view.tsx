@@ -205,10 +205,11 @@ function CadenceEditor({
    );
    const [busy, setBusy] = useState(false);
 
-   const chan = (c: string) => d.channels.split(',').map((x) => x.trim()).filter(Boolean);
+   const channelList = () => d.channels.split(',').map((x) => x.trim()).filter(Boolean);
    const toggleChan = (c: string) => {
-      const set = new Set(chan(d.channels));
-      set.has(c) ? set.delete(c) : set.add(c);
+      const set = new Set(channelList());
+      if (set.has(c)) set.delete(c);
+      else set.add(c);
       setD({ ...d, channels: Array.from(set).join(',') });
    };
 
@@ -254,7 +255,7 @@ function CadenceEditor({
                      <span className="text-xs text-muted-foreground">Channels:</span>
                      {['email', 'whatsapp'].map((c) => (
                         <button key={c} type="button" onClick={() => toggleChan(c)}
-                           className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${chan(d.channels).includes(c) ? 'border-[#5e6ad2] bg-[#5e6ad2]/10 text-foreground' : 'text-muted-foreground'}`}>
+                           className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${channelList().includes(c) ? 'border-[#5e6ad2] bg-[#5e6ad2]/10 text-foreground' : 'text-muted-foreground'}`}>
                            <ChannelIcon channel={c} className="size-3" /> {c}
                         </button>
                      ))}
