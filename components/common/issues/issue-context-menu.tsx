@@ -37,7 +37,6 @@ import React, { useState } from 'react';
 import { useIssuesStore } from '@/store/issues-store';
 import { status } from '@/mock-data/status';
 import { priorities } from '@/mock-data/priorities';
-import { users } from '@/mock-data/users';
 import { labels } from '@/mock-data/labels';
 import { projects } from '@/mock-data/projects';
 import { toast } from 'sonner';
@@ -59,6 +58,7 @@ export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
       updateIssueProject,
       updateIssue,
       getIssueById,
+      members,
    } = useIssuesStore();
 
    const handleStatusChange = (statusId: string) => {
@@ -81,7 +81,7 @@ export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
 
    const handleAssigneeChange = (userId: string | null) => {
       if (!issueId) return;
-      const newAssignee = userId ? users.find((u) => u.id === userId) || null : null;
+      const newAssignee = userId ? members.find((u) => u.id === userId) || null : null;
       updateIssueAssignee(issueId, newAssignee);
       toast.success(newAssignee ? `Assigned to ${newAssignee.name}` : 'Unassigned');
    };
@@ -189,8 +189,7 @@ export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
                   <ContextMenuItem onClick={() => handleAssigneeChange(null)}>
                      <User className="size-4" /> Unassigned
                   </ContextMenuItem>
-                  {users
-                     .filter((user) => user.teamIds.includes('CORE'))
+                  {members
                      .map((user) => (
                         <ContextMenuItem
                            key={user.id}

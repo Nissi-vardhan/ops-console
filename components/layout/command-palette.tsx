@@ -16,7 +16,6 @@ import { priorities } from '@/mock-data/priorities';
 import { projects as allProjects } from '@/mock-data/projects';
 import { status as allStatus } from '@/mock-data/status';
 import { teams } from '@/mock-data/teams';
-import { users } from '@/mock-data/users';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCreateIssueStore } from '@/store/create-issue-store';
 import { useIssuesStore } from '@/store/issues-store';
@@ -85,7 +84,7 @@ export function CommandPalette() {
 
    const pathname = usePathname();
    const router = useRouter();
-   const { issues, updateIssueStatus, updateIssuePriority, updateIssueAssignee, addIssueLabel, removeIssueLabel, updateIssueProject, updateIssue } = useIssuesStore();
+   const { issues, updateIssueStatus, updateIssuePriority, updateIssueAssignee, addIssueLabel, removeIssueLabel, updateIssueProject, updateIssue, members } = useIssuesStore();
    const { openModal } = useCreateIssueStore();
 
    const orgId = pathname.split('/')[1] || 'lndev-ui';
@@ -141,7 +140,7 @@ export function CommandPalette() {
       ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${orgId}/issue/${issue.identifier}`
       : '';
    const branchName = issue
-      ? `${users[0].id}/${issue.identifier.toLowerCase()}-${issue.title
+      ? `${members[0]?.id ?? 'ops'}/${issue.identifier.toLowerCase()}-${issue.title
            .toLowerCase()
            .replace(/[^a-z0-9]+/g, '-')
            .replace(/^-|-$/g, '')
@@ -403,7 +402,7 @@ export function CommandPalette() {
 
             {route === 'assign' && issue && (
                <CommandGroup heading="Assign to…">
-                  {users.slice(0, 12).map((user) => (
+                  {members.slice(0, 12).map((user) => (
                      <CommandItem
                         key={user.id}
                         onSelect={() => {

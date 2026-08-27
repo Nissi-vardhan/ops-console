@@ -8,7 +8,8 @@ import {
    DropdownMenuSeparator,
    DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { statusUserColors, User, users } from '@/mock-data/users';
+import { statusUserColors, User } from '@/mock-data/users';
+import { useIssuesStore } from '@/store/issues-store';
 import { CheckIcon, CircleUserRound, Send, UserIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -19,6 +20,7 @@ interface AssigneeUserProps {
 export function AssigneeUser({ user }: AssigneeUserProps) {
    const [open, setOpen] = useState(false);
    const [currentAssignee, setCurrentAssignee] = useState<User | null>(user);
+   const members = useIssuesStore((s) => s.members);
 
    useEffect(() => {
       setCurrentAssignee(user);
@@ -72,8 +74,7 @@ export function AssigneeUser({ user }: AssigneeUserProps) {
                {!currentAssignee && <CheckIcon className="ml-auto h-4 w-4" />}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {users
-               .filter((user) => user.teamIds.includes('CORE'))
+            {members
                .map((user) => (
                   <DropdownMenuItem
                      key={user.id}
