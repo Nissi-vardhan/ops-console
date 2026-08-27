@@ -196,7 +196,8 @@ export async function appendIssueProgress(id: string, note: string, authorId?: s
   if (authorId && UUID_RE.test(authorId)) {
     author = (await queryOne<{ username: string }>("SELECT username FROM users WHERE id = $1", [authorId]))?.username ?? null;
   }
-  const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+  // Stamp in IST (Asia/Kolkata) so the date matches the user's calendar day.
+  const stamp = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).slice(0, 16);
   const line = `- [${stamp}${author ? " · " + author : ""}] ${note}`;
   const rows = await query<OpsIssue>(
     `UPDATE ops_issues
