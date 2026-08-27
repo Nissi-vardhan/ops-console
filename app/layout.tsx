@@ -13,44 +13,23 @@ const geistMono = Geist_Mono({
    subsets: ['latin'],
 });
 
-const siteUrl = 'https://circle.lndev.me';
+const siteUrl = 'https://ops.shortcastle.com';
 
 export const metadata: Metadata = {
    title: {
-      template: '%s | Circle by lndev-ui',
-      default: 'Circle by lndev-ui',
+      template: '%s | Shortcastle Ops',
+      default: 'Shortcastle Ops',
    },
    description:
-      'Project management interface inspired by Linear. Built with Next.js and shadcn/ui, this application allows tracking of issues, projects and teams with a modern, responsive UI.',
+      'Shortcastle internal ops console — issues, projects, cadences, docs, infra and cross-session knowledge recall.',
    openGraph: {
       type: 'website',
       locale: 'en_US',
       url: siteUrl,
-      siteName: 'Circle',
-      images: [
-         {
-            url: `${siteUrl}/banner.png`,
-            width: 2560,
-            height: 1440,
-            alt: 'lndev/ui',
-         },
-      ],
+      siteName: 'Shortcastle Ops',
    },
-   twitter: {
-      card: 'summary_large_image',
-      site: '@ln_dev7',
-      creator: '@ln_dev7',
-      images: [
-         {
-            url: `${siteUrl}/banner.png`,
-            width: 2560,
-            height: 1440,
-            alt: 'Circle',
-         },
-      ],
-   },
-   authors: [{ name: 'Leonel NGOYA', url: 'https://lndev.me/' }],
-   keywords: ['ui', 'lndev', 'components', 'template'],
+   authors: [{ name: 'Shortcastle' }],
+   keywords: ['shortcastle', 'ops', 'issues', 'runbooks'],
 };
 
 import { ThemeProvider } from '@/components/layout/theme-provider';
