@@ -144,7 +144,7 @@ export function OpsDashboard() {
    const maxAssignee = Math.max(1, ...m.byAssignee.map((r) => r.count));
 
    return (
-      <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
+      <div className="w-full space-y-5 p-4 sm:p-6">
          <div>
             <h1 className="text-lg font-semibold">Ops overview</h1>
             <p className="text-sm text-muted-foreground">Live from your ops issues.</p>
@@ -157,42 +157,47 @@ export function OpsDashboard() {
             <StatCard label="Overdue" value={m.overdue} tone={m.overdue > 0 ? 'text-red-500' : ''} />
          </div>
 
-         <PendingPanel />
-
-         <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg border bg-container p-4">
-               <p className="mb-3 text-sm font-semibold">By status</p>
-               <div className="space-y-2.5">
-                  {m.byStatus.map((r) => (
-                     <BarRow
-                        key={r.status.id}
-                        label={<><span className="inline-block size-2 rounded-full" style={{ backgroundColor: r.status.color }} /> {r.status.name}</>}
-                        value={r.count}
-                        max={maxStatus}
-                        color={r.status.color}
-                     />
-                  ))}
-                  {m.byStatus.length === 0 && <p className="text-xs text-muted-foreground">No issues yet.</p>}
-               </div>
+         {/* text/pending on the left, stat charts on the right — full width */}
+         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <div className="min-w-0">
+               <PendingPanel />
             </div>
 
-            <div className="rounded-lg border bg-container p-4">
-               <p className="mb-3 text-sm font-semibold">Open by priority</p>
-               <div className="space-y-2.5">
-                  {m.byPriority.map((r) => (
-                     <BarRow key={r.priority.id} label={r.priority.name} value={r.count} max={maxPriority} color="#5e6ad2" />
-                  ))}
-                  {m.byPriority.length === 0 && <p className="text-xs text-muted-foreground">No open issues.</p>}
+            <div className="min-w-0 space-y-4">
+               <div className="rounded-lg border bg-container p-4">
+                  <p className="mb-3 text-sm font-semibold">By status</p>
+                  <div className="space-y-2.5">
+                     {m.byStatus.map((r) => (
+                        <BarRow
+                           key={r.status.id}
+                           label={<><span className="inline-block size-2 rounded-full" style={{ backgroundColor: r.status.color }} /> {r.status.name}</>}
+                           value={r.count}
+                           max={maxStatus}
+                           color={r.status.color}
+                        />
+                     ))}
+                     {m.byStatus.length === 0 && <p className="text-xs text-muted-foreground">No issues yet.</p>}
+                  </div>
                </div>
-            </div>
 
-            <div className="rounded-lg border bg-container p-4 md:col-span-2">
-               <p className="mb-3 text-sm font-semibold">Open by assignee</p>
-               <div className="space-y-2.5">
-                  {m.byAssignee.map((r) => (
-                     <BarRow key={r.name} label={r.name} value={r.count} max={maxAssignee} color="#26b5ce" />
-                  ))}
-                  {m.byAssignee.length === 0 && <p className="text-xs text-muted-foreground">No open issues.</p>}
+               <div className="rounded-lg border bg-container p-4">
+                  <p className="mb-3 text-sm font-semibold">Open by priority</p>
+                  <div className="space-y-2.5">
+                     {m.byPriority.map((r) => (
+                        <BarRow key={r.priority.id} label={r.priority.name} value={r.count} max={maxPriority} color="#5e6ad2" />
+                     ))}
+                     {m.byPriority.length === 0 && <p className="text-xs text-muted-foreground">No open issues.</p>}
+                  </div>
+               </div>
+
+               <div className="rounded-lg border bg-container p-4">
+                  <p className="mb-3 text-sm font-semibold">Open by assignee</p>
+                  <div className="space-y-2.5">
+                     {m.byAssignee.map((r) => (
+                        <BarRow key={r.name} label={r.name} value={r.count} max={maxAssignee} color="#26b5ce" />
+                     ))}
+                     {m.byAssignee.length === 0 && <p className="text-xs text-muted-foreground">No open issues.</p>}
+                  </div>
                </div>
             </div>
          </div>
