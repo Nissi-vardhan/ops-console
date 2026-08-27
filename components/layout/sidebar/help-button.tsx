@@ -75,7 +75,7 @@ export function HelpButton() {
                   <div className="mr-2 flex h-4 w-4 items-center justify-center">
                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
                   </div>
-                  <span>Launch lndev-ui</span>
+                  <span>Shortcastle Ops</span>
                </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

@@ -89,7 +89,7 @@ const detailsById: Record<string, Omit<ProjectDetail, 'projectId'>> = {
          {
             type: 'bullet-list',
             items: [
-               'Extract `useDismissable`, `useFocusScope` and `useAnchorPosition` into `@lndev-ui/behaviors`.',
+               'Extract `useDismissable`, `useFocusScope` and `useAnchorPosition` into `@shortcastle/behaviors`.',
                'Rewrite Dialog, Menu, Popover and Tooltip on top of the shared hooks.',
                'Ship codemods and a visual-regression suite before flipping the default export.',
             ],

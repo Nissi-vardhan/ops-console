@@ -37,7 +37,7 @@ export function OrgSwitcher() {
                            LN
                         </div>
                         <div className="grid flex-1 text-left text-sm leading-tight">
-                           <span className="truncate font-semibold">lndev-ui</span>
+                           <span className="truncate font-semibold">Shortcastle</span>
                         </div>
                         <ChevronsUpDown className="ml-auto" />
                      </SidebarMenuButton>
@@ -55,7 +55,7 @@ export function OrgSwitcher() {
                >
                   <DropdownMenuGroup>
                      <DropdownMenuItem asChild>
-                        <Link href="/lndev-ui/settings">
+                        <Link href="/shortcastle/settings">
                            Settings
                            <DropdownMenuShortcut>G then S</DropdownMenuShortcut>
                         </Link>
@@ -77,7 +77,7 @@ export function OrgSwitcher() {
                               <div className="flex aspect-square size-6 items-center justify-center rounded bg-orange-500 text-sidebar-primary-foreground">
                                  LN
                               </div>
-                              lndev-ui
+                              Shortcastle
                            </DropdownMenuItem>
                            <DropdownMenuSeparator />
                            <DropdownMenuItem>Create or join workspace</DropdownMenuItem>

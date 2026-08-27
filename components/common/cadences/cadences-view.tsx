@@ -194,7 +194,7 @@ export function CadencesView() {
                               </span>
                            ))}
                            {c.linkIdentifier && (
-                              <Link href={`/${orgId || 'lndev-ui'}/issue/${c.linkIdentifier}`} className="inline-flex items-center gap-1 text-[11px] text-[#8b93e0] hover:underline">
+                              <Link href={`/${orgId || 'shortcastle'}/issue/${c.linkIdentifier}`} className="inline-flex items-center gap-1 text-[11px] text-[#8b93e0] hover:underline">
                                  <Link2 className="size-3" /> {c.linkIdentifier}
                               </Link>
                            )}

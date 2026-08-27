@@ -37,7 +37,7 @@ const SUGGESTIONS = ['whatsapp', 'coolify deploy', 'cadence', 'token rotation', 
 
 export function KnowledgeView() {
    const { orgId } = useParams<{ orgId: string }>();
-   const base = `/${orgId || 'lndev-ui'}`;
+   const base = `/${orgId || 'shortcastle'}`;
    const [q, setQ] = useState('');
    const [hits, setHits] = useState<Hit[]>([]);
    const [loading, setLoading] = useState(false);

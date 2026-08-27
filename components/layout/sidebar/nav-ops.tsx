@@ -15,7 +15,7 @@ import { VIEWS } from '@/components/common/views/saved-views';
 // Real ops nav. Grows as each ops surface is wired to live data.
 export function NavOps() {
    const { orgId } = useParams<{ orgId: string }>();
-   const base = `/${orgId || 'lndev-ui'}`;
+   const base = `/${orgId || 'shortcastle'}`;
    const pathname = usePathname();
    const items = [
       { name: 'Issues', icon: CircleDot, url: `${base}/team/CORE/all` },

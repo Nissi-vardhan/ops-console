@@ -87,7 +87,7 @@ export function CommandPalette() {
    const { issues, updateIssueStatus, updateIssuePriority, updateIssueAssignee, addIssueLabel, removeIssueLabel, updateIssueProject, updateIssue, members } = useIssuesStore();
    const { openModal } = useCreateIssueStore();
 
-   const orgId = pathname.split('/')[1] || 'lndev-ui';
+   const orgId = pathname.split('/')[1] || 'shortcastle';
 
    const contextIssue = useMemo<Issue | undefined>(() => {
       const match = pathname.match(/^\/[^/]+\/issue\/([^/]+)/);

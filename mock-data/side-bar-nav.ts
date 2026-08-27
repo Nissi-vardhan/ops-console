@@ -21,22 +21,22 @@ import {
 export const inboxItems = [
    {
       name: 'Inbox',
-      url: '/lndev-ui/inbox',
+      url: '/shortcastle/inbox',
       icon: Inbox,
    },
    {
       name: 'Reviews',
-      url: '/lndev-ui/reviews',
+      url: '/shortcastle/reviews',
       icon: GitPullRequestArrow,
    },
    {
       name: 'My issues',
-      url: '/lndev-ui/my-issues',
+      url: '/shortcastle/my-issues',
       icon: FolderKanban,
    },
    {
       name: 'Agent',
-      url: '/lndev-ui/agent',
+      url: '/shortcastle/agent',
       icon: Bot,
    },
 ];
@@ -44,17 +44,17 @@ export const inboxItems = [
 export const workspaceItems = [
    {
       name: 'Teams',
-      url: '/lndev-ui/teams',
+      url: '/shortcastle/teams',
       icon: ContactRound,
    },
    {
       name: 'Projects',
-      url: '/lndev-ui/projects',
+      url: '/shortcastle/projects',
       icon: Box,
    },
    {
       name: 'Members',
-      url: '/lndev-ui/members',
+      url: '/shortcastle/members',
       icon: UserRound,
    },
 ];

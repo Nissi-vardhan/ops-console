@@ -1142,7 +1142,7 @@ export const reviews: Review[] = seeds.map((seed) => {
       status: seed.status,
       list: seed.list,
       timeAgo: seed.timeAgo,
-      repo: 'lndev-ui',
+      repo: 'shortcastle',
       prNumber: seed.prNumber,
       targetBranch: 'main',
       sourceBranch: seed.branch,
@@ -1162,7 +1162,7 @@ export const reviews: Review[] = seeds.map((seed) => {
       summary: seed.summary,
       testPlan: seed.testPlan.map(([text, checked]) => ({ text, checked })),
       deployment: {
-         project: 'lndev-ui-docs',
+         project: 'shortcastle-docs',
          state: seed.status === 'closed' ? 'Skipped' : 'Ready',
          action: 'Preview',
       },
