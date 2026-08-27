@@ -1,28 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Check, RefreshCw, CalendarDays, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Copy, Check, RefreshCw, CalendarDays, ChevronRight, AlertTriangle, Pencil, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Section { heading: string; summary: string; detail: string[] }
 interface DailyData { sections: Section[]; pending: string[] }
-interface Update { day: string; content: string; raw: string; data: DailyData; generated_at: string }
+interface Update { day: string; content: string; raw: string; data: DailyData; edited: boolean; generated_at: string }
 
 function fmtDay(d: string): string {
-   try {
-      return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-   } catch { return d; }
+   try { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
+   catch { return d; }
 }
-
 function sectionText(s: Section): string {
    return [s.heading || s.summary, ...(s.summary && s.heading ? [s.summary] : []), ...s.detail.map((d) => `• ${d}`)].join('\n');
-}
-function fullText(u: Update): string {
-   const d = u.data;
-   if (!d?.sections?.length && !d?.pending?.length) return u.content;
-   const parts = [`Daily update — ${u.day}`, '', ...d.sections.map(sectionText)];
-   if (d.pending?.length) parts.push('', '⚠️ Pending:', ...d.pending.map((p) => `• ${p}`));
-   return parts.join('\n').trim();
 }
 
 function CopyBtn({ text, label = 'Copy', small }: { text: string; label?: string; small?: boolean }) {
@@ -47,6 +38,8 @@ export function DailyView() {
    const [busy, setBusy] = useState(false);
    const [open, setOpen] = useState<Set<number>>(new Set());
    const [showRaw, setShowRaw] = useState(false);
+   const [editing, setEditing] = useState(false);
+   const [draft, setDraft] = useState('');
 
    useEffect(() => {
       fetch('/api/ops/daily', { cache: 'no-store' })
@@ -65,14 +58,29 @@ export function DailyView() {
       if (regen) setBusy(true); else setLoading(true);
       const d = await fetch(`/api/ops/daily?date=${day}`, { method: regen ? 'POST' : 'GET', cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      if (d?.update) { setUpdate(d.update); setOpen(new Set()); }
+      if (d?.update) { setUpdate(d.update); setOpen(new Set()); setEditing(false); }
       setLoading(false); setBusy(false);
    }, []);
    useEffect(() => { if (sel) load(sel); }, [sel, load]);
 
+   const save = async () => {
+      if (!sel) return;
+      setBusy(true);
+      const d = await fetch(`/api/ops/daily?date=${sel}`, {
+         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: draft }),
+      }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (d?.update) setUpdate(d.update);
+      setEditing(false); setBusy(false);
+   };
+   const regen = async () => {
+      if (update?.edited && !confirm('This update was edited by hand. Regenerate from the logs and discard your edits?')) return;
+      load(sel, true);
+   };
+
    const toggle = (i: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
    const sections = update?.data?.sections ?? [];
    const pending = update?.data?.pending ?? [];
+   const showText = !!update && (update.edited || sections.length === 0);
 
    return (
       <div className="flex h-full w-full overflow-hidden">
@@ -97,22 +105,48 @@ export function DailyView() {
                   <div>
                      <h1 className="text-lg font-semibold">Daily update — {sel ? fmtDay(sel) : ''}</h1>
                      <p className="text-xs text-muted-foreground">
-                        Tap a box to expand. {update?.generated_at ? `· ${new Date(update.generated_at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST` : ''}
+                        {update?.edited ? 'Edited by you' : 'Auto-compiled — tap a box to expand'}
+                        {update?.generated_at ? ` · ${new Date(update.generated_at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST` : ''}
                      </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                     <Button size="sm" variant="ghost" onClick={() => load(sel, true)} disabled={busy}>
-                        <RefreshCw className={`mr-1 size-4 ${busy ? 'animate-spin' : ''}`} /> Refresh
-                     </Button>
-                     {update && <CopyBtn text={update.content} label="Copy summary" />}
-                     {update && <CopyBtn text={fullText(update)} label="Copy full" />}
+                     {editing ? (
+                        <>
+                           <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}><X className="mr-1 size-4" /> Cancel</Button>
+                           <Button size="sm" onClick={save} disabled={busy}><Save className="mr-1 size-4" /> Save</Button>
+                        </>
+                     ) : (
+                        <>
+                           <Button size="sm" variant="ghost" onClick={regen} disabled={busy}><RefreshCw className={`mr-1 size-4 ${busy ? 'animate-spin' : ''}`} /> Refresh</Button>
+                           <Button size="sm" variant="ghost" onClick={() => { setDraft(update?.content ?? ''); setEditing(true); }} disabled={!update}><Pencil className="mr-1 size-4" /> Edit</Button>
+                           {update && <CopyBtn text={update.content} label="Copy" />}
+                        </>
+                     )}
                   </div>
                </div>
 
                {loading && <p className="text-sm text-muted-foreground">Compiling…</p>}
 
-               {/* structured boxes */}
-               {!loading && sections.map((s, i) => {
+               {/* edit mode */}
+               {editing && (
+                  <textarea
+                     value={draft}
+                     onChange={(e) => setDraft(e.target.value)}
+                     autoFocus
+                     rows={22}
+                     className="w-full rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed outline-none focus:border-[#5e6ad2]"
+                  />
+               )}
+
+               {/* edited / plain-text view */}
+               {!editing && !loading && showText && update && (
+                  <div className="rounded-lg border bg-container p-4">
+                     <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">{update.content}</pre>
+                  </div>
+               )}
+
+               {/* structured boxes (auto, un-edited) */}
+               {!editing && !loading && !showText && sections.map((s, i) => {
                   const isOpen = open.has(i);
                   return (
                      <div key={i} className="rounded-lg border bg-container">
@@ -135,8 +169,7 @@ export function DailyView() {
                   );
                })}
 
-               {/* pending */}
-               {!loading && pending.length > 0 && (
+               {!editing && !loading && !showText && pending.length > 0 && (
                   <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3">
                      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-red-500"><AlertTriangle className="size-3.5" /> Pending / blocked</div>
                      <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
@@ -145,14 +178,7 @@ export function DailyView() {
                   </div>
                )}
 
-               {/* fallback when no structured data (AI empty) */}
-               {!loading && sections.length === 0 && pending.length === 0 && update && (
-                  <div className="rounded-lg border bg-container p-4">
-                     <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">{update.content}</pre>
-                  </div>
-               )}
-
-               {!loading && update && (
+               {!editing && !loading && update && (
                   <div>
                      <button onClick={() => setShowRaw((s) => !s)} className="text-xs text-muted-foreground underline hover:text-foreground">
                         {showRaw ? 'Hide' : 'Show'} raw log (exact notes)

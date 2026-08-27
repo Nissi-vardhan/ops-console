@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDailyUpdate, listDailyDates } from "@/lib/ops-digest";
+import { getDailyUpdate, listDailyDates, saveDailyContent } from "@/lib/ops-digest";
 import { opsAuthorized } from "@/lib/ops-guard";
 
 // IST calendar day (updates are keyed to the user's day).
@@ -24,4 +24,15 @@ export async function POST(request: Request) {
   const date = url.searchParams.get("date") || istToday();
   if (!DAY_RE.test(date)) return NextResponse.json({ error: "bad date" }, { status: 400 });
   return NextResponse.json({ update: await getDailyUpdate(date, true) });
+}
+
+// Save a human-edited version: PUT ?date=X { content }
+export async function PUT(request: Request) {
+  if (!(await opsAuthorized(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const url = new URL(request.url);
+  const date = url.searchParams.get("date") || istToday();
+  if (!DAY_RE.test(date)) return NextResponse.json({ error: "bad date" }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const content = typeof body?.content === "string" ? body.content : "";
+  return NextResponse.json({ update: await saveDailyContent(date, content) });
 }

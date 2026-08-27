@@ -131,9 +131,11 @@ CREATE TABLE IF NOT EXISTS ops_daily_updates (
   content      text NOT NULL DEFAULT '',
   raw          text NOT NULL DEFAULT '',
   data         jsonb,   -- structured {sections:[{heading,summary,detail[]}], pending[]}
+  edited       boolean NOT NULL DEFAULT false,  -- true once a human saved edits to content
   generated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE ops_daily_updates ADD COLUMN IF NOT EXISTS data jsonb;
+ALTER TABLE ops_daily_updates ADD COLUMN IF NOT EXISTS edited boolean NOT NULL DEFAULT false;
 `;
 
 let migrated = false;
