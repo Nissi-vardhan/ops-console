@@ -1,10 +1,13 @@
+'use client';
+
+import { useParams } from 'next/navigation';
 import MainLayout from '@/components/layout/main-layout';
 import { SavedView, getView } from '@/components/common/views/saved-views';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { DisplayOptions } from '@/components/layout/headers/display-options';
 
-export default async function ViewPage({ params }: { params: Promise<{ view: string }> }) {
-   const { view } = await params;
+export default function ViewPage() {
+   const { view } = useParams<{ view: string }>();
    const def = getView(view);
    return (
       <MainLayout
