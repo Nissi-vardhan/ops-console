@@ -31,11 +31,13 @@ interface IssuesState {
    issues: Issue[];
    issuesByStatus: Record<string, Issue[]>;
    members: User[];
+   projects: Project[];
    currentUserId: string | null;
 
    // Real-data bootstrap
    setIssues: (issues: Issue[]) => void;
    setMembers: (members: User[]) => void;
+   setProjects: (projects: Project[]) => void;
    setCurrentUser: (id: string | null) => void;
 
    //
@@ -81,6 +83,7 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
    issues: [],
    issuesByStatus: {},
    members: [],
+   projects: [],
    currentUserId: null,
 
    setIssues: (issues: Issue[]) => {
@@ -88,6 +91,7 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
       set({ issues: sorted, issuesByStatus: groupIssuesByStatus(sorted) });
    },
    setMembers: (members: User[]) => set({ members }),
+   setProjects: (projects: Project[]) => set({ projects }),
    setCurrentUser: (id: string | null) => set({ currentUserId: id }),
 
    //

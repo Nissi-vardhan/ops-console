@@ -38,7 +38,6 @@ import { useIssuesStore } from '@/store/issues-store';
 import { status } from '@/mock-data/status';
 import { priorities } from '@/mock-data/priorities';
 import { labels } from '@/mock-data/labels';
-import { projects } from '@/mock-data/projects';
 import { toast } from 'sonner';
 
 interface IssueContextMenuProps {
@@ -59,6 +58,7 @@ export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
       updateIssue,
       getIssueById,
       members,
+      projects,
    } = useIssuesStore();
 
    const handleStatusChange = (statusId: string) => {
