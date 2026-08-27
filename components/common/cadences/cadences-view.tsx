@@ -43,30 +43,113 @@ const ChannelIcon = ({ channel, className }: { channel: string; className?: stri
 
 const emptyDraft = () => ({ name: '', audience: '', channels: 'email,whatsapp', status: 'draft', issue_id: '', touches: [] as Touch[], blockers: '', notes: '' });
 
+// ---- feed (real Zoho cadences pushed via /api/cadences-sync) ----
+interface FeedStep { n: number; channel: string; day: number; label: string }
+interface FeedCadence { slug: string; name: string; audience: number; status: string; channels: string[]; steps: FeedStep[] }
+
+// unified display shape for both table + feed cadences
+interface UStep { n: number; channel: string; label: string; timing: string; done: boolean; skipped: boolean; sent: number | null }
+interface UCadence {
+   key: string;
+   editId?: string;
+   name: string;
+   status: string;
+   audienceText: string;
+   chans: string[];
+   linkIdentifier?: string;
+   steps: UStep[];
+   blockers: string[];
+   notes: string;
+   source: 'db' | 'feed';
+}
+
+function StepTimeline({ steps, closedNote }: { steps: UStep[]; closedNote?: string }) {
+   if (steps.length === 0) {
+      return <p className="text-xs text-muted-foreground">{closedNote ?? 'No steps yet — add the sequence.'}</p>;
+   }
+   return (
+      <div className="flex flex-wrap items-stretch gap-2">
+         {steps.map((t, i) => (
+            <div
+               key={i}
+               className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${t.done ? 'border-emerald-500/40 bg-emerald-500/5' : ''} ${t.skipped ? 'opacity-50' : ''}`}
+            >
+               <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${t.done ? 'bg-emerald-500/20 text-emerald-500' : 'border text-muted-foreground'}`}>{t.n}</span>
+               <ChannelIcon channel={t.channel} className={`size-3.5 shrink-0 ${t.done ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+               <div className="leading-tight">
+                  <div className={`text-xs ${t.skipped ? 'line-through' : ''}`}>{t.label || '(step)'}</div>
+                  {(t.timing || t.done) && (
+                     <div className="text-[10px] text-muted-foreground">
+                        {t.timing}
+                        {t.done ? (t.sent != null ? `${t.timing ? ' · ' : ''}sent ${t.sent}` : `${t.timing ? ' · ' : ''}sent`) : ''}
+                     </div>
+                  )}
+               </div>
+            </div>
+         ))}
+      </div>
+   );
+}
+
 export function CadencesView() {
    const [cadences, setCadences] = useState<Cadence[]>([]);
+   const [feed, setFeed] = useState<FeedCadence[]>([]);
    const [loading, setLoading] = useState(true);
    const [editing, setEditing] = useState<null | 'new' | string>(null);
    const issues = useIssuesStore((s) => s.issues);
    const { orgId } = useParams<{ orgId: string }>();
 
    const load = useCallback(async () => {
-      const d = await fetch('/api/ops/cadences', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      setCadences((d?.cadences ?? []) as Cadence[]);
+      const [t, f] = await Promise.all([
+         fetch('/api/ops/cadences', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+         fetch('/api/ops/cadences-feed', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+      setCadences((t?.cadences ?? []) as Cadence[]);
+      setFeed((f?.feed?.cadences ?? []) as FeedCadence[]);
       setLoading(false);
    }, []);
    useEffect(() => { load(); }, [load]);
 
    const issueOf = (id: string | null) => (id ? issues.find((i) => i.id === id) : undefined);
 
+   // feed cadences (the real active sequences) first, then the UI-authored rows
+   const list: UCadence[] = useMemo(() => {
+      const fromFeed = (f: FeedCadence): UCadence => ({
+         key: `feed:${f.slug}`,
+         name: f.name,
+         status: f.status,
+         audienceText: f.audience ? `${f.audience.toLocaleString()} contacts` : '',
+         chans: f.channels,
+         steps: f.steps.slice().sort((a, b) => a.n - b.n).map((s) => ({ n: s.n, channel: s.channel, label: s.label, timing: `Day ${s.day}`, done: false, skipped: false, sent: null })),
+         blockers: [],
+         notes: '',
+         source: 'feed',
+      });
+      const fromDb = (c: Cadence): UCadence => ({
+         key: `db:${c.id}`,
+         editId: c.id,
+         name: c.name,
+         status: c.status,
+         audienceText: c.audience,
+         chans: c.channels.split(',').map((x) => x.trim()).filter(Boolean),
+         linkIdentifier: issueOf(c.issue_id)?.identifier,
+         steps: c.touches.slice().sort((a, b) => a.n - b.n).map((t) => ({ n: t.n, channel: t.channel, label: t.label, timing: t.timing, done: t.status === 'sent', skipped: t.status === 'skipped', sent: t.sent })),
+         blockers: c.blockers,
+         notes: c.notes,
+         source: 'db',
+      });
+      return [...feed.map(fromFeed), ...cadences.map(fromDb)];
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [feed, cadences, issues]);
+
    const totals = useMemo(() => ({
-      total: cadences.length,
-      live: cadences.filter((c) => c.status === 'live').length,
-      blocked: cadences.filter((c) => c.status === 'blocked' || c.blockers.length > 0).length,
-   }), [cadences]);
+      total: list.length,
+      live: list.filter((c) => c.status === 'live').length,
+      blocked: list.filter((c) => c.status === 'blocked' || c.blockers.length > 0).length,
+   }), [list]);
 
    return (
-      <div className="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-6">
+      <div className="w-full space-y-5 p-4 sm:p-6">
          <div className="flex items-center justify-between">
             <div>
                <h1 className="text-lg font-semibold">Cadences</h1>
@@ -75,7 +158,7 @@ export function CadencesView() {
             <Button size="sm" onClick={() => setEditing('new')}><Plus className="mr-1 size-4" /> New cadence</Button>
          </div>
 
-         <div className="grid grid-cols-3 gap-3">
+         <div className="grid grid-cols-3 gap-3 sm:max-w-md">
             {[
                { label: 'Cadences', value: totals.total, tint: 'text-foreground' },
                { label: 'Live', value: totals.live, tint: 'text-emerald-500' },
@@ -88,98 +171,60 @@ export function CadencesView() {
             ))}
          </div>
 
-         {!loading && cadences.length === 0 && (
+         {!loading && list.length === 0 && (
             <div className="rounded-lg border bg-container p-8 text-center text-sm text-muted-foreground">
                No cadences yet. Create one (e.g. &quot;One Chesslang $9/mo outreach&quot;) to track its touches, audience and blockers.
             </div>
          )}
 
          <div className="space-y-4">
-            {cadences.map((c) => {
+            {list.map((c) => {
                const st = STATUS_META[c.status] ?? STATUS_META.draft;
-               const linked = issueOf(c.issue_id);
-               const chans = c.channels.split(',').map((x) => x.trim()).filter(Boolean);
                return (
-                  <div key={c.id} className="rounded-xl border bg-container p-4">
+                  <div key={c.key} className="rounded-xl border bg-container p-4 sm:p-5">
                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                            <Radio className="size-4 text-[#8b93e0]" />
                            <span className="font-medium">{c.name}</span>
                            <span className={`rounded-full px-2 py-0.5 text-[11px] ${st.cls}`}>{st.label}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                           <Button size="xs" variant="ghost" onClick={() => setEditing(c.id)}><Pencil className="size-3.5" /></Button>
-                           <Button size="xs" variant="ghost" onClick={async () => { if (confirm('Delete this cadence?')) { await fetch(`/api/ops/cadences/${c.id}`, { method: 'DELETE' }); load(); } }}>
-                              <Trash2 className="size-3.5" />
-                           </Button>
-                        </div>
-                     </div>
-
-                     {/* left = summary · right = checkpoints/blockers, side by side */}
-                     <div className="mt-3 grid gap-x-6 gap-y-4 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-                        {/* LEFT: the cadence itself */}
-                        <div className="space-y-2.5 text-xs">
-                           {c.audience && (
-                              <div>
-                                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Audience</div>
-                                 <div className="text-foreground/90">{c.audience}</div>
-                              </div>
-                           )}
-                           {chans.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                 {chans.map((ch) => (
-                                    <span key={ch} className="inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
-                                       <ChannelIcon channel={ch} className="size-3" /> {ch}
-                                    </span>
-                                 ))}
-                              </div>
-                           )}
-                           {linked && (
-                              <Link href={`/${orgId || 'lndev-ui'}/issue/${linked.identifier}`} className="inline-flex items-center gap-1 text-[#8b93e0] hover:underline">
-                                 <Link2 className="size-3" /> {linked.identifier}
+                           {c.audienceText && <span className="text-xs text-muted-foreground">· {c.audienceText}</span>}
+                           {c.chans.map((ch) => (
+                              <span key={ch} className="inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                 <ChannelIcon channel={ch} className="size-3" /> {ch}
+                              </span>
+                           ))}
+                           {c.linkIdentifier && (
+                              <Link href={`/${orgId || 'lndev-ui'}/issue/${c.linkIdentifier}`} className="inline-flex items-center gap-1 text-[11px] text-[#8b93e0] hover:underline">
+                                 <Link2 className="size-3" /> {c.linkIdentifier}
                               </Link>
                            )}
-                           {c.notes && <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{c.notes}</p>}
+                           {c.source === 'feed' && <span className="rounded bg-[#5e6ad2]/10 px-1.5 py-0.5 text-[10px] text-[#8b93e0]">synced</span>}
                         </div>
-
-                        {/* RIGHT: checkpoints + blockers */}
-                        <div className="space-y-3 md:border-l md:pl-6">
-                           <div>
-                              <div className="mb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground/70">Checkpoints</div>
-                              {c.touches.length > 0 ? (
-                                 <div className="space-y-1.5">
-                                    {c.touches.slice().sort((a, b) => a.n - b.n).map((t, idx) => {
-                                       const done = t.status === 'sent';
-                                       const skipped = t.status === 'skipped';
-                                       return (
-                                          <div key={idx} className="flex items-center gap-2.5 text-xs">
-                                             <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${done ? 'bg-emerald-500/20 text-emerald-500' : skipped ? 'bg-muted/60 text-muted-foreground line-through' : 'border text-muted-foreground'}`}>{t.n}</span>
-                                             <ChannelIcon channel={t.channel} className={`size-3.5 shrink-0 ${done ? 'text-emerald-500' : 'text-muted-foreground'}`} />
-                                             <span className={`${skipped ? 'text-muted-foreground line-through' : ''}`}>{t.label || '(untitled touch)'}</span>
-                                             {t.timing && <span className="text-muted-foreground">· {t.timing}</span>}
-                                             {done && <span className="ml-auto text-emerald-500">{t.sent != null ? `sent ${t.sent}` : 'sent'}</span>}
-                                             {!done && !skipped && <span className="ml-auto text-muted-foreground">planned</span>}
-                                          </div>
-                                       );
-                                    })}
-                                 </div>
-                              ) : (
-                                 <p className="text-xs text-muted-foreground">
-                                    {c.status === 'closed' ? 'Sent manually — no automated cadence steps.' : 'No steps yet — add the sequence.'}
-                                 </p>
-                              )}
+                        {c.source === 'db' && c.editId && (
+                           <div className="flex shrink-0 items-center gap-1">
+                              <Button size="xs" variant="ghost" onClick={() => setEditing(c.editId!)}><Pencil className="size-3.5" /></Button>
+                              <Button size="xs" variant="ghost" onClick={async () => { if (confirm('Delete this cadence?')) { await fetch(`/api/ops/cadences/${c.editId}`, { method: 'DELETE' }); load(); } }}>
+                                 <Trash2 className="size-3.5" />
+                              </Button>
                            </div>
-
-                           {c.blockers.length > 0 && (
-                              <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-2.5">
-                                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-red-500"><AlertTriangle className="size-3.5" /> Blocked on</div>
-                                 <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
-                                    {c.blockers.map((b, i) => <li key={i}>{b}</li>)}
-                                 </ul>
-                              </div>
-                           )}
-                        </div>
+                        )}
                      </div>
+
+                     {/* full-width horizontal step timeline */}
+                     <div className="mt-3">
+                        <StepTimeline steps={c.steps} closedNote={c.status === 'closed' ? 'Sent manually — no automated cadence steps.' : undefined} />
+                     </div>
+
+                     {c.blockers.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-2.5">
+                           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-red-500"><AlertTriangle className="size-3.5" /> Blocked on</div>
+                           <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
+                              {c.blockers.map((b, i) => <li key={i}>{b}</li>)}
+                           </ul>
+                        </div>
+                     )}
+
+                     {c.notes && <p className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">{c.notes}</p>}
                   </div>
                );
             })}
