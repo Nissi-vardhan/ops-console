@@ -45,58 +45,109 @@ function rawDigest(day: string, tasks: DayTask[]): string {
   return lines.join("\n");
 }
 
-async function summarize(day: string, raw: string): Promise<string> {
+export interface Section { heading: string; summary: string; detail: string[] }
+export interface DailyData { sections: Section[]; pending: string[] }
+
+function normalizeData(x: unknown): DailyData {
+  const o = (x || {}) as Record<string, unknown>;
+  const secs = Array.isArray(o.sections) ? o.sections : [];
+  const sections: Section[] = secs
+    .map((s) => {
+      const r = (s || {}) as Record<string, unknown>;
+      return {
+        heading: typeof r.heading === "string" ? r.heading : "",
+        summary: typeof r.summary === "string" ? r.summary : "",
+        detail: Array.isArray(r.detail) ? r.detail.map(String).filter(Boolean) : [],
+      };
+    })
+    .filter((s) => s.heading || s.summary || s.detail.length);
+  const pending = Array.isArray(o.pending) ? o.pending.map(String).filter(Boolean) : [];
+  return { sections, pending };
+}
+
+async function summarizeStructured(day: string, raw: string): Promise<DailyData> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key || raw.startsWith("No task activity")) return raw;
+  if (!key || raw.startsWith("No task activity")) return { sections: [], pending: [] };
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const system =
-    "You compile a concise end-of-day work update for a team group chat, from raw dated task notes. " +
-    "Group related items by theme; use short, plain bullet points a teammate can skim. Stay STRICTLY grounded in the notes — never invent or embellish. " +
-    "Reference task IDs (OPS-N) inline where helpful. If any notes mention something waiting/blocked/pending/for-approval, add a final '⚠️ Pending / blocked' section listing them. " +
-    "Output plain text ready to paste into WhatsApp/Slack. Start with a single header line: 'Daily update — <date>'.";
+    "You compile a team's end-of-day work update from raw dated task notes. Return ONLY JSON of the shape " +
+    '{"sections":[{"heading":"2-4 words","summary":"ONE short skimmable line, business-casual, NO task IDs","detail":["short bullet with the specifics (task IDs OK here)", "..."]}],"pending":["short line for anything waiting/blocked/for-approval"]}. ' +
+    "Group related notes by theme (one section per theme). Keep summaries minimal like a quick WhatsApp update. Put concrete specifics only in detail. Stay STRICTLY grounded in the notes — never invent. Omit empty fields.";
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
-        temperature: 0.3,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
           { role: "user", content: `Date: ${day}\n\n${raw}` },
         ],
       }),
     });
-    if (!res.ok) return raw;
+    if (!res.ok) return { sections: [], pending: [] };
     const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    return j.choices?.[0]?.message?.content?.trim() || raw;
+    const txt = j.choices?.[0]?.message?.content || "{}";
+    return normalizeData(JSON.parse(txt));
   } catch {
-    return raw;
+    return { sections: [], pending: [] };
   }
 }
 
-export interface DailyUpdate { day: string; content: string; raw: string; generated_at: string }
+// Minimal, copy-ready text (the short version).
+function renderMinimal(day: string, data: DailyData, raw: string): string {
+  if (!data.sections.length && !data.pending.length) return raw;
+  const lines = [`Daily update — ${day}`, ""];
+  for (const s of data.sections) lines.push(`• ${s.summary || s.heading}`);
+  if (data.pending.length) {
+    lines.push("", "⚠️ Pending:");
+    for (const p of data.pending) lines.push(`• ${p}`);
+  }
+  return lines.join("\n");
+}
+
+// Full text (headings + every detail bullet) — the expanded/copy-all version.
+export function renderFull(day: string, data: DailyData, raw: string): string {
+  if (!data.sections.length && !data.pending.length) return raw;
+  const lines = [`Daily update — ${day}`, ""];
+  for (const s of data.sections) {
+    lines.push(s.heading || s.summary);
+    if (s.summary && s.heading) lines.push(`  ${s.summary}`);
+    for (const d of s.detail) lines.push(`  • ${d}`);
+    lines.push("");
+  }
+  if (data.pending.length) {
+    lines.push("⚠️ Pending:");
+    for (const p of data.pending) lines.push(`• ${p}`);
+  }
+  return lines.join("\n").trim();
+}
+
+export interface DailyUpdate { day: string; content: string; raw: string; data: DailyData; generated_at: string }
 
 export async function generateDailyUpdate(day: string): Promise<DailyUpdate> {
   const tasks = await collectDay(day);
   const raw = rawDigest(day, tasks);
-  const content = await summarize(day, raw);
+  const data = await summarizeStructured(day, raw);
+  const content = renderMinimal(day, data, raw);
   const rows = await query<{ generated_at: string }>(
-    `INSERT INTO ops_daily_updates (day, content, raw, generated_at) VALUES ($1,$2,$3, now())
-     ON CONFLICT (day) DO UPDATE SET content = $2, raw = $3, generated_at = now()
+    `INSERT INTO ops_daily_updates (day, content, raw, data, generated_at) VALUES ($1,$2,$3,$4, now())
+     ON CONFLICT (day) DO UPDATE SET content = $2, raw = $3, data = $4, generated_at = now()
      RETURNING generated_at`,
-    [day, content, raw],
+    [day, content, raw, JSON.stringify(data)],
   );
-  return { day, content, raw, generated_at: rows[0]?.generated_at ?? new Date().toISOString() };
+  return { day, content, raw, data, generated_at: rows[0]?.generated_at ?? new Date().toISOString() };
 }
 
 export async function getDailyUpdate(day: string, regen = false): Promise<DailyUpdate> {
   if (!regen) {
-    const row = await queryOne<DailyUpdate>(
-      `SELECT day::text, content, raw, generated_at FROM ops_daily_updates WHERE day = $1`,
+    const row = await queryOne<{ day: string; content: string; raw: string; data: unknown; generated_at: string }>(
+      `SELECT day::text, content, raw, data, generated_at FROM ops_daily_updates WHERE day = $1`,
       [day],
     );
-    if (row) return row;
+    if (row) return { ...row, data: normalizeData(row.data) };
   }
   return generateDailyUpdate(day);
 }

@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Check, RefreshCw, CalendarDays } from 'lucide-react';
+import { Copy, Check, RefreshCw, CalendarDays, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-interface Update { day: string; content: string; raw: string; generated_at: string }
+interface Section { heading: string; summary: string; detail: string[] }
+interface DailyData { sections: Section[]; pending: string[] }
+interface Update { day: string; content: string; raw: string; data: DailyData; generated_at: string }
 
 function fmtDay(d: string): string {
    try {
@@ -12,14 +14,38 @@ function fmtDay(d: string): string {
    } catch { return d; }
 }
 
+function sectionText(s: Section): string {
+   return [s.heading || s.summary, ...(s.summary && s.heading ? [s.summary] : []), ...s.detail.map((d) => `• ${d}`)].join('\n');
+}
+function fullText(u: Update): string {
+   const d = u.data;
+   if (!d?.sections?.length && !d?.pending?.length) return u.content;
+   const parts = [`Daily update — ${u.day}`, '', ...d.sections.map(sectionText)];
+   if (d.pending?.length) parts.push('', '⚠️ Pending:', ...d.pending.map((p) => `• ${p}`));
+   return parts.join('\n').trim();
+}
+
+function CopyBtn({ text, label = 'Copy', small }: { text: string; label?: string; small?: boolean }) {
+   const [done, setDone] = useState(false);
+   const copy = async (e: { stopPropagation: () => void }) => {
+      e.stopPropagation();
+      try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1400); } catch { /* blocked */ }
+   };
+   return (
+      <Button size={small ? 'xs' : 'sm'} variant={small ? 'ghost' : 'default'} onClick={copy} disabled={!text}>
+         {done ? <><Check className="mr-1 size-3.5" /> Copied</> : <><Copy className="mr-1 size-3.5" /> {label}</>}
+      </Button>
+   );
+}
+
 export function DailyView() {
    const [dates, setDates] = useState<string[]>([]);
-   const [today, setToday] = useState<string>('');
-   const [sel, setSel] = useState<string>('');
+   const [today, setToday] = useState('');
+   const [sel, setSel] = useState('');
    const [update, setUpdate] = useState<Update | null>(null);
    const [loading, setLoading] = useState(false);
    const [busy, setBusy] = useState(false);
-   const [copied, setCopied] = useState(false);
+   const [open, setOpen] = useState<Set<number>>(new Set());
    const [showRaw, setShowRaw] = useState(false);
 
    useEffect(() => {
@@ -29,12 +55,9 @@ export function DailyView() {
             if (!d) return;
             const t = d.today as string;
             const list: string[] = d.dates ?? [];
-            const merged = list.includes(t) ? list : [t, ...list];
-            setDates(merged);
-            setToday(t);
-            setSel(t);
-         })
-         .catch(() => {});
+            setDates(list.includes(t) ? list : [t, ...list]);
+            setToday(t); setSel(t);
+         }).catch(() => {});
    }, []);
 
    const load = useCallback(async (day: string, regen = false) => {
@@ -42,21 +65,14 @@ export function DailyView() {
       if (regen) setBusy(true); else setLoading(true);
       const d = await fetch(`/api/ops/daily?date=${day}`, { method: regen ? 'POST' : 'GET', cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      if (d?.update) setUpdate(d.update);
-      setLoading(false);
-      setBusy(false);
+      if (d?.update) { setUpdate(d.update); setOpen(new Set()); }
+      setLoading(false); setBusy(false);
    }, []);
-
    useEffect(() => { if (sel) load(sel); }, [sel, load]);
 
-   const copy = async () => {
-      if (!update) return;
-      try {
-         await navigator.clipboard.writeText(update.content);
-         setCopied(true);
-         setTimeout(() => setCopied(false), 1500);
-      } catch { /* clipboard blocked */ }
-   };
+   const toggle = (i: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+   const sections = update?.data?.sections ?? [];
+   const pending = update?.data?.pending ?? [];
 
    return (
       <div className="flex h-full w-full overflow-hidden">
@@ -64,11 +80,8 @@ export function DailyView() {
          <div className="hidden w-52 shrink-0 flex-col overflow-y-auto border-r sm:flex">
             <div className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Days</div>
             {dates.map((d) => (
-               <button
-                  key={d}
-                  onClick={() => setSel(d)}
-                  className={`flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50 ${sel === d ? 'bg-muted/60 font-medium' : ''}`}
-               >
+               <button key={d} onClick={() => setSel(d)}
+                  className={`flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50 ${sel === d ? 'bg-muted/60 font-medium' : ''}`}>
                   <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" />
                   <span>{fmtDay(d)}</span>
                   {d === today && <span className="ml-auto rounded-full bg-emerald-500/15 px-1.5 text-[10px] text-emerald-500">today</span>}
@@ -79,27 +92,61 @@ export function DailyView() {
 
          {/* update pane */}
          <div className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-3xl space-y-3 p-4 sm:p-6">
+            <div className="mx-auto w-full max-w-2xl space-y-3 p-4 sm:p-6">
                <div className="flex items-center justify-between gap-2">
                   <div>
                      <h1 className="text-lg font-semibold">Daily update — {sel ? fmtDay(sel) : ''}</h1>
                      <p className="text-xs text-muted-foreground">
-                        Auto-compiled from everything logged that day. {update?.generated_at ? `Generated ${new Date(update.generated_at).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' })} IST` : ''}
+                        Tap a box to expand. {update?.generated_at ? `· ${new Date(update.generated_at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST` : ''}
                      </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5">
                      <Button size="sm" variant="ghost" onClick={() => load(sel, true)} disabled={busy}>
                         <RefreshCw className={`mr-1 size-4 ${busy ? 'animate-spin' : ''}`} /> Refresh
                      </Button>
-                     <Button size="sm" onClick={copy} disabled={!update?.content}>
-                        {copied ? <><Check className="mr-1 size-4" /> Copied</> : <><Copy className="mr-1 size-4" /> Copy</>}
-                     </Button>
+                     {update && <CopyBtn text={update.content} label="Copy summary" />}
+                     {update && <CopyBtn text={fullText(update)} label="Copy full" />}
                   </div>
                </div>
 
                {loading && <p className="text-sm text-muted-foreground">Compiling…</p>}
 
-               {!loading && update && (
+               {/* structured boxes */}
+               {!loading && sections.map((s, i) => {
+                  const isOpen = open.has(i);
+                  return (
+                     <div key={i} className="rounded-lg border bg-container">
+                        <button onClick={() => toggle(i)} className="flex w-full items-start gap-2 p-3 text-left">
+                           <ChevronRight className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                           <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium">{s.heading || s.summary}</div>
+                              {s.summary && <div className={`text-xs text-muted-foreground ${isOpen ? '' : 'truncate'}`}>{s.summary}</div>}
+                           </div>
+                        </button>
+                        {isOpen && s.detail.length > 0 && (
+                           <div className="border-t px-3 py-2.5 pl-9">
+                              <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-foreground/85">
+                                 {s.detail.map((d, j) => <li key={j}>{d}</li>)}
+                              </ul>
+                              <div className="mt-2"><CopyBtn small text={sectionText(s)} /></div>
+                           </div>
+                        )}
+                     </div>
+                  );
+               })}
+
+               {/* pending */}
+               {!loading && pending.length > 0 && (
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                     <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-red-500"><AlertTriangle className="size-3.5" /> Pending / blocked</div>
+                     <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
+                        {pending.map((p, i) => <li key={i}>{p}</li>)}
+                     </ul>
+                  </div>
+               )}
+
+               {/* fallback when no structured data (AI empty) */}
+               {!loading && sections.length === 0 && pending.length === 0 && update && (
                   <div className="rounded-lg border bg-container p-4">
                      <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">{update.content}</pre>
                   </div>

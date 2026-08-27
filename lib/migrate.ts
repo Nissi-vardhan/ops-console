@@ -130,8 +130,10 @@ CREATE TABLE IF NOT EXISTS ops_daily_updates (
   day          date PRIMARY KEY,
   content      text NOT NULL DEFAULT '',
   raw          text NOT NULL DEFAULT '',
+  data         jsonb,   -- structured {sections:[{heading,summary,detail[]}], pending[]}
   generated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE ops_daily_updates ADD COLUMN IF NOT EXISTS data jsonb;
 `;
 
 let migrated = false;

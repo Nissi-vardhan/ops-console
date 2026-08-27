@@ -20,6 +20,14 @@ async function hasValidSession(token: string | undefined): Promise<boolean> {
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
+
+  // Retire the old template org slug: /lndev-ui/* -> /shortcastle/*
+  if (path === "/lndev-ui" || path.startsWith("/lndev-ui/")) {
+    const url = req.nextUrl.clone();
+    url.pathname = path.replace(/^\/lndev-ui/, "/shortcastle");
+    return NextResponse.redirect(url);
+  }
+
   if (OPEN.some((o) => path === o || path.startsWith(o + "/"))) return NextResponse.next();
 
   // API routes self-authorize at the handler (session OR bearer OPS_AUTH_SECRET
