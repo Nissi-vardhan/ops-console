@@ -22,11 +22,13 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   if (OPEN.some((o) => path === o || path.startsWith(o + "/"))) return NextResponse.next();
 
+  // API routes self-authorize at the handler (session OR bearer OPS_AUTH_SECRET
+  // for the CLI, or SYNC_SECRET for the peer feeds) — don't blanket-gate them on
+  // the session cookie here, or server-to-server callers get 401'd before the route.
+  if (path.startsWith("/api/")) return NextResponse.next();
+
   if (await hasValidSession(req.cookies.get(OPS_COOKIE)?.value)) return NextResponse.next();
 
-  if (path.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const url = req.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
