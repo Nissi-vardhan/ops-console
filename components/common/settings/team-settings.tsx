@@ -101,11 +101,11 @@ export default function TeamSettings({ teamId }: TeamSettingsProps) {
                   </SettingsCard>
                </SettingsSection>
 
-               <SettingsSection title="Issues, projects, and docs">
+               <SettingsSection title="Tasks, projects, and docs">
                   <SettingsCard>
                      <SettingsRow
                         icon={<Tag className="size-4" />}
-                        title="Issue labels"
+                        title="Task labels"
                         description="Labels available to this team's issues"
                         trailing={<span>7 labels</span>}
                         chevron
@@ -121,7 +121,7 @@ export default function TeamSettings({ teamId }: TeamSettingsProps) {
                      />
                      <SettingsRow
                         icon={<Repeat className="size-4" />}
-                        title="Recurring issues"
+                        title="Recurring tasks"
                         description="Automatically create issues on a schedule"
                         trailing={<span>None</span>}
                         chevron
@@ -134,7 +134,7 @@ export default function TeamSettings({ teamId }: TeamSettingsProps) {
                   <SettingsCard>
                      <SettingsRow
                         icon={<Target className="size-4" />}
-                        title="Issue statuses"
+                        title="Task statuses"
                         description="Customize the statuses issues go through"
                         trailing={<span>{status.length} statuses</span>}
                         chevron

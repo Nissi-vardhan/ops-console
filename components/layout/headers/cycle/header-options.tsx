@@ -20,7 +20,7 @@ export default function HeaderOptions({ cycleView }: { cycleView: CycleView }) {
       <div className="w-full flex justify-between items-center border-b py-1.5 px-6 h-10">
          <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">
-               {count} {count === 1 ? 'issue' : 'issues'}
+               {count} {count === 1 ? 'task' : 'tasks'}
             </span>
          </div>
 

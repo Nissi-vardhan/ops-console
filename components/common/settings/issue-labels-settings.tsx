@@ -83,7 +83,7 @@ export default function IssueLabelsSettings() {
             <div className="flex items-center px-2 py-1.5 text-xs text-muted-foreground border-b">
                <div className="flex-1 min-w-0">Name ↓</div>
                <div className="hidden md:block w-[260px]">Description</div>
-               <div className="w-[70px]">Issues</div>
+               <div className="w-[70px]">Tasks</div>
                <div className="hidden sm:block w-[110px]">Last applied</div>
                <div className="w-[80px]">Created</div>
             </div>

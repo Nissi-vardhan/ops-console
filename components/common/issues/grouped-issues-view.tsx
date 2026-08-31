@@ -62,7 +62,7 @@ function HiddenByFiltersFooter({ hiddenCount }: { hiddenCount: number }) {
       <div className="flex items-center justify-center gap-3 py-4 text-xs text-muted-foreground">
          <span>
             <span className="font-medium text-foreground">
-               {hiddenCount} {hiddenCount === 1 ? 'issue' : 'issues'}
+               {hiddenCount} {hiddenCount === 1 ? 'task' : 'tasks'}
             </span>{' '}
             hidden by filters
          </span>

@@ -112,7 +112,7 @@ export function NavTeams() {
                               <SidebarMenuSubButton asChild>
                                  <Link href={`/shortcastle/team/${item.id}/all`}>
                                     <CopyMinus size={14} />
-                                    <span>Issues</span>
+                                    <span>Tasks</span>
                                  </Link>
                               </SidebarMenuSubButton>
                            </SidebarMenuSubItem>

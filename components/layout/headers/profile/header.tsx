@@ -88,7 +88,7 @@ function HeaderSearch() {
                ref={searchInputRef}
                value={searchQuery}
                onChange={(event) => setSearchQuery(event.target.value)}
-               placeholder="Search issues..."
+               placeholder="Search tasks..."
                className="pl-8 h-7 text-sm"
                onKeyDown={(event) => {
                   if (event.key === 'Escape') {
@@ -162,7 +162,7 @@ export default function Header({ member }: { member: User }) {
             <div className="flex items-center gap-3">
                <ProfileTabs />
                <span className="text-sm text-muted-foreground hidden sm:inline">
-                  {count} {count === 1 ? 'issue' : 'issues'}
+                  {count} {count === 1 ? 'task' : 'tasks'}
                </span>
             </div>
             <div className="flex items-center gap-1">

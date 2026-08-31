@@ -299,9 +299,9 @@ export function CommandPalette() {
                         Copy issue URL
                         <Keys keys={['⌘', '⇧', ',']} />
                      </CommandItem>
-                     <CommandItem onSelect={() => copy('Issue title', issue.title)}>
+                     <CommandItem onSelect={() => copy('Task title', issue.title)}>
                         <Type className="text-muted-foreground" />
-                        Copy issue title
+                        Copy task title
                         <Keys keys={['⌘', '⇧', "'"]} />
                      </CommandItem>
                      <CommandItem
@@ -360,7 +360,7 @@ export function CommandPalette() {
                         }}
                      >
                         <SquarePen className="text-muted-foreground" />
-                        Create new issue
+                        Create new task
                         <Keys keys={['C']} />
                      </CommandItem>
                   </CommandGroup>

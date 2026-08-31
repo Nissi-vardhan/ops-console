@@ -262,7 +262,7 @@ const list: Integration[] = [
    {
       id: 'arc',
       name: 'Arc',
-      description: 'Create new issues right from your browser command bar',
+      description: 'Create new tasks right from your browser command bar',
       status: 'pre-installed',
       color: '#fb6b6b',
    },
