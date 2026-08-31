@@ -1,6 +1,7 @@
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { EmptyState } from '@/components/brand/empty-state';
 import { cn } from '@/lib/utils';
 import { Issue, sortIssuesByPriority } from '@/mock-data/issues';
 import { priorities } from '@/mock-data/priorities';
@@ -253,7 +254,9 @@ export const GroupedIssuesView: FC<GroupedIssuesViewProps> = ({
       const boardGroups = hasActiveFilters
          ? groups.filter((entry) => entry.issues.length > 0)
          : groups.filter((entry) => showEmptyGroups || entry.issues.length > 0);
-      const hiddenGroups = hasActiveFilters ? groups.filter((entry) => entry.issues.length === 0) : [];
+      const hiddenGroups = hasActiveFilters
+         ? groups.filter((entry) => entry.issues.length === 0)
+         : [];
 
       return (
          <DndProvider backend={HTML5Backend}>
@@ -271,8 +274,11 @@ export const GroupedIssuesView: FC<GroupedIssuesViewProps> = ({
                      ))}
                      {hiddenGroups.length > 0 && <HiddenColumns entries={hiddenGroups} />}
                      {boardGroups.length === 0 && hiddenGroups.length === 0 && (
-                        <div className="flex items-center justify-center w-full h-40 text-sm text-muted-foreground">
-                           No issues to show.
+                        <div className="flex w-full items-center justify-center">
+                           <EmptyState
+                              title="Nothing on the board — your move."
+                              hint="Create a task, or clear a filter to bring hidden ones back."
+                           />
                         </div>
                      )}
                   </div>
@@ -295,9 +301,10 @@ export const GroupedIssuesView: FC<GroupedIssuesViewProps> = ({
          <CustomDragLayer />
          <div className="h-full overflow-y-auto">
             {listGroups.length === 0 && !showFooter && (
-               <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
-                  No issues to show.
-               </div>
+               <EmptyState
+                  title="Nothing on the board — your move."
+                  hint="Create a task, or clear a filter to bring hidden ones back."
+               />
             )}
             {listGroups.map((entry) => (
                <GroupIssues

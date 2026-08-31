@@ -10,6 +10,7 @@ import { NavTeamsSettings } from '@/components/layout/sidebar/nav-teams-settings
 import { BackToApp } from '@/components/layout/sidebar/back-to-app';
 import { Button } from '@/components/ui/button';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
+import { CastleMark, Crenellation } from '@/components/brand/castle-mark';
 
 function signOut() {
    fetch('/api/auth', {
@@ -30,11 +31,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {isSettings ? (
                <BackToApp />
             ) : (
-               <div className="flex items-center gap-2 px-2 py-1.5">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-[#5e6ad2] text-[10px] font-bold text-white">
-                     OPS
+               <div className="px-1 pt-1.5">
+                  <div className="flex items-center gap-2 px-1">
+                     <CastleMark className="size-7 rounded-md" />
+                     <div className="flex flex-col leading-none">
+                        <span className="text-sm font-semibold">Shortcastle Ops</span>
+                        <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
+                           O-O
+                        </span>
+                     </div>
                   </div>
-                  <span className="text-sm font-semibold">Shortcastle Ops</span>
+                  <Crenellation className="mt-2" />
                </div>
             )}
          </SidebarHeader>
