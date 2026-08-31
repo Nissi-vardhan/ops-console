@@ -52,7 +52,7 @@ export const useThemeStore = create<ThemeState>()(
    persist(
       (set) => ({
          mode: 'system',
-         lightVariant: 'pure-light',
+         lightVariant: 'light',
          darkVariant: 'dark',
          custom: DEFAULT_CUSTOM,
          setMode: (mode) => set({ mode }),

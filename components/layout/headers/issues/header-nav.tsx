@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import Notifications from './notifications';
+import { ThemeToggleButton } from '@/components/layout/theme-toggle-button';
 
 const ISSUE_VIEW_TABS = [
    { label: 'Active', segment: 'active' },
@@ -85,6 +86,7 @@ export default function HeaderNav() {
          </div>
 
          <div className="flex items-center gap-2">
+            <ThemeToggleButton />
             {isSearchOpen ? (
                <div
                   ref={searchContainerRef}
