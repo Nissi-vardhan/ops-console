@@ -1,14 +1,17 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
-const geistSans = Geist({
+// Body: Hanken Grotesk — a warm grotesque, legible in dense tables.
+// Mono: JetBrains Mono — the OPS-N task ids / dates read like notation.
+// Variable names kept as --font-geist-* so the @theme mapping stays put.
+const geistSans = Hanken_Grotesk({
    variable: '--font-geist-sans',
    subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({
+const geistMono = JetBrains_Mono({
    variable: '--font-geist-mono',
    subsets: ['latin'],
 });
