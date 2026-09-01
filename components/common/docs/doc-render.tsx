@@ -121,7 +121,7 @@ function ArtifactFrame({ html }: { html: string }) {
       const onMsg = (e: MessageEvent) => {
          const data = e.data as { __afid?: string; height?: number } | null;
          if (data && data.__afid === afid.current && typeof data.height === 'number') {
-            setH(Math.min(2400, Math.max(80, Math.ceil(data.height))));
+            setH(Math.min(6000, Math.max(80, Math.ceil(data.height))));
          }
       };
       window.addEventListener('message', onMsg);

@@ -147,6 +147,20 @@ CREATE TABLE IF NOT EXISTS ops_doc_shares (
   created_at     timestamptz NOT NULL DEFAULT now(),
   UNIQUE (doc_id)
 );
+
+-- Feedback threads on docs (and tasks). target_kind = 'doc' | 'issue'. Each
+-- comment is attributed by name so Nissi can see who wrote what; reviewers on a
+-- shared doc are attributed by their (Google) email.
+CREATE TABLE IF NOT EXISTS ops_comments (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_kind  text NOT NULL,
+  target_id    text NOT NULL,
+  author_name  text NOT NULL DEFAULT '',
+  author_email text NOT NULL DEFAULT '',
+  body         text NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_comments_target ON ops_comments(target_kind, target_id, created_at);
 `;
 
 let migrated = false;

@@ -5,6 +5,7 @@ import { FileText, Hash, Pencil, Pin, Plus, Save, Search, Share2, Trash2, X } fr
 import { Button } from '@/components/ui/button';
 import { DocMarkdown, outline } from './doc-render';
 import { ShareDialog } from './share-dialog';
+import { Comments } from '@/components/common/comments';
 
 interface Doc {
    id: string;
@@ -325,6 +326,12 @@ export function DocsView() {
                               .
                            </p>
                         )}
+
+                        <Comments
+                           listUrl={`/api/ops/comments?kind=doc&id=${selected.id}`}
+                           postUrl="/api/ops/comments"
+                           extra={{ kind: 'doc', id: selected.id }}
+                        />
                      </div>
                   </article>
 
