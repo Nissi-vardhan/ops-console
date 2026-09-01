@@ -1,4 +1,4 @@
-import { getPool } from "@/lib/db";
+import { getPool } from '@/lib/db';
 
 // Idempotent schema for the standalone ops-console DB (opsdb). Runs on server
 // boot via instrumentation.ts. This is the OPS half only — split out of the
@@ -136,14 +136,25 @@ CREATE TABLE IF NOT EXISTS ops_daily_updates (
 );
 ALTER TABLE ops_daily_updates ADD COLUMN IF NOT EXISTS data jsonb;
 ALTER TABLE ops_daily_updates ADD COLUMN IF NOT EXISTS edited boolean NOT NULL DEFAULT false;
+
+-- Google-gated public share links for docs. One link per doc; allowed_emails is
+-- the Google-account allow-list a viewer must sign in as to read the doc.
+CREATE TABLE IF NOT EXISTS ops_doc_shares (
+  token          text PRIMARY KEY,
+  doc_id         uuid NOT NULL REFERENCES ops_docs(id) ON DELETE CASCADE,
+  allowed_emails text[] NOT NULL DEFAULT '{}',
+  created_by     uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (doc_id)
+);
 `;
 
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
-  if (migrated) return;
-  const pool = getPool();
-  await pool.query(SCHEMA_SQL);
-  migrated = true;
-  console.log("[migrate] ops schema ensured");
+   if (migrated) return;
+   const pool = getPool();
+   await pool.query(SCHEMA_SQL);
+   migrated = true;
+   console.log('[migrate] ops schema ensured');
 }
