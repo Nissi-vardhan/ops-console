@@ -175,11 +175,11 @@ function PdfViewer({ id, name }: { id: string; name: string }) {
          {open &&
             createPortal(
                <div
-                  className="fixed inset-0 z-50 flex flex-col bg-black/70 p-3 sm:p-6"
+                  className="fixed inset-0 z-50 flex flex-col bg-black/70 p-2 sm:p-3"
                   onClick={() => setOpen(false)}
                >
                   <div
-                     className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl"
+                     className="mx-auto flex h-full w-full max-w-[1600px] flex-col overflow-hidden rounded-xl border bg-background shadow-xl"
                      onClick={(e) => e.stopPropagation()}
                   >
                      <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
