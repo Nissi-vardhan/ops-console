@@ -15,6 +15,18 @@ import {
    GitBranch,
    AlertTriangle,
    Circle,
+   Globe,
+   Code2,
+   Split,
+   SlidersHorizontal,
+   Database,
+   Merge,
+   Box,
+   Sparkles,
+   Plus,
+   Minus,
+   Maximize2,
+   type LucideIcon,
 } from 'lucide-react';
 
 interface WF {
@@ -82,15 +94,37 @@ interface Detail {
 }
 
 const NW = 190;
-const NH = 54;
-const PAD = 50;
+const NH = 56;
+const PAD = 60;
 const shortType = (t: string) => t.split('.').pop() || t;
-const isTrigger = (t: string) =>
-   /trigger/i.test(t) || t.endsWith('.webhook') || t.endsWith('.cron');
+
+function nodeStyle(type: string): { Icon: LucideIcon; color: string } {
+   const t = (type.split('.').pop() || '').toLowerCase();
+   const table: [RegExp, LucideIcon, string][] = [
+      [/webhook/, Webhook, '#2563eb'],
+      [/schedule|cron/, Clock, '#6366f1'],
+      [/manual/, MousePointerClick, '#64748b'],
+      [/form/, FileInput, '#0ea5e9'],
+      [/httprequest|^http/, Globe, '#14b8a6'],
+      [/code|function/, Code2, '#f59e0b'],
+      [/^if$|filter/, GitBranch, '#a855f7'],
+      [/switch/, Split, '#a855f7'],
+      [/merge/, Merge, '#10b981'],
+      [/set|editfields/, SlidersHorizontal, '#64748b'],
+      [/postgres|mysql|database|supabase|redis/, Database, '#3b82f6'],
+      [/openai|langchain|agent|lmchat|mcp/, Sparkles, '#8b5cf6'],
+      [/gmail|email|send|smtp|twilio/, Mail, '#ef4444'],
+      [/errortrigger/, AlertTriangle, '#ef4444'],
+      [/noop/, Circle, '#94a3b8'],
+   ];
+   for (const [re, Icon, color] of table) if (re.test(t)) return { Icon, color };
+   return { Icon: Box, color: '#64748b' };
+}
 
 function FlowCanvas({ detail }: { detail: Detail }) {
    const wrapRef = useRef<HTMLDivElement>(null);
-   const [scale, setScale] = useState(1);
+   const [view, setView] = useState({ z: 1, x: 0, y: 0, fit: 1 });
+   const drag = useRef<{ sx: number; sy: number; x: number; y: number } | null>(null);
 
    const pos = useMemo(() => {
       const m: Record<string, { x: number; y: number }> = {};
@@ -110,28 +144,28 @@ function FlowCanvas({ detail }: { detail: Detail }) {
          minX = minY = 0;
          maxX = maxY = 100;
       }
-      const w = maxX - minX + NW + PAD * 2;
-      const h = maxY - minY + NH + PAD * 2;
-      return { m, minX, minY, w, h };
+      return { m, minX, minY, w: maxX - minX + NW + PAD * 2, h: maxY - minY + NH + PAD * 2 };
    }, [detail]);
 
    useEffect(() => {
       const el = wrapRef.current;
       if (!el) return;
-      const fit = () => setScale(Math.min(1, (el.clientWidth - 8) / pos.w));
-      fit();
-      const ro = new ResizeObserver(fit);
+      const compute = () => {
+         const fit = Math.min(1, (el.clientWidth - 16) / pos.w, (el.clientHeight - 16) / pos.h);
+         setView({ z: fit, x: 0, y: 0, fit });
+      };
+      compute();
+      const ro = new ResizeObserver(compute);
       ro.observe(el);
       return () => ro.disconnect();
-   }, [pos.w]);
+   }, [pos.w, pos.h]);
 
    const nx = (name: string) => (pos.m[name]?.x ?? 0) - pos.minX + PAD;
    const ny = (name: string) => (pos.m[name]?.y ?? 0) - pos.minY + PAD;
 
    const edges: { d: string; key: string }[] = [];
    for (const [src, conn] of Object.entries(detail.connections)) {
-      const groups = conn.main ?? [];
-      groups.forEach((targets, gi) =>
+      (conn.main ?? []).forEach((targets, gi) =>
          (targets ?? []).forEach((t, ti) => {
             if (!pos.m[src] || !pos.m[t.node]) return;
             const x1 = nx(src) + NW;
@@ -147,41 +181,122 @@ function FlowCanvas({ detail }: { detail: Detail }) {
       );
    }
 
+   const onDown = (e: React.MouseEvent) => {
+      drag.current = { sx: e.clientX, sy: e.clientY, x: view.x, y: view.y };
+   };
+   const onMove = (e: React.MouseEvent) => {
+      if (!drag.current) return;
+      const d = drag.current;
+      setView((v) => ({ ...v, x: d.x + (e.clientX - d.sx), y: d.y + (e.clientY - d.sy) }));
+   };
+   const onUp = () => {
+      drag.current = null;
+   };
+   const zoom = (f: number) => setView((v) => ({ ...v, z: Math.max(0.15, Math.min(2, v.z * f)) }));
+
    return (
-      <div ref={wrapRef} className="relative w-full overflow-auto rounded-lg border bg-muted/20">
-         <div style={{ width: pos.w * scale, height: pos.h * scale }} className="relative">
-            <div
-               style={{
-                  width: pos.w,
-                  height: pos.h,
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
-               }}
-               className="absolute left-0 top-0"
-            >
-               <svg width={pos.w} height={pos.h} className="pointer-events-none absolute inset-0">
-                  {edges.map((e) => (
-                     <path key={e.key} d={e.d} fill="none" stroke="var(--border)" strokeWidth={2} />
-                  ))}
-               </svg>
-               {detail.nodes.map((n) => (
+      <div
+         ref={wrapRef}
+         onMouseDown={onDown}
+         onMouseMove={onMove}
+         onMouseUp={onUp}
+         onMouseLeave={onUp}
+         className="relative h-full w-full cursor-grab overflow-hidden rounded-lg border bg-muted/20 active:cursor-grabbing"
+      >
+         <div
+            style={{
+               width: pos.w,
+               height: pos.h,
+               transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})`,
+               transformOrigin: 'top left',
+            }}
+            className="absolute left-0 top-0"
+         >
+            <svg width={pos.w} height={pos.h} className="pointer-events-none absolute inset-0">
+               <defs>
+                  <marker
+                     id="wf-arrow"
+                     markerWidth="8"
+                     markerHeight="8"
+                     refX="6.5"
+                     refY="3"
+                     orient="auto"
+                  >
+                     <path d="M0,0 L7,3 L0,6 Z" fill="var(--muted-foreground)" opacity="0.5" />
+                  </marker>
+               </defs>
+               {edges.map((e) => (
+                  <path
+                     key={e.key}
+                     d={e.d}
+                     fill="none"
+                     stroke="var(--muted-foreground)"
+                     strokeOpacity={0.45}
+                     strokeWidth={2}
+                     markerEnd="url(#wf-arrow)"
+                  />
+               ))}
+            </svg>
+            {detail.nodes.map((n) => {
+               const { Icon, color } = nodeStyle(n.type);
+               return (
                   <div
                      key={n.name}
-                     className={`absolute flex flex-col justify-center gap-0.5 rounded-lg border bg-card px-3 py-2 shadow-sm ${
-                        isTrigger(n.type) ? 'border-l-[3px] border-l-primary' : ''
-                     } ${n.disabled ? 'opacity-40' : ''}`}
-                     style={{ left: nx(n.name), top: ny(n.name), width: NW, height: NH }}
+                     className={`absolute flex items-center gap-2 rounded-lg border bg-card px-2.5 py-2 shadow-sm ${n.disabled ? 'opacity-40' : ''}`}
+                     style={{
+                        left: nx(n.name),
+                        top: ny(n.name),
+                        width: NW,
+                        height: NH,
+                        borderLeft: `3px solid ${color}`,
+                     }}
                      title={n.type}
                   >
-                     <span className="truncate text-[12px] font-medium leading-tight">
-                        {n.name}
+                     <span
+                        className="flex size-6 shrink-0 items-center justify-center rounded-md"
+                        style={{ background: `${color}22`, color }}
+                     >
+                        <Icon className="size-3.5" />
                      </span>
-                     <span className="truncate text-[10px] text-muted-foreground">
-                        {shortType(n.type)}
+                     <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12px] font-medium leading-tight">
+                           {n.name}
+                        </span>
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                           {shortType(n.type)}
+                        </span>
                      </span>
                   </div>
-               ))}
-            </div>
+               );
+            })}
+         </div>
+
+         {/* zoom controls */}
+         <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border bg-background/90 px-1 py-0.5 shadow-sm backdrop-blur">
+            <button
+               onClick={() => zoom(1 / 1.2)}
+               className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+               aria-label="Zoom out"
+            >
+               <Minus className="size-4" />
+            </button>
+            <span className="min-w-10 text-center text-xs tabular-nums text-muted-foreground">
+               {Math.round(view.z * 100)}%
+            </span>
+            <button
+               onClick={() => zoom(1.2)}
+               className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+               aria-label="Zoom in"
+            >
+               <Plus className="size-4" />
+            </button>
+            <button
+               onClick={() => setView((v) => ({ ...v, z: v.fit, x: 0, y: 0 }))}
+               className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+               aria-label="Fit"
+            >
+               <Maximize2 className="size-3.5" />
+            </button>
          </div>
       </div>
    );
