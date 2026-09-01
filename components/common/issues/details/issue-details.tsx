@@ -36,19 +36,23 @@ export default function IssueDetails() {
    }
 
    const prose =
-      'text-sm leading-relaxed text-foreground/90 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-0.5 [&_a]:text-[#8b93e0] [&_a]:underline [&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/40 [&_pre]:p-3';
+      'text-sm leading-relaxed text-foreground/90 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-0.5 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/40 [&_pre]:p-3';
 
    return (
       <div className="w-full h-full flex overflow-hidden">
          {/* Main column */}
          <div className="flex-1 min-w-0 h-full overflow-y-auto">
             <div className="max-w-3xl mx-auto px-6 py-8 sm:px-8 sm:py-10">
-               <h1 className="text-2xl font-semibold leading-tight text-balance sm:text-3xl">{issue.title}</h1>
+               <h1 className="text-2xl font-semibold leading-tight text-balance sm:text-3xl">
+                  {issue.title}
+               </h1>
 
                <div className="mt-5">
                   {issue.description?.trim() ? (
                      <div className={prose}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.description}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                           {issue.description}
+                        </ReactMarkdown>
                      </div>
                   ) : (
                      <p className="text-sm text-muted-foreground">No description.</p>
@@ -63,7 +67,9 @@ export default function IssueDetails() {
                      </h2>
                      <div className="rounded-lg border bg-container p-3">
                         <div className={prose}>
-                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.progress}</ReactMarkdown>
+                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {issue.progress}
+                           </ReactMarkdown>
                         </div>
                      </div>
                   </div>

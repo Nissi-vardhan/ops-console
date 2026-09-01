@@ -306,7 +306,7 @@ export function DailyView() {
                      onChange={(e) => setDraft(e.target.value)}
                      autoFocus
                      rows={22}
-                     className="w-full rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed outline-none focus:border-[#5e6ad2]"
+                     className="w-full rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed outline-none focus:border-primary"
                   />
                )}
 

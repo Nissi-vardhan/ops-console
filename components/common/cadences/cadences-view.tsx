@@ -43,7 +43,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
    live: { label: 'Live', cls: 'bg-emerald-500/15 text-emerald-500' },
    paused: { label: 'Paused', cls: 'bg-amber-500/15 text-amber-500' },
    blocked: { label: 'Blocked', cls: 'bg-red-500/15 text-red-500' },
-   done: { label: 'Done', cls: 'bg-[#5e6ad2]/15 text-[#8b93e0]' },
+   done: { label: 'Done', cls: 'bg-primary/15 text-primary' },
    closed: { label: 'Closed manually', cls: 'bg-muted/60 text-foreground/70' },
 };
 const STATUSES = Object.keys(STATUS_META);
@@ -287,7 +287,7 @@ export function CadencesView() {
                   <div key={c.key} className="rounded-xl border bg-container p-4 sm:p-5">
                      <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-2">
-                           <Radio className="size-4 text-[#8b93e0]" />
+                           <Radio className="size-4 text-primary" />
                            <span className="font-medium">{c.name}</span>
                            <span className={`rounded-full px-2 py-0.5 text-[11px] ${st.cls}`}>
                               {st.label}
@@ -308,13 +308,13 @@ export function CadencesView() {
                            {c.linkIdentifier && (
                               <Link
                                  href={`/${orgId || 'shortcastle'}/issue/${c.linkIdentifier}`}
-                                 className="inline-flex items-center gap-1 text-[11px] text-[#8b93e0] hover:underline"
+                                 className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
                               >
                                  <Link2 className="size-3" /> {c.linkIdentifier}
                               </Link>
                            )}
                            {c.source === 'feed' && (
-                              <span className="rounded bg-[#5e6ad2]/10 px-1.5 py-0.5 text-[10px] text-[#8b93e0]">
+                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
                                  synced
                               </span>
                            )}
@@ -491,7 +491,7 @@ function CadenceEditor({
    };
 
    const field =
-      'w-full rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-[#5e6ad2]';
+      'w-full rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary';
 
    return (
       <div
@@ -526,7 +526,7 @@ function CadenceEditor({
                            key={c}
                            type="button"
                            onClick={() => toggleChan(c)}
-                           className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${channelList().includes(c) ? 'border-[#5e6ad2] bg-[#5e6ad2]/10 text-foreground' : 'text-muted-foreground'}`}
+                           className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${channelList().includes(c) ? 'border-primary bg-primary/10 text-foreground' : 'text-muted-foreground'}`}
                         >
                            <ChannelIcon channel={c} className="size-3" /> {c}
                         </button>
@@ -584,13 +584,13 @@ function CadenceEditor({
                               value={t.label}
                               onChange={(e) => setTouch(i, { label: e.target.value })}
                               placeholder="what it says"
-                              className="min-w-0 flex-1 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-[#5e6ad2]"
+                              className="min-w-0 flex-1 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
                            />
                            <input
                               value={t.timing}
                               onChange={(e) => setTouch(i, { timing: e.target.value })}
                               placeholder="Day 0"
-                              className="w-16 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-[#5e6ad2]"
+                              className="w-16 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
                            />
                            <select
                               value={t.status}

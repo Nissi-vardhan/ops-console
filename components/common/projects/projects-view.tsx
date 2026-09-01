@@ -109,12 +109,12 @@ export function ProjectsView() {
                return (
                   <div
                      key={p.id}
-                     className="rounded-xl border bg-container p-4 transition-colors hover:border-[#5e6ad2]/50"
+                     className="rounded-xl border bg-container p-4 transition-colors hover:border-primary/50"
                   >
                      <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
-                           <span className="flex size-7 items-center justify-center rounded-md bg-[#5e6ad2]/15">
-                              <Box className="size-4 text-[#8b93e0]" />
+                           <span className="flex size-7 items-center justify-center rounded-md bg-primary/15">
+                              <Box className="size-4 text-primary" />
                            </span>
                            <span className="font-medium">{p.name}</span>
                         </div>
@@ -267,7 +267,7 @@ function NewProject({
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Project name"
                   autoFocus
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-[#5e6ad2]"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                />
                <div className="flex gap-2">
                   <select
@@ -302,7 +302,7 @@ function NewProject({
                      type="date"
                      value={target}
                      onChange={(e) => setTarget(e.target.value)}
-                     className="mt-0.5 w-full rounded-md border bg-background px-2 py-1.5 text-sm outline-none focus:border-[#5e6ad2]"
+                     className="mt-0.5 w-full rounded-md border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
                   />
                </label>
             </div>

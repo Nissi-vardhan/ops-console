@@ -66,7 +66,9 @@ export function GroupIssues({ group, issues, count }: GroupIssuesProps) {
                <div className="flex items-center gap-2">
                   {group.icon}
                   <span className="text-sm font-medium">{group.name}</span>
-                  <span className="text-sm text-muted-foreground">{count}</span>
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                     {count}
+                  </span>
                </div>
 
                <Button
@@ -116,10 +118,7 @@ const IssueGridList: FC<{ issues: Issue[]; status?: Status }> = ({ issues, statu
    drop(ref);
 
    return (
-      <div
-         ref={ref}
-         className="flex-1 h-full overflow-y-auto p-2 space-y-2 bg-zinc-50/50 dark:bg-zinc-900/50 relative"
-      >
+      <div ref={ref} className="relative flex-1 h-full space-y-2.5 overflow-y-auto bg-muted/20 p-2">
          <AnimatePresence>
             {isOver && (
                <motion.div

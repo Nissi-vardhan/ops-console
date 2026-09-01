@@ -109,8 +109,10 @@ export function IssueGrid({ issue }: IssueGridProps) {
          <ContextMenuTrigger asChild>
             <motion.div
                ref={ref}
-               className="w-full p-3 bg-background rounded-md shadow-xs border border-border/50 cursor-default"
+               className="w-full cursor-default rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-colors hover:border-border"
                layoutId={`issue-grid-${issue.identifier}`}
+               whileHover={{ y: -2 }}
+               transition={{ type: 'spring', stiffness: 300, damping: 24 }}
                style={{
                   opacity: isDragging ? 0.5 : 1,
                   cursor: isDragging ? 'grabbing' : 'default',
