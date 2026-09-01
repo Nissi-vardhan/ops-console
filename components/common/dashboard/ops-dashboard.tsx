@@ -10,8 +10,27 @@ import {
    TrendingDown,
    TrendingUp,
 } from 'lucide-react';
-import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
+import {
+   Bar as RBar,
+   BarChart,
+   Cell,
+   Pie,
+   PieChart,
+   ResponsiveContainer,
+   Tooltip,
+   XAxis,
+} from 'recharts';
 import { Stagger, Item, CountUp, Bar } from '@/components/motion';
+import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
+
+const RTIP = {
+   background: 'var(--popover)',
+   border: '1px solid var(--border)',
+   borderRadius: 8,
+   fontSize: 12,
+   color: 'var(--popover-foreground)',
+   padding: '6px 10px',
+} as const;
 import { useIssuesStore } from '@/store/issues-store';
 import { status as STATUSES } from '@/mock-data/status';
 import { priorities as PRIORITIES } from '@/mock-data/priorities';
@@ -236,6 +255,7 @@ function BarRow({
 export function OpsDashboard() {
    const issues = useIssuesStore((s) => s.issues);
    const members = useIssuesStore((s) => s.members);
+   const [range, setRange] = useState<Range>({});
 
    const m = useMemo(() => {
       const now = Date.now();
@@ -288,11 +308,35 @@ export function OpsDashboard() {
       color: r.status.color,
    }));
 
+   const activity = useMemo(() => {
+      const to = range.to ? +range.to + 864e5 : Date.now();
+      const from = range.from ? +range.from : to - 30 * 864e5;
+      const byDay: Record<string, number> = {};
+      let total = 0;
+      for (const i of issues) {
+         const t = new Date(i.createdAt).getTime();
+         if (t < from || t > to) continue;
+         total++;
+         const key = new Date(i.createdAt).toISOString().slice(0, 10);
+         byDay[key] = (byDay[key] || 0) + 1;
+      }
+      const days: { day: string; count: number }[] = [];
+      for (let d = from; d <= to; d += 864e5) {
+         const key = new Date(d).toISOString().slice(0, 10);
+         days.push({ day: key.slice(5), count: byDay[key] || 0 });
+      }
+      const step = days.length > 62 ? Math.ceil(days.length / 62) : 1;
+      return { total, days: step > 1 ? days.filter((_, ix) => ix % step === 0) : days };
+   }, [issues, range]);
+
    return (
       <div className="w-full space-y-5 p-4 sm:p-6">
-         <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Live from your ops tasks.</p>
+         <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+               <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+               <p className="text-sm text-muted-foreground">Live from your ops tasks.</p>
+            </div>
+            <DateRangePicker value={range} onChange={setRange} />
          </div>
 
          <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-2xl border bg-card sm:grid-cols-4 sm:divide-y-0">
@@ -336,6 +380,42 @@ export function OpsDashboard() {
             />
          </div>
 
+         {/* Activity — tasks created over the selected range */}
+         <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+               <div>
+                  <p className="text-sm font-semibold">Tasks created</p>
+                  <p className="text-xs text-muted-foreground">
+                     {activity.total} in {range.from ? 'range' : 'the last 30 days'}
+                  </p>
+               </div>
+            </div>
+            <div className="h-40">
+               <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                     data={activity.days}
+                     margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
+                  >
+                     <XAxis
+                        dataKey="day"
+                        tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval="preserveStartEnd"
+                        minTickGap={24}
+                     />
+                     <Tooltip cursor={{ fill: 'var(--muted)', opacity: 0.4 }} contentStyle={RTIP} />
+                     <RBar
+                        dataKey="count"
+                        fill="var(--primary)"
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={26}
+                     />
+                  </BarChart>
+               </ResponsiveContainer>
+            </div>
+         </div>
+
          <Stagger className="grid gap-4 lg:grid-cols-2">
             {/* Tasks by status — donut */}
             <Item hover className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -345,6 +425,7 @@ export function OpsDashboard() {
                      {statusData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                            <PieChart>
+                              <Tooltip contentStyle={RTIP} />
                               <Pie
                                  data={statusData}
                                  dataKey="value"
