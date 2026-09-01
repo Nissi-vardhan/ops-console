@@ -244,7 +244,7 @@ export function DocsView() {
                      value={draft.body}
                      onChange={(e) => setDraft({ ...draft, body: e.target.value })}
                      placeholder="Write in Markdown…  # Heading, **bold**, - lists, ```code```"
-                     className="min-h-[55vh] w-full resize-y rounded-lg border bg-container p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-primary"
+                     className="min-h-[55vh] w-full resize-y rounded-xl border bg-container p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-primary"
                   />
                   <div className="flex items-center gap-2">
                      <Button size="sm" onClick={save} disabled={!draft.title.trim()}>

@@ -312,7 +312,7 @@ export function DailyView() {
 
                {/* edited / plain-text view */}
                {!editing && !loading && showText && update && (
-                  <div className="rounded-lg border bg-container p-4">
+                  <div className="rounded-xl border bg-container p-4">
                      <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">
                         {update.content}
                      </pre>
@@ -326,7 +326,7 @@ export function DailyView() {
                   sections.map((s, i) => {
                      const isOpen = open.has(i);
                      return (
-                        <div key={i} className="rounded-lg border bg-container">
+                        <div key={i} className="rounded-xl border bg-container">
                            <button
                               onClick={() => toggle(i)}
                               className="flex w-full items-start gap-2 p-3 text-left"

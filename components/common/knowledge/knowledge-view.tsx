@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Search, FileText, CircleDot, Sparkles } from 'lucide-react';
+import { EmptyState } from '@/components/brand/empty-state';
 
 interface Hit {
    kind: 'doc' | 'issue';
@@ -116,9 +117,11 @@ export function KnowledgeView() {
 
          {loading && <p className="text-xs text-muted-foreground">Searching…</p>}
          {searched && !loading && hits.length === 0 && (
-            <div className="rounded-lg border bg-container p-6 text-center text-sm text-muted-foreground">
-               No prior work matches “{q}”. Looks new — go build it (and it&apos;ll show up here for
-               the next session).
+            <div className="rounded-xl border bg-container">
+               <EmptyState
+                  title={`Nothing found for “${q}”.`}
+                  hint="Looks new — go build it, and it’ll show up here for the next session."
+               />
             </div>
          )}
 
@@ -129,7 +132,7 @@ export function KnowledgeView() {
                   <Link
                      key={`${h.kind}:${h.id}`}
                      href={href}
-                     className="block rounded-lg border bg-container p-3 transition-colors hover:border-primary/50"
+                     className="block rounded-xl border bg-container p-3 transition-colors hover:border-primary/50"
                   >
                      <div className="flex items-center gap-2 text-sm">
                         {h.kind === 'issue' ? (

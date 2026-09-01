@@ -85,7 +85,7 @@ export function ProjectsView() {
                { label: 'In progress', value: totals.inProgress, tint: 'text-amber-500' },
                { label: 'Completed', value: totals.done, tint: 'text-emerald-500' },
             ].map((s) => (
-               <div key={s.label} className="rounded-lg border bg-container p-3">
+               <div key={s.label} className="rounded-xl border bg-container p-3">
                   <div className={`text-2xl font-semibold tabular-nums ${s.tint}`}>{s.value}</div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                      {s.label}
@@ -95,7 +95,7 @@ export function ProjectsView() {
          </div>
 
          {rows.length === 0 && !adding && (
-            <div className="rounded-lg border bg-container">
+            <div className="rounded-xl border bg-container">
                <EmptyState
                   title="No projects yet."
                   hint="Group related tasks under a project — say “WhatsApp deliverability” or “Infra hardening” — to track them together."

@@ -262,7 +262,7 @@ export function CadencesView() {
                { label: 'Live', value: totals.live, tint: 'text-emerald-500' },
                { label: 'Blocked', value: totals.blocked, tint: 'text-red-500' },
             ].map((s) => (
-               <div key={s.label} className="rounded-lg border bg-container p-3">
+               <div key={s.label} className="rounded-xl border bg-container p-3">
                   <div className={`text-2xl font-semibold tabular-nums ${s.tint}`}>{s.value}</div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                      {s.label}
@@ -272,7 +272,7 @@ export function CadencesView() {
          </div>
 
          {!loading && list.length === 0 && (
-            <div className="rounded-lg border bg-container">
+            <div className="rounded-xl border bg-container">
                <EmptyState
                   title="No cadences yet."
                   hint="Build a multi-touch sequence — like “One Chesslang $9/mo outreach” — to track its touches, audience and blockers."

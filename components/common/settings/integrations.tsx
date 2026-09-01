@@ -61,7 +61,7 @@ function StatusBadge({ status }: { status: NonNullable<Integration['status']> })
 
 function IntegrationCard({ integration }: { integration: Integration }) {
    return (
-      <button className="flex items-start gap-3 rounded-lg border bg-container p-3 text-left hover:bg-accent/50 transition-colors">
+      <button className="flex items-start gap-3 rounded-xl border bg-container p-3 text-left hover:bg-accent/50 transition-colors">
          <IntegrationIcon integration={integration} />
          <span className="flex flex-col gap-0.5 min-w-0">
             <span className="flex items-center gap-2">
@@ -76,13 +76,7 @@ function IntegrationCard({ integration }: { integration: Integration }) {
    );
 }
 
-function CategorySection({
-   label,
-   items,
-}: {
-   label: string;
-   items: Integration[];
-}) {
+function CategorySection({ label, items }: { label: string; items: Integration[] }) {
    const [expanded, setExpanded] = useState(false);
    const visible = expanded ? items : items.slice(0, VISIBLE_PER_CATEGORY);
    return (
@@ -167,7 +161,7 @@ export default function Integrations() {
                         {ENABLED_INTEGRATIONS.map((integration) => (
                            <button
                               key={integration.id}
-                              className="flex flex-col items-start gap-2 rounded-lg border bg-container p-3 w-32 shrink-0 hover:bg-accent/50 transition-colors"
+                              className="flex flex-col items-start gap-2 rounded-xl border bg-container p-3 w-32 shrink-0 hover:bg-accent/50 transition-colors"
                            >
                               <IntegrationIcon integration={integration} size={28} />
                               <span className="flex flex-col items-start">

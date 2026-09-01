@@ -14,6 +14,7 @@ import {
    ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/brand/empty-state';
 
 interface Svc {
    id: string;
@@ -146,7 +147,7 @@ export function InfraView() {
          {grouped.map(([kind, list]) => {
             const Icon = KIND_ICON[kind] ?? Wrench;
             return (
-               <div key={kind} className="overflow-hidden rounded-lg border bg-container">
+               <div key={kind} className="overflow-hidden rounded-xl border bg-container">
                   <div className="flex items-center gap-2 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                      <Icon className="size-3.5" /> {KIND_LABEL[kind] ?? kind}
                   </div>
@@ -212,10 +213,12 @@ export function InfraView() {
             );
          })}
          {svcs.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-               Nothing tracked yet. Add servers, apps, and tokens (with rotation dates) to keep an
-               eye on them.
-            </p>
+            <div className="rounded-xl border bg-container">
+               <EmptyState
+                  title="Nothing tracked yet."
+                  hint="Add servers, apps, and tokens (with rotation dates) to keep an eye on them."
+               />
+            </div>
          )}
 
          {editing && (

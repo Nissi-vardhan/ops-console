@@ -66,7 +66,7 @@ export default function IssueDetails() {
                      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Progress
                      </h2>
-                     <div className="rounded-lg border bg-container p-3">
+                     <div className="rounded-xl border bg-container p-3">
                         <div className={prose}>
                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {issue.progress}

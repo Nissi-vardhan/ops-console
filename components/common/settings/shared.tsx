@@ -68,7 +68,7 @@ export function SettingsCard({
    className?: string;
 }) {
    return (
-      <div className={cn('rounded-lg border bg-container divide-y divide-border/60', className)}>
+      <div className={cn('rounded-xl border bg-container divide-y divide-border/60', className)}>
          {children}
       </div>
    );

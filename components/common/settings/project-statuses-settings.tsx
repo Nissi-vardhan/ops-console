@@ -48,7 +48,7 @@ export default function ProjectStatusesSettings() {
          title="Project statuses"
          description="Project statuses define the workflow that projects go through from start to completion"
       >
-         <div className="rounded-lg border bg-container overflow-hidden">
+         <div className="rounded-xl border bg-container overflow-hidden">
             {groups.map((group) => (
                <div key={group.label}>
                   <div className="flex items-center justify-between px-4 py-2 bg-accent/30 border-y first:border-t-0 border-border/50">
