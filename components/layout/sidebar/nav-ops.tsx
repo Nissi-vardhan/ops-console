@@ -11,6 +11,7 @@ import {
    Radio,
    Sparkles,
    CalendarDays,
+   Workflow,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -36,6 +37,7 @@ export function NavOps() {
       { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily` },
       { name: 'Projects', icon: Box, url: `${base}/projects` },
       { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
+      { name: 'Workflows', icon: Workflow, url: `${base}/workflows` },
       { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
       { name: 'Docs', icon: FileText, url: `${base}/docs` },
       { name: 'Infra', icon: Server, url: `${base}/infra` },
