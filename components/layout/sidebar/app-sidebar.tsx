@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 
 import { NavOps } from '@/components/layout/sidebar/nav-ops';
 import { NavSettings } from '@/components/layout/sidebar/nav-settings';
-import { NavTeamsSettings } from '@/components/layout/sidebar/nav-teams-settings';
 import { BackToApp } from '@/components/layout/sidebar/back-to-app';
 import { SidebarUser } from '@/components/layout/sidebar/sidebar-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
@@ -34,16 +33,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                </div>
             )}
          </SidebarHeader>
-         <SidebarContent>
-            {isSettings ? (
-               <>
-                  <NavSettings />
-                  <NavTeamsSettings />
-               </>
-            ) : (
-               <NavOps />
-            )}
-         </SidebarContent>
+         <SidebarContent>{isSettings ? <NavSettings /> : <NavOps />}</SidebarContent>
          <SidebarFooter>
             <SidebarUser />
          </SidebarFooter>
