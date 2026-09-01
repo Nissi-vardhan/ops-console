@@ -1,26 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { LogOut } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { NavOps } from '@/components/layout/sidebar/nav-ops';
 import { NavSettings } from '@/components/layout/sidebar/nav-settings';
 import { NavTeamsSettings } from '@/components/layout/sidebar/nav-teams-settings';
 import { BackToApp } from '@/components/layout/sidebar/back-to-app';
-import { Button } from '@/components/ui/button';
+import { SidebarUser } from '@/components/layout/sidebar/sidebar-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
 import { CastleMark, Crenellation } from '@/components/brand/castle-mark';
-
-function signOut() {
-   fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'sign_out' }),
-   }).finally(() => {
-      window.location.href = '/login';
-   });
-}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
    const pathname = usePathname();
@@ -56,14 +45,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             )}
          </SidebarContent>
          <SidebarFooter>
-            <Button
-               variant="ghost"
-               size="sm"
-               className="w-full justify-start gap-2 text-muted-foreground"
-               onClick={signOut}
-            >
-               <LogOut className="size-4" /> Sign out
-            </Button>
+            <SidebarUser />
          </SidebarFooter>
       </Sidebar>
    );

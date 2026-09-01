@@ -54,18 +54,36 @@ function StatTile({
    delta: React.ReactNode;
 }) {
    return (
-      <Item hover className="rounded-2xl border bg-card p-5 shadow-sm">
-         <div className="flex items-center justify-between">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-               <Icon className="size-[18px]" />
-            </span>
-            {delta}
+      <div className="px-5 py-5">
+         <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <Icon className="size-4" />
+            {label}
          </div>
-         <p className={`mt-4 text-[28px] font-semibold leading-none tabular-nums ${tone ?? ''}`}>
+         <p className={`mt-3 text-[30px] font-semibold leading-none tabular-nums ${tone ?? ''}`}>
             <CountUp value={value} />
          </p>
-         <p className="mt-1.5 text-xs text-muted-foreground">{label}</p>
-      </Item>
+         <div className="mt-2 text-xs">{delta}</div>
+      </div>
+   );
+}
+
+/** Inline delta text (Cliento uses text, not a pill): coloured lead + muted tail. */
+function DeltaText({ tone, lead, tail }: { tone: Tone; lead: string; tail?: string }) {
+   const Icon = tone === 'up' ? TrendingUp : tone === 'down' ? TrendingDown : null;
+   const color =
+      tone === 'up'
+         ? 'text-emerald-500'
+         : tone === 'down'
+           ? 'text-red-500'
+           : 'text-muted-foreground';
+   return (
+      <span className="inline-flex items-center gap-1">
+         <span className={`inline-flex items-center gap-0.5 font-medium ${color}`}>
+            {Icon && <Icon className="size-3" />}
+            {lead}
+         </span>
+         {tail && <span className="text-muted-foreground">{tail}</span>}
+      </span>
    );
 }
 
@@ -277,16 +295,16 @@ export function OpsDashboard() {
             <p className="text-sm text-muted-foreground">Live from your ops tasks.</p>
          </div>
 
-         <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+         <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-2xl border bg-card sm:grid-cols-4 sm:divide-y-0">
             <StatTile
                icon={Layers}
                label="Total tasks"
                value={m.total}
                delta={
                   m.newThisWeek > 0 ? (
-                     <Delta tone="up">+{m.newThisWeek} · 7d</Delta>
+                     <DeltaText tone="up" lead={`+${m.newThisWeek}`} tail="this week" />
                   ) : (
-                     <Delta tone="muted">steady</Delta>
+                     <DeltaText tone="muted" lead="steady" tail="this week" />
                   )
                }
             />
@@ -294,14 +312,14 @@ export function OpsDashboard() {
                icon={CircleDot}
                label="Open"
                value={m.open}
-               delta={<Delta tone="muted">{m.hiOpen} high</Delta>}
+               delta={<DeltaText tone="muted" lead={`${m.hiOpen} high`} tail="priority" />}
             />
             <StatTile
                icon={CheckCircle2}
                label="Done"
                value={m.done}
                tone="text-emerald-500"
-               delta={<Delta tone="up">{m.donePct}%</Delta>}
+               delta={<DeltaText tone="up" lead={`${m.donePct}%`} tail="of all tasks" />}
             />
             <StatTile
                icon={AlertTriangle}
@@ -310,13 +328,13 @@ export function OpsDashboard() {
                tone={m.overdue > 0 ? 'text-red-500' : ''}
                delta={
                   m.overdue > 0 ? (
-                     <Delta tone="down">needs action</Delta>
+                     <DeltaText tone="down" lead="needs action" />
                   ) : (
-                     <Delta tone="up">on track</Delta>
+                     <DeltaText tone="up" lead="on track" />
                   )
                }
             />
-         </Stagger>
+         </div>
 
          <Stagger className="grid gap-4 lg:grid-cols-2">
             {/* Tasks by status — donut */}
