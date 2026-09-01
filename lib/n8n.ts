@@ -119,6 +119,40 @@ export interface WorkflowDetail {
    connections: Record<string, { main?: { node: string }[][] }>;
 }
 
+export interface WorkflowFailure {
+   id: string;
+   workflowId: string;
+   name: string;
+   at: string;
+}
+
+export async function recentFailures(limit = 8): Promise<WorkflowFailure[]> {
+   const ex = await n8n<{
+      data: {
+         id: string | number;
+         workflowId: string;
+         status: string;
+         startedAt?: string;
+         stoppedAt?: string;
+      }[];
+   }>('/executions?limit=60');
+   const names: Record<string, string> = {};
+   try {
+      for (const w of await listWorkflows()) names[w.id] = w.name;
+   } catch {
+      /* names optional */
+   }
+   return (ex.data ?? [])
+      .filter((e) => e.status === 'error' || e.status === 'crashed')
+      .slice(0, limit)
+      .map((e) => ({
+         id: String(e.id),
+         workflowId: String(e.workflowId),
+         name: names[String(e.workflowId)] || 'Workflow',
+         at: e.startedAt || e.stoppedAt || '',
+      }));
+}
+
 export async function getWorkflow(id: string): Promise<WorkflowDetail> {
    const w = await n8n<RawWorkflow>(`/workflows/${encodeURIComponent(id)}`);
    return {

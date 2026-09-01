@@ -8,6 +8,19 @@ export interface Comment {
    created_at: string;
 }
 
+export interface RecentComment extends Comment {
+   target_kind: string;
+   target_id: string;
+}
+
+export async function listRecentComments(limit = 8): Promise<RecentComment[]> {
+   return query<RecentComment>(
+      `SELECT id, target_kind, target_id, author_name, author_email, body, created_at
+         FROM ops_comments ORDER BY created_at DESC LIMIT $1`,
+      [limit]
+   );
+}
+
 export async function listComments(kind: string, id: string): Promise<Comment[]> {
    return query<Comment>(
       `SELECT id, author_name, author_email, body, created_at

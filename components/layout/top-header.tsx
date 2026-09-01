@@ -3,6 +3,7 @@
 import { Search } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useCommandStore } from '@/store/command-store';
+import { NotificationsBell } from '@/components/layout/notifications-bell';
 
 /**
  * App top bar: sidebar toggle + page title on the left and a centred search
@@ -26,6 +27,7 @@ export function TopHeader({ title }: { title?: string }) {
                ⌘K
             </kbd>
          </button>
+         <NotificationsBell />
       </div>
    );
 }
