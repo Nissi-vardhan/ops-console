@@ -28,6 +28,7 @@ import {
    Maximize2,
    type LucideIcon,
 } from 'lucide-react';
+import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
 
 interface WF {
    id: string;
@@ -312,6 +313,7 @@ export function WorkflowsView() {
    const [q, setQ] = useState('');
    const [status, setStatus] = useState<'all' | 'active' | 'paused'>('all');
    const [trig, setTrig] = useState('all');
+   const [range, setRange] = useState<Range>({});
    const [openId, setOpenId] = useState<string | null>(null);
    const [detail, setDetail] = useState<Detail | null>(null);
    const [detailLoading, setDetailLoading] = useState(false);
@@ -347,14 +349,20 @@ export function WorkflowsView() {
    );
    const rows = useMemo(() => {
       const s = q.trim().toLowerCase();
+      const from = range.from ? +range.from : null;
+      const to = range.to ? +range.to + 864e5 : null; // inclusive end-of-day
       return wfs.filter((w) => {
          if (status === 'active' && !w.active) return false;
          if (status === 'paused' && w.active) return false;
          if (trig !== 'all' && w.trigger !== trig) return false;
+         if (from) {
+            const t = w.lastRun?.at ? new Date(w.lastRun.at).getTime() : null;
+            if (t === null || t < from || (to && t > to)) return false;
+         }
          if (s && !`${w.name} ${w.tags.join(' ')}`.toLowerCase().includes(s)) return false;
          return true;
       });
-   }, [wfs, q, status, trig]);
+   }, [wfs, q, status, trig, range]);
 
    const activeCount = wfs.filter((w) => w.active).length;
 
@@ -409,6 +417,7 @@ export function WorkflowsView() {
                   </option>
                ))}
             </select>
+            <DateRangePicker value={range} onChange={setRange} className="h-9" />
          </div>
 
          {/* table */}
