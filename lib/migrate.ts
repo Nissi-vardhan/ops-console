@@ -161,6 +161,21 @@ CREATE TABLE IF NOT EXISTS ops_comments (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ops_comments_target ON ops_comments(target_kind, target_id, created_at);
+
+-- File attachments for docs (PDFs etc). Bytes live in object storage (MinIO);
+-- this row holds the metadata + object key. Scoped to a doc so the share page
+-- can gate access to just that doc's files.
+CREATE TABLE IF NOT EXISTS ops_attachments (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  doc_id       uuid REFERENCES ops_docs(id) ON DELETE CASCADE,
+  filename     text NOT NULL,
+  content_type text NOT NULL DEFAULT 'application/octet-stream',
+  size         bigint NOT NULL DEFAULT 0,
+  object_key   text NOT NULL,
+  created_by   uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_attachments_doc ON ops_attachments(doc_id);
 `;
 
 let migrated = false;

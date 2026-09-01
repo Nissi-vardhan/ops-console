@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, FileText, Maximize2, X } from 'lucide-react';
+
+/** Base URL for streaming attachments — the internal reader uses the ops route;
+ *  the share page overrides it with its token-gated route. */
+const AttachmentBase = createContext('/api/ops/attachments');
 
 /* Shared markdown rendering for docs — used by the ops Docs reader and the
  * public share page, so both look identical. */
@@ -145,6 +150,68 @@ function ArtifactFrame({ html }: { html: string }) {
    );
 }
 
+/** An inline PDF reference — a card that opens the file in a full modal viewer.
+ *  Streams through the attachment base URL (auth'd internally / share-gated). */
+function PdfViewer({ id, name }: { id: string; name: string }) {
+   const base = useContext(AttachmentBase);
+   const [open, setOpen] = useState(false);
+   const url = `${base}/${id}`;
+   return (
+      <div className="my-4">
+         <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl border bg-card p-3.5 text-left transition-colors hover:border-primary"
+         >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-500">
+               <FileText className="size-[18px]" />
+            </span>
+            <span className="min-w-0 flex-1">
+               <span className="block truncate text-sm font-medium">{name}</span>
+               <span className="text-xs text-muted-foreground">PDF · click to open</span>
+            </span>
+            <Maximize2 className="size-4 shrink-0 text-muted-foreground" />
+         </button>
+         {open &&
+            createPortal(
+               <div
+                  className="fixed inset-0 z-50 flex flex-col bg-black/70 p-3 sm:p-6"
+                  onClick={() => setOpen(false)}
+               >
+                  <div
+                     className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl"
+                     onClick={(e) => e.stopPropagation()}
+                  >
+                     <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
+                        <span className="truncate text-sm font-medium">{name}</span>
+                        <div className="flex shrink-0 items-center gap-3">
+                           <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-muted-foreground hover:text-foreground"
+                           >
+                              Open in new tab
+                           </a>
+                           <button
+                              type="button"
+                              onClick={() => setOpen(false)}
+                              aria-label="Close"
+                              className="text-muted-foreground hover:text-foreground"
+                           >
+                              <X className="size-5" />
+                           </button>
+                        </div>
+                     </div>
+                     <iframe src={url} title={name} className="w-full flex-1" />
+                  </div>
+               </div>,
+               document.body
+            )}
+      </div>
+   );
+}
+
 function CodeBlock({ children }: { children?: ReactNode }) {
    const [copied, setCopied] = useState(false);
    const raw = nodeText(children).replace(/\n$/, '');
@@ -156,6 +223,15 @@ function CodeBlock({ children }: { children?: ReactNode }) {
    const lang = /language-(\w+)/.exec(className)?.[1] ?? '';
    if (lang === 'mermaid') return <Mermaid chart={raw} />;
    if (lang === 'artifact') return <ArtifactFrame html={raw} />;
+   if (lang === 'pdf') {
+      const id = /(?:^|\n)\s*id:\s*([\w-]+)/i.exec(raw)?.[1] ?? '';
+      const name = (/(?:^|\n)\s*name:\s*(.+)/i.exec(raw)?.[1] ?? 'Document.pdf').trim();
+      return id ? (
+         <PdfViewer id={id} name={name} />
+      ) : (
+         <p className="my-2 text-xs text-muted-foreground">PDF reference is missing its id.</p>
+      );
+   }
    const copy = async () => {
       try {
          await navigator.clipboard.writeText(raw);
@@ -203,13 +279,17 @@ const MD: Components = {
    pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
 };
 
-/** Render a markdown doc body with the shared prose + diagram support. */
-export function DocMarkdown({ body }: { body: string }) {
+/** Render a markdown doc body with the shared prose + diagram + PDF support.
+ *  `attachmentBase` overrides where PDFs stream from (share page passes its
+ *  token-gated route). */
+export function DocMarkdown({ body, attachmentBase }: { body: string; attachmentBase?: string }) {
    return (
-      <div className={PROSE}>
-         <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>
-            {body}
-         </ReactMarkdown>
-      </div>
+      <AttachmentBase.Provider value={attachmentBase ?? '/api/ops/attachments'}>
+         <div className={PROSE}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>
+               {body}
+            </ReactMarkdown>
+         </div>
+      </AttachmentBase.Provider>
    );
 }

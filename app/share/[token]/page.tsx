@@ -148,7 +148,10 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                   })}
                </p>
                <div className="pt-5">
-                  <DocMarkdown body={st.doc.body} />
+                  <DocMarkdown
+                     body={st.doc.body}
+                     attachmentBase={`/api/share/${token}/attachments`}
+                  />
                </div>
                <Comments
                   listUrl={`/api/share/${token}/comments`}
