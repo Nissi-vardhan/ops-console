@@ -1,13 +1,73 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Radio } from 'lucide-react';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import {
+   AlertTriangle,
+   CheckCircle2,
+   CircleDot,
+   Layers,
+   Radio,
+   TrendingDown,
+   TrendingUp,
+} from 'lucide-react';
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import { Stagger, Item, CountUp, Bar } from '@/components/motion';
 import { useIssuesStore } from '@/store/issues-store';
 import { status as STATUSES } from '@/mock-data/status';
 import { priorities as PRIORITIES } from '@/mock-data/priorities';
 
 const COMPLETED = new Set(['completed', 'canceled']);
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/* ---------------------------------- bits ---------------------------------- */
+
+type Tone = 'up' | 'down' | 'muted';
+const TONE: Record<Tone, string> = {
+   up: 'bg-emerald-500/12 text-emerald-500',
+   down: 'bg-red-500/12 text-red-500',
+   muted: 'bg-muted text-muted-foreground',
+};
+
+function Delta({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+   const Icon = tone === 'up' ? TrendingUp : tone === 'down' ? TrendingDown : null;
+   return (
+      <span
+         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[tone]}`}
+      >
+         {Icon && <Icon className="size-3" />}
+         {children}
+      </span>
+   );
+}
+
+function StatTile({
+   icon: Icon,
+   label,
+   value,
+   tone,
+   delta,
+}: {
+   icon: ComponentType<{ className?: string }>;
+   label: string;
+   value: number;
+   tone?: string;
+   delta: React.ReactNode;
+}) {
+   return (
+      <Item hover className="rounded-2xl border bg-card p-5 shadow-sm">
+         <div className="flex items-center justify-between">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+               <Icon className="size-[18px]" />
+            </span>
+            {delta}
+         </div>
+         <p className={`mt-4 text-[28px] font-semibold leading-none tabular-nums ${tone ?? ''}`}>
+            <CountUp value={value} />
+         </p>
+         <p className="mt-1.5 text-xs text-muted-foreground">{label}</p>
+      </Item>
+   );
+}
 
 type PendingStatus = 'todo' | 'in-progress' | 'waiting' | 'done';
 interface PendingBlocker {
@@ -26,7 +86,6 @@ interface PendingSnapshot {
    blockers: PendingBlocker[];
    cadences: PendingCadence[];
 }
-
 const PENDING_DOT: Record<PendingStatus, string> = {
    'todo': 'bg-muted-foreground/50',
    'in-progress': 'bg-amber-500',
@@ -64,20 +123,15 @@ function PendingPanel() {
    const blockers = p?.blockers ?? [];
    const cadences = (p?.cadences ?? []).filter((c) => c.pending.length > 0);
    if (loaded && blockers.length === 0 && cadences.length === 0) return null;
-
    const openBlockers = blockers.filter((b) => b.status !== 'done').length;
 
    return (
-      <div className="rounded-lg border bg-container p-4">
+      <Item className="rounded-2xl border bg-card p-5 shadow-sm">
          <div className="mb-3 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
                <AlertTriangle className="size-4 text-amber-500" /> Pending &amp; blockers
             </p>
-            {openBlockers > 0 && (
-               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-500">
-                  {openBlockers} open
-               </span>
-            )}
+            {openBlockers > 0 && <Delta tone="down">{openBlockers} open</Delta>}
          </div>
          {!loaded && <p className="text-xs text-muted-foreground">Loading…</p>}
          <div className="grid gap-4 md:grid-cols-2">
@@ -131,25 +185,6 @@ function PendingPanel() {
             )}
          </div>
          {p?.as_of && <p className="mt-3 text-[10px] text-muted-foreground/60">as of {p.as_of}</p>}
-      </div>
-   );
-}
-
-function StatCard({
-   label,
-   value,
-   tone,
-}: {
-   label: string;
-   value: number | string;
-   tone?: string;
-}) {
-   return (
-      <Item hover className="rounded-lg border bg-container p-4">
-         <p className="text-xs text-muted-foreground">{label}</p>
-         <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone ?? ''}`}>
-            {typeof value === 'number' ? <CountUp value={value} /> : value}
-         </p>
       </Item>
    );
 }
@@ -178,6 +213,8 @@ function BarRow({
    );
 }
 
+/* -------------------------------- dashboard ------------------------------- */
+
 export function OpsDashboard() {
    const issues = useIssuesStore((s) => s.issues);
    const members = useIssuesStore((s) => s.members);
@@ -187,17 +224,20 @@ export function OpsDashboard() {
       const open = issues.filter((i) => !COMPLETED.has(i.status.category));
       const done = issues.filter((i) => i.status.category === 'completed');
       const overdue = open.filter((i) => i.dueDate && new Date(i.dueDate).getTime() < now);
+      const newThisWeek = issues.filter((i) => now - new Date(i.createdAt).getTime() < WEEK).length;
+      const hiOpen = open.filter(
+         (i) => i.priority.id === 'urgent' || i.priority.id === 'high'
+      ).length;
+      const donePct = issues.length ? Math.round((done.length / issues.length) * 100) : 0;
 
       const byStatus = STATUSES.map((s) => ({
          status: s,
          count: issues.filter((i) => i.status.id === s.id).length,
       })).filter((r) => r.count > 0);
-
       const byPriority = PRIORITIES.map((p) => ({
          priority: p,
          count: open.filter((i) => i.priority.id === p.id).length,
       })).filter((r) => r.count > 0);
-
       const byAssignee = [
          ...members.map((u) => ({
             name: u.name,
@@ -213,106 +253,168 @@ export function OpsDashboard() {
          open: open.length,
          done: done.length,
          overdue: overdue.length,
+         newThisWeek,
+         hiOpen,
+         donePct,
          byStatus,
          byPriority,
          byAssignee,
       };
    }, [issues, members]);
 
-   const maxStatus = Math.max(1, ...m.byStatus.map((r) => r.count));
    const maxPriority = Math.max(1, ...m.byPriority.map((r) => r.count));
    const maxAssignee = Math.max(1, ...m.byAssignee.map((r) => r.count));
+   const statusData = m.byStatus.map((r) => ({
+      name: r.status.name,
+      value: r.count,
+      color: r.status.color,
+   }));
 
    return (
       <div className="w-full space-y-5 p-4 sm:p-6">
          <div>
-            <h1 className="text-lg font-semibold">Ops overview</h1>
-            <p className="text-sm text-muted-foreground">Live from your ops issues.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Live from your ops tasks.</p>
          </div>
 
          <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="Total" value={m.total} />
-            <StatCard label="Open" value={m.open} />
-            <StatCard label="Done" value={m.done} tone="text-emerald-500" />
-            <StatCard
+            <StatTile
+               icon={Layers}
+               label="Total tasks"
+               value={m.total}
+               delta={
+                  m.newThisWeek > 0 ? (
+                     <Delta tone="up">+{m.newThisWeek} · 7d</Delta>
+                  ) : (
+                     <Delta tone="muted">steady</Delta>
+                  )
+               }
+            />
+            <StatTile
+               icon={CircleDot}
+               label="Open"
+               value={m.open}
+               delta={<Delta tone="muted">{m.hiOpen} high</Delta>}
+            />
+            <StatTile
+               icon={CheckCircle2}
+               label="Done"
+               value={m.done}
+               tone="text-emerald-500"
+               delta={<Delta tone="up">{m.donePct}%</Delta>}
+            />
+            <StatTile
+               icon={AlertTriangle}
                label="Overdue"
                value={m.overdue}
                tone={m.overdue > 0 ? 'text-red-500' : ''}
+               delta={
+                  m.overdue > 0 ? (
+                     <Delta tone="down">needs action</Delta>
+                  ) : (
+                     <Delta tone="up">on track</Delta>
+                  )
+               }
             />
          </Stagger>
 
-         {/* text/pending on the left, stat charts on the right — full width */}
-         <Stagger className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <Item className="min-w-0">
-               <PendingPanel />
+         <Stagger className="grid gap-4 lg:grid-cols-2">
+            {/* Tasks by status — donut */}
+            <Item hover className="rounded-2xl border bg-card p-5 shadow-sm">
+               <p className="mb-1 text-sm font-semibold">Tasks by status</p>
+               <div className="grid items-center gap-2 sm:grid-cols-[190px_1fr]">
+                  <div className="relative h-[190px]">
+                     {statusData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                           <PieChart>
+                              <Pie
+                                 data={statusData}
+                                 dataKey="value"
+                                 nameKey="name"
+                                 cx="50%"
+                                 cy="50%"
+                                 innerRadius={62}
+                                 outerRadius={84}
+                                 paddingAngle={2}
+                                 stroke="none"
+                                 cornerRadius={6}
+                              >
+                                 {statusData.map((d, i) => (
+                                    <Cell key={i} fill={d.color} />
+                                 ))}
+                              </Pie>
+                           </PieChart>
+                        </ResponsiveContainer>
+                     ) : (
+                        <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                           No tasks yet.
+                        </div>
+                     )}
+                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-semibold tabular-nums">
+                           <CountUp value={m.total} />
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                           tasks
+                        </span>
+                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                     {m.byStatus.map((r) => (
+                        <div key={r.status.id} className="flex items-center gap-2 text-xs">
+                           <span
+                              className="size-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: r.status.color }}
+                           />
+                           <span className="flex-1 text-muted-foreground">{r.status.name}</span>
+                           <span className="font-medium tabular-nums">{r.count}</span>
+                        </div>
+                     ))}
+                  </div>
+               </div>
             </Item>
 
-            <div className="min-w-0 space-y-4">
-               <Item hover className="rounded-lg border bg-container p-4">
-                  <p className="mb-3 text-sm font-semibold">By status</p>
-                  <div className="space-y-2.5">
-                     {m.byStatus.map((r, i) => (
-                        <BarRow
-                           key={r.status.id}
-                           label={
-                              <>
-                                 <span
-                                    className="inline-block size-2 rounded-full"
-                                    style={{ backgroundColor: r.status.color }}
-                                 />{' '}
-                                 {r.status.name}
-                              </>
-                           }
-                           value={r.count}
-                           max={maxStatus}
-                           color={r.status.color}
-                           delay={i * 0.05}
-                        />
-                     ))}
-                     {m.byStatus.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No issues yet.</p>
-                     )}
-                  </div>
-               </Item>
+            {/* Open by priority — bars */}
+            <Item hover className="rounded-2xl border bg-card p-5 shadow-sm">
+               <p className="mb-3 text-sm font-semibold">Open by priority</p>
+               <div className="space-y-2.5">
+                  {m.byPriority.map((r, i) => (
+                     <BarRow
+                        key={r.priority.id}
+                        label={r.priority.name}
+                        value={r.count}
+                        max={maxPriority}
+                        color="var(--chart-4)"
+                        delay={i * 0.05}
+                     />
+                  ))}
+                  {m.byPriority.length === 0 && (
+                     <p className="text-xs text-muted-foreground">No open tasks.</p>
+                  )}
+               </div>
+            </Item>
+         </Stagger>
 
-               <Item hover className="rounded-lg border bg-container p-4">
-                  <p className="mb-3 text-sm font-semibold">Open by priority</p>
-                  <div className="space-y-2.5">
-                     {m.byPriority.map((r, i) => (
-                        <BarRow
-                           key={r.priority.id}
-                           label={r.priority.name}
-                           value={r.count}
-                           max={maxPriority}
-                           color="var(--primary)"
-                           delay={i * 0.05}
-                        />
-                     ))}
-                     {m.byPriority.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No open issues.</p>
-                     )}
-                  </div>
-               </Item>
-
-               <Item hover className="rounded-lg border bg-container p-4">
-                  <p className="mb-3 text-sm font-semibold">Open by assignee</p>
-                  <div className="space-y-2.5">
-                     {m.byAssignee.map((r, i) => (
-                        <BarRow
-                           key={r.name}
-                           label={r.name}
-                           value={r.count}
-                           max={maxAssignee}
-                           color="var(--chart-2)"
-                           delay={i * 0.05}
-                        />
-                     ))}
-                     {m.byAssignee.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No open issues.</p>
-                     )}
-                  </div>
-               </Item>
-            </div>
+         <Stagger className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <PendingPanel />
+            <Item hover className="rounded-2xl border bg-card p-5 shadow-sm">
+               <p className="mb-3 text-sm font-semibold">Open by assignee</p>
+               <div className="space-y-2.5">
+                  {m.byAssignee.map((r, i) => (
+                     <BarRow
+                        key={r.name}
+                        label={r.name}
+                        value={r.count}
+                        max={maxAssignee}
+                        color="var(--chart-2)"
+                        delay={i * 0.05}
+                     />
+                  ))}
+                  {m.byAssignee.length === 0 && (
+                     <p className="text-xs text-muted-foreground">No open tasks.</p>
+                  )}
+               </div>
+            </Item>
          </Stagger>
       </div>
    );
