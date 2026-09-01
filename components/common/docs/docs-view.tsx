@@ -90,6 +90,51 @@ const PROSE = [
    '[&_img]:my-4 [&_img]:rounded-lg [&_img]:border',
 ].join(' ');
 
+/** A Mermaid diagram (```mermaid fenced block) — rendered client-side,
+ *  themed to match light/dark. Falls back to the source on a parse error. */
+function Mermaid({ chart }: { chart: string }) {
+   const [svg, setSvg] = useState('');
+   const [failed, setFailed] = useState(false);
+   useEffect(() => {
+      let alive = true;
+      (async () => {
+         try {
+            const mermaid = (await import('mermaid')).default;
+            const dark = document.documentElement.classList.contains('dark');
+            mermaid.initialize({
+               startOnLoad: false,
+               securityLevel: 'strict',
+               theme: dark ? 'dark' : 'neutral',
+               fontFamily: 'inherit',
+            });
+            const { svg } = await mermaid.render(
+               'mmd-' + Math.random().toString(36).slice(2),
+               chart
+            );
+            if (alive) setSvg(svg);
+         } catch {
+            if (alive) setFailed(true);
+         }
+      })();
+      return () => {
+         alive = false;
+      };
+   }, [chart]);
+   if (failed) {
+      return (
+         <pre className="my-4 overflow-x-auto rounded-lg border bg-muted/40 p-3.5 font-mono text-[12.5px]">
+            {chart}
+         </pre>
+      );
+   }
+   return (
+      <div
+         className="my-5 flex justify-center overflow-x-auto rounded-xl border bg-background/50 p-5 [&_svg]:h-auto [&_svg]:max-w-full"
+         dangerouslySetInnerHTML={{ __html: svg }}
+      />
+   );
+}
+
 /** Fenced code block with a copy button + language tag. */
 function CodeBlock({ children }: { children?: ReactNode }) {
    const [copied, setCopied] = useState(false);
@@ -100,6 +145,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
          ? String((child as { props?: { className?: string } }).props?.className ?? '')
          : '';
    const lang = /language-(\w+)/.exec(className)?.[1] ?? '';
+   if (lang === 'mermaid') return <Mermaid chart={raw} />;
    const copy = async () => {
       try {
          await navigator.clipboard.writeText(raw);
@@ -379,64 +425,66 @@ export function DocsView() {
                   </div>
                </div>
             ) : selected ? (
-               <div className="mx-auto flex w-full max-w-[920px] gap-10 px-6 py-8 lg:px-10">
+               <div className="mx-auto flex w-full max-w-[980px] gap-8 px-4 py-6 sm:px-6 sm:py-8">
                   <article ref={articleRef} className="min-w-0 flex-1">
-                     <div className="mb-6 border-b pb-5">
-                        <div className="flex items-start justify-between gap-3">
-                           <div className="min-w-0">
-                              <span className="inline-flex items-center rounded-full bg-primary/12 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                                 {selected.category}
-                              </span>
-                              <h1 className="mt-2.5 text-[28px] font-semibold leading-tight tracking-tight">
-                                 {selected.title}
-                              </h1>
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                 Updated{' '}
-                                 {new Date(selected.updated_at).toLocaleDateString(undefined, {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric',
-                                 })}
-                                 {' · '}
-                                 {readMins} min read
-                              </p>
-                           </div>
-                           <div className="flex shrink-0 items-center gap-0.5">
-                              <Button
-                                 size="xs"
-                                 variant="ghost"
-                                 onClick={togglePin}
-                                 title={selected.pinned ? 'Unpin' : 'Pin'}
-                              >
-                                 <Pin
-                                    className={`size-4 ${selected.pinned ? 'fill-primary text-primary' : ''}`}
-                                 />
-                              </Button>
-                              <Button size="xs" variant="ghost" onClick={startEdit} title="Edit">
-                                 <Pencil className="size-4" />
-                              </Button>
-                              <Button size="xs" variant="ghost" onClick={del} title="Delete">
-                                 <Trash2 className="size-4 text-red-400" />
-                              </Button>
+                     <div className="rounded-2xl border border-border/60 bg-muted/30 px-5 py-6 sm:px-9 sm:py-8">
+                        <div className="mb-6 border-b border-border/60 pb-5">
+                           <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                 <span className="inline-flex items-center rounded-full bg-primary/12 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                                    {selected.category}
+                                 </span>
+                                 <h1 className="mt-2.5 text-[28px] font-semibold leading-tight tracking-tight">
+                                    {selected.title}
+                                 </h1>
+                                 <p className="mt-2 text-xs text-muted-foreground">
+                                    Updated{' '}
+                                    {new Date(selected.updated_at).toLocaleDateString(undefined, {
+                                       day: 'numeric',
+                                       month: 'short',
+                                       year: 'numeric',
+                                    })}
+                                    {' · '}
+                                    {readMins} min read
+                                 </p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-0.5">
+                                 <Button
+                                    size="xs"
+                                    variant="ghost"
+                                    onClick={togglePin}
+                                    title={selected.pinned ? 'Unpin' : 'Pin'}
+                                 >
+                                    <Pin
+                                       className={`size-4 ${selected.pinned ? 'fill-primary text-primary' : ''}`}
+                                    />
+                                 </Button>
+                                 <Button size="xs" variant="ghost" onClick={startEdit} title="Edit">
+                                    <Pencil className="size-4" />
+                                 </Button>
+                                 <Button size="xs" variant="ghost" onClick={del} title="Delete">
+                                    <Trash2 className="size-4 text-red-400" />
+                                 </Button>
+                              </div>
                            </div>
                         </div>
-                     </div>
 
-                     {selected.body.trim() ? (
-                        <div className={PROSE}>
-                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>
-                              {selected.body}
-                           </ReactMarkdown>
-                        </div>
-                     ) : (
-                        <p className="text-sm text-muted-foreground">
-                           This doc is empty.{' '}
-                           <button className="text-primary underline" onClick={startEdit}>
-                              Add content
-                           </button>
-                           .
-                        </p>
-                     )}
+                        {selected.body.trim() ? (
+                           <div className={PROSE}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>
+                                 {selected.body}
+                              </ReactMarkdown>
+                           </div>
+                        ) : (
+                           <p className="text-sm text-muted-foreground">
+                              This doc is empty.{' '}
+                              <button className="text-primary underline" onClick={startEdit}>
+                                 Add content
+                              </button>
+                              .
+                           </p>
+                        )}
+                     </div>
                   </article>
 
                   {toc.length > 0 && (
