@@ -39,7 +39,14 @@ export function DocsView() {
          .catch(() => null);
       const list: Doc[] = d?.docs ?? [];
       setDocs(list);
-      setSelId((cur) => keep ?? cur ?? list[0]?.id ?? null);
+      const urlDoc =
+         typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('doc')
+            : null;
+      setSelId((cur) => {
+         const want = keep ?? cur ?? urlDoc ?? null;
+         return want && list.some((x) => x.id === want) ? want : (list[0]?.id ?? null);
+      });
       setLoading(false);
    }, []);
    useEffect(() => {
@@ -47,6 +54,13 @@ export function DocsView() {
    }, [load]);
 
    const selected = useMemo(() => docs.find((x) => x.id === selId) ?? null, [docs, selId]);
+
+   // Keep the open doc in the URL so a refresh returns to it.
+   useEffect(() => {
+      if (selId && typeof window !== 'undefined') {
+         window.history.replaceState(null, '', `${window.location.pathname}?doc=${selId}`);
+      }
+   }, [selId]);
    const toc = useMemo(() => (selected ? outline(selected.body) : []), [selected]);
    const readMins = useMemo(
       () => (selected ? Math.max(1, Math.round(selected.body.split(/\s+/).length / 200)) : 0),

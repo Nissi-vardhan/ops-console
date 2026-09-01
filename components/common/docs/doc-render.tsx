@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Check, Copy } from 'lucide-react';
@@ -111,6 +111,40 @@ function Mermaid({ chart }: { chart: string }) {
    );
 }
 
+/** An interactive artifact (```artifact fenced block) — the block's HTML/JS is
+ *  run in a sandboxed, same-origin-less iframe (like a Claude artifact) and
+ *  auto-sized to its content. It cannot touch the app, cookies, or storage. */
+function ArtifactFrame({ html }: { html: string }) {
+   const [h, setH] = useState(260);
+   const afid = useRef('af-' + Math.random().toString(36).slice(2));
+   useEffect(() => {
+      const onMsg = (e: MessageEvent) => {
+         const data = e.data as { __afid?: string; height?: number } | null;
+         if (data && data.__afid === afid.current && typeof data.height === 'number') {
+            setH(Math.min(2400, Math.max(80, Math.ceil(data.height))));
+         }
+      };
+      window.addEventListener('message', onMsg);
+      return () => window.removeEventListener('message', onMsg);
+   }, []);
+   const doc =
+      '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<style>*{box-sizing:border-box}body{margin:0;padding:16px;font:14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a}</style></head><body>' +
+      html +
+      '<script>(function(){var id=' +
+      JSON.stringify(afid.current) +
+      ';function s(){parent.postMessage({__afid:id,height:document.documentElement.scrollHeight},"*")}try{new ResizeObserver(s).observe(document.body)}catch(e){}window.addEventListener("load",s);setTimeout(s,60);setTimeout(s,300)})();<\/script></body></html>';
+   return (
+      <iframe
+         title="Interactive"
+         sandbox="allow-scripts"
+         srcDoc={doc}
+         style={{ height: h }}
+         className="my-5 w-full rounded-xl border bg-white"
+      />
+   );
+}
+
 function CodeBlock({ children }: { children?: ReactNode }) {
    const [copied, setCopied] = useState(false);
    const raw = nodeText(children).replace(/\n$/, '');
@@ -121,6 +155,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
          : '';
    const lang = /language-(\w+)/.exec(className)?.[1] ?? '';
    if (lang === 'mermaid') return <Mermaid chart={raw} />;
+   if (lang === 'artifact') return <ArtifactFrame html={raw} />;
    const copy = async () => {
       try {
          await navigator.clipboard.writeText(raw);
