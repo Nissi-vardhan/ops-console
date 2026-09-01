@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { useSearchStore } from '@/store/search-store';
+import { useCommandStore } from '@/store/command-store';
 import { SearchIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
@@ -48,6 +49,7 @@ function IssueViewTabs() {
 export default function HeaderNav() {
    const { isSearchOpen, toggleSearch, closeSearch, setSearchQuery, searchQuery } =
       useSearchStore();
+   const openCommand = useCommandStore((s) => s.setOpen);
    const searchInputRef = useRef<HTMLInputElement>(null);
    const searchContainerRef = useRef<HTMLDivElement>(null);
    const previousValueRef = useRef<string>('');
@@ -78,13 +80,28 @@ export default function HeaderNav() {
    }, [isSearchOpen, closeSearch, searchQuery]);
 
    return (
-      <div className="w-full flex justify-between items-center border-b py-1.5 px-6 h-10">
+      <div className="w-full flex items-center border-b py-1.5 px-6 h-10">
          <div className="flex items-center gap-3">
             <SidebarTrigger className="" />
             <IssueViewTabs />
          </div>
 
-         <div className="flex items-center gap-2">
+         <div className="mx-4 hidden flex-1 justify-center md:flex">
+            <button
+               type="button"
+               onClick={() => openCommand(true)}
+               className="flex h-7 w-full max-w-md items-center gap-2 rounded-full border bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70"
+               aria-label="Search"
+            >
+               <SearchIcon className="size-3.5 shrink-0" />
+               <span className="flex-1 text-left">Search anything…</span>
+               <kbd className="rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium tracking-wide">
+                  ⌘K
+               </kbd>
+            </button>
+         </div>
+
+         <div className="ml-auto flex items-center gap-2">
             {isSearchOpen ? (
                <div
                   ref={searchContainerRef}
