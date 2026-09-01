@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
+import { Comments } from '@/components/common/comments';
 
 /**
  * Issue detail page: rich description, sub-issues, activity feed and a
@@ -74,6 +75,12 @@ export default function IssueDetails() {
                      </div>
                   </div>
                )}
+
+               <Comments
+                  listUrl={`/api/ops/comments?kind=issue&id=${issue.id}`}
+                  postUrl="/api/ops/comments"
+                  extra={{ kind: 'issue', id: issue.id }}
+               />
             </div>
          </div>
 
