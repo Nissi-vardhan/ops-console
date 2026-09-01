@@ -7,6 +7,7 @@ import { NavOps } from '@/components/layout/sidebar/nav-ops';
 import { NavSettings } from '@/components/layout/sidebar/nav-settings';
 import { BackToApp } from '@/components/layout/sidebar/back-to-app';
 import { SidebarUser } from '@/components/layout/sidebar/sidebar-user';
+import { ThemeToggleButton } from '@/components/layout/theme-toggle-button';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
 import { CastleMark, Crenellation } from '@/components/brand/castle-mark';
 
@@ -27,6 +28,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
                            O-O
                         </span>
+                     </div>
+                     <div className="ml-auto">
+                        <ThemeToggleButton />
                      </div>
                   </div>
                   <Crenellation className="mt-2" />

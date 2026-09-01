@@ -2,12 +2,11 @@
 
 import { Search } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { ThemeToggleButton } from '@/components/layout/theme-toggle-button';
 import { useCommandStore } from '@/store/command-store';
 
 /**
- * App top bar: sidebar toggle + page title on the left, a centred search that
- * opens the ⌘K command palette, and the theme toggle on the right.
+ * App top bar: sidebar toggle + page title on the left and a centred search
+ * that opens the ⌘K command palette. (Theme toggle lives in the sidebar.)
  */
 export function TopHeader({ title }: { title?: string }) {
    const setOpen = useCommandStore((s) => s.setOpen);
@@ -27,7 +26,6 @@ export function TopHeader({ title }: { title?: string }) {
                ⌘K
             </kbd>
          </button>
-         <ThemeToggleButton />
       </div>
    );
 }
