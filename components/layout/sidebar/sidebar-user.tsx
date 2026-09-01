@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
+import { ThemeToggleButton } from '@/components/layout/theme-toggle-button';
 
 function signOut() {
    fetch('/api/auth', {
@@ -35,14 +36,17 @@ export function SidebarUser() {
             <p className="truncate text-sm font-medium">{name}</p>
             <p className="truncate text-[11px] text-muted-foreground">{me?.email || 'signed in'}</p>
          </div>
-         <button
-            onClick={signOut}
-            title="Sign out"
-            aria-label="Sign out"
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-         >
-            <LogOut className="size-4" />
-         </button>
+         <div className="flex shrink-0 items-center gap-0.5">
+            <ThemeToggleButton />
+            <button
+               onClick={signOut}
+               title="Sign out"
+               aria-label="Sign out"
+               className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            >
+               <LogOut className="size-4" />
+            </button>
+         </div>
       </div>
    );
 }
