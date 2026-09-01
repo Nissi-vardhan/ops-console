@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, useReducedMotion, type Variants } from 'motion/react';
 import { CastleMark, Crenellation } from '@/components/brand/castle-mark';
+import { easeOut } from '@/components/motion';
 
 export default function OpsLogin() {
    const [email, setEmail] = useState('');
@@ -26,6 +28,25 @@ export default function OpsLogin() {
       setErr(d.error || "That email and password didn't match. Try again.");
       setBusy(false);
    };
+
+   const reduce = useReducedMotion();
+   const rise: Variants | undefined = reduce
+      ? undefined
+      : {
+           hidden: { opacity: 0, y: 14 },
+           show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeOut } },
+        };
+   const mark: Variants | undefined = reduce
+      ? undefined
+      : {
+           hidden: { opacity: 0, scale: 0.6, y: -6 },
+           show: {
+              opacity: 1,
+              scale: 1,
+              y: 0,
+              transition: { type: 'spring', stiffness: 260, damping: 18 },
+           },
+        };
 
    return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 text-foreground">
@@ -52,16 +73,36 @@ export default function OpsLogin() {
             }}
          />
 
-         <div className="relative w-full max-w-sm">
+         <motion.div
+            className="relative w-full max-w-sm"
+            variants={
+               reduce
+                  ? undefined
+                  : {
+                       hidden: {},
+                       show: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
+                    }
+            }
+            initial={reduce ? false : 'hidden'}
+            animate={reduce ? undefined : 'show'}
+         >
             <div className="mb-7 flex flex-col items-center text-center">
-               <CastleMark className="mb-4 size-14 rounded-xl shadow-sm" />
-               <h1 className="text-2xl font-semibold tracking-tight">Shortcastle Ops</h1>
-               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+               <motion.div variants={mark}>
+                  <CastleMark className="mb-4 size-14 rounded-xl shadow-sm" />
+               </motion.div>
+               <motion.h1 variants={rise} className="text-2xl font-semibold tracking-tight">
+                  Shortcastle Ops
+               </motion.h1>
+               <motion.p
+                  variants={rise}
+                  className="mt-2 font-mono text-[11px] uppercase tracking-[0.28em] text-muted-foreground"
+               >
                   O-O · operations console
-               </p>
+               </motion.p>
             </div>
 
-            <form
+            <motion.form
+               variants={rise}
                onSubmit={submit}
                className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-sm"
             >
@@ -102,8 +143,8 @@ export default function OpsLogin() {
                <p className="pt-1 text-center text-[11px] text-muted-foreground">
                   For Shortcastle ops accounts. Access is managed in the tracker&apos;s Members tab.
                </p>
-            </form>
-         </div>
+            </motion.form>
+         </motion.div>
       </div>
    );
 }
