@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/brand/empty-state';
+import { PageHeader } from '@/components/common/page-header';
 import { Box, Plus, CircleDot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -65,17 +66,16 @@ export function ProjectsView() {
 
    return (
       <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
-         <div className="flex items-center justify-between">
-            <div>
-               <h1 className="text-lg font-semibold">Projects</h1>
-               <p className="text-sm text-muted-foreground">
-                  Group your ops work into initiatives.
-               </p>
-            </div>
-            <Button size="sm" onClick={() => setAdding(true)}>
-               <Plus className="mr-1 size-4" /> New project
-            </Button>
-         </div>
+         <PageHeader
+            icon={Box}
+            title="Projects"
+            subtitle="Group your ops work into initiatives."
+            actions={
+               <Button size="sm" onClick={() => setAdding(true)}>
+                  <Plus className="mr-1 size-4" /> New project
+               </Button>
+            }
+         />
 
          {/* Summary strip */}
          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

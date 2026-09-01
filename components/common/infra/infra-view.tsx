@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/brand/empty-state';
+import { PageHeader } from '@/components/common/page-header';
 
 interface Svc {
    id: string;
@@ -126,10 +127,11 @@ export function InfraView() {
 
    return (
       <div className="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-6">
-         <div className="flex items-center justify-between">
-            <div>
-               <h1 className="text-lg font-semibold">Infra & tokens</h1>
-               <p className="text-sm text-muted-foreground">
+         <PageHeader
+            icon={Server}
+            title="Infra & tokens"
+            subtitle={
+               <>
                   {summary.total} tracked
                   {summary.overdue > 0 && (
                      <span className="text-red-500"> · {summary.overdue} overdue</span>
@@ -137,12 +139,14 @@ export function InfraView() {
                   {summary.soon > 0 && (
                      <span className="text-amber-500"> · {summary.soon} due soon</span>
                   )}
-               </p>
-            </div>
-            <Button size="sm" onClick={() => setEditing('new')}>
-               <Plus className="mr-1 size-4" /> Add
-            </Button>
-         </div>
+               </>
+            }
+            actions={
+               <Button size="sm" onClick={() => setEditing('new')}>
+                  <Plus className="mr-1 size-4" /> Add
+               </Button>
+            }
+         />
 
          {grouped.map(([kind, list]) => {
             const Icon = KIND_ICON[kind] ?? Wrench;

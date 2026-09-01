@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Search, FileText, CircleDot, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/brand/empty-state';
+import { PageHeader } from '@/components/common/page-header';
 
 interface Hit {
    kind: 'doc' | 'issue';
@@ -80,15 +81,11 @@ export function KnowledgeView() {
 
    return (
       <div className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
-         <div>
-            <h1 className="flex items-center gap-2 text-lg font-semibold">
-               <Sparkles className="size-5 text-primary" /> Knowledge
-            </h1>
-            <p className="text-sm text-muted-foreground">
-               Search everything past sessions have built — docs, decisions, and task notes. Check
-               here before rebuilding.
-            </p>
-         </div>
+         <PageHeader
+            icon={Sparkles}
+            title="Knowledge"
+            subtitle="Search everything past sessions have built — docs, decisions, and task notes. Check here before rebuilding."
+         />
 
          <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

@@ -109,7 +109,7 @@ export function IssueGrid({ issue }: IssueGridProps) {
          <ContextMenuTrigger asChild>
             <motion.div
                ref={ref}
-               className="w-full cursor-default rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-colors hover:border-border"
+               className="w-full cursor-default rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
                layoutId={`issue-grid-${issue.identifier}`}
                whileHover={{ y: -2 }}
                transition={{ type: 'spring', stiffness: 300, damping: 24 }}
@@ -134,14 +134,21 @@ export function IssueGrid({ issue }: IssueGridProps) {
                   )}
                </div>
                <Link href={`/${orgId ?? 'shortcastle'}/issue/${issue.identifier}`}>
-                  <h3 className="text-sm font-semibold mb-3 line-clamp-2">{issue.title}</h3>
+                  <h3 className="mb-2.5 line-clamp-2 text-sm font-semibold leading-snug">
+                     {issue.title}
+                  </h3>
                </Link>
-               <div className="flex flex-wrap gap-1.5 mb-3 min-h-[1.5rem]">
-                  {displayProperties.labels && <LabelBadge label={issue.labels} />}
-                  {displayProperties.project && issue.project && (
-                     <ProjectBadge project={issue.project} />
-                  )}
-               </div>
+               {((displayProperties.labels && issue.labels.length > 0) ||
+                  (displayProperties.project && issue.project)) && (
+                  <div className="mb-2.5 flex flex-wrap gap-1.5">
+                     {displayProperties.labels && issue.labels.length > 0 && (
+                        <LabelBadge label={issue.labels} />
+                     )}
+                     {displayProperties.project && issue.project && (
+                        <ProjectBadge project={issue.project} />
+                     )}
+                  </div>
+               )}
                <div className="flex items-center justify-between mt-auto pt-2">
                   {displayProperties.created ? (
                      <span className="text-xs text-muted-foreground">

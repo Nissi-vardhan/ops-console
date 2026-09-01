@@ -29,6 +29,8 @@ import {
    type LucideIcon,
 } from 'lucide-react';
 import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/common/page-header';
 
 interface WF {
    id: string;
@@ -368,16 +370,11 @@ export function WorkflowsView() {
 
    return (
       <div className="mx-auto w-full max-w-[1400px] space-y-4 p-4 sm:p-6">
-         <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-               <h1 className="flex items-center gap-2 text-lg font-semibold">
-                  <WorkflowIcon className="size-5 text-primary" /> Workflows
-               </h1>
-               <p className="text-sm text-muted-foreground">
-                  {loading ? 'Loading…' : `${wfs.length} n8n workflows · ${activeCount} active`}
-               </p>
-            </div>
-         </div>
+         <PageHeader
+            icon={WorkflowIcon}
+            title="Workflows"
+            subtitle={loading ? 'Loading…' : `${wfs.length} n8n workflows · ${activeCount} active`}
+         />
 
          {!configured && (
             <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
@@ -436,6 +433,35 @@ export function WorkflowsView() {
                   </tr>
                </thead>
                <tbody>
+                  {loading &&
+                     Array.from({ length: 8 }).map((_, i) => (
+                        <tr key={`sk-${i}`} className="border-b border-border/60">
+                           <td className="px-4 py-3">
+                              <Skeleton className="h-4 w-44" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="h-4 w-14 rounded-full" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="h-4 w-16" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="h-4 w-20" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="ml-auto h-4 w-6" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="h-4 w-12" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="h-4 w-12" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="size-4" />
+                           </td>
+                        </tr>
+                     ))}
                   {rows.map((w) => {
                      const TI = TRIGGER_ICON[w.trigger] ?? Circle;
                      return (

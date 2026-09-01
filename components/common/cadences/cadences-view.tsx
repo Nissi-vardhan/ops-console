@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/brand/empty-state';
+import { PageHeader } from '@/components/common/page-header';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -244,17 +245,16 @@ export function CadencesView() {
 
    return (
       <div className="w-full space-y-5 p-4 sm:p-6">
-         <div className="flex items-center justify-between">
-            <div>
-               <h1 className="text-lg font-semibold">Cadences</h1>
-               <p className="text-sm text-muted-foreground">
-                  Multi-touch email + WhatsApp sequences, tracked as first-class flows.
-               </p>
-            </div>
-            <Button size="sm" onClick={() => setEditing('new')}>
-               <Plus className="mr-1 size-4" /> New cadence
-            </Button>
-         </div>
+         <PageHeader
+            icon={Radio}
+            title="Cadences"
+            subtitle="Multi-touch email + WhatsApp sequences, tracked as first-class flows."
+            actions={
+               <Button size="sm" onClick={() => setEditing('new')}>
+                  <Plus className="mr-1 size-4" /> New cadence
+               </Button>
+            }
+         />
 
          <div className="grid grid-cols-3 gap-3 sm:max-w-md">
             {[

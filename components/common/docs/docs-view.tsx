@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DocMarkdown, outline } from './doc-render';
 import { ShareDialog } from './share-dialog';
 import { Comments } from '@/components/common/comments';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Doc {
    id: string;
@@ -187,6 +188,12 @@ export function DocsView() {
                </div>
             </div>
             <div className="flex-1 overflow-y-auto pb-4">
+               {loading &&
+                  Array.from({ length: 7 }).map((_, i) => (
+                     <div key={`sk-${i}`} className="px-3 py-1.5">
+                        <Skeleton className="h-4" style={{ width: `${60 + ((i * 13) % 35)}%` }} />
+                     </div>
+                  ))}
                {grouped.map(([cat, list]) => (
                   <div key={cat} className="mb-1">
                      <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
