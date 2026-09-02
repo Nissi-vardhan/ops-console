@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
 import { JourneyPanel } from './journey-panel';
+import { TaskSessions } from './task-sessions';
 import { Comments } from '@/components/common/comments';
 
 /**
@@ -79,6 +80,8 @@ export default function IssueDetails() {
                      </div>
                   </div>
                )}
+
+               <TaskSessions identifier={issue.identifier} />
 
                <Comments
                   listUrl={`/api/ops/comments?kind=issue&id=${issue.id}`}
