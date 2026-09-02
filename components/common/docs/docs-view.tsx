@@ -5,6 +5,7 @@ import { FileText, Hash, Pencil, Pin, Plus, Save, Search, Share2, Trash2, X } fr
 import { Button } from '@/components/ui/button';
 import { DocMarkdown, outline } from './doc-render';
 import { ShareDialog } from './share-dialog';
+import { DocReview } from './doc-review';
 import { Comments } from '@/components/common/comments';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -14,6 +15,7 @@ interface Doc {
    body: string;
    category: string;
    pinned: boolean;
+   review_stage?: string | null;
    updated_at: string;
 }
 
@@ -218,6 +220,24 @@ export function DocsView() {
                               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                            )}
                            <span className="truncate">{d.title}</span>
+                           {d.review_stage && (
+                              <span
+                                 title={
+                                    d.review_stage === 'approved'
+                                       ? 'Approved'
+                                       : d.review_stage === 'changes'
+                                         ? 'Changes requested'
+                                         : 'In review'
+                                 }
+                                 className={`ml-auto size-2 shrink-0 rounded-full ${
+                                    d.review_stage === 'approved'
+                                       ? 'bg-emerald-500'
+                                       : d.review_stage === 'changes'
+                                         ? 'bg-red-500'
+                                         : 'bg-amber-500'
+                                 }`}
+                              />
+                           )}
                         </button>
                      ))}
                   </div>
@@ -320,6 +340,10 @@ export function DocsView() {
                                  </Button>
                               </div>
                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                           <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
                         </div>
 
                         {selected.body.trim() ? (

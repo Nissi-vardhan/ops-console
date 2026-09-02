@@ -198,6 +198,21 @@ CREATE INDEX IF NOT EXISTS idx_ops_task_steps_issue ON ops_task_steps(issue_id, 
 -- Denormalised board pointer: the earliest phase with an incomplete step (or
 -- 'done' when all steps are complete, NULL when a task has no journey yet).
 ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS current_phase text;
+
+-- Doc review workflow: one stage per doc (review | changes | approved), set by
+-- reviewers (on the shared link) or the owner. ops_doc_reviews is the history —
+-- every stage change, with the "request changes" note, attributed by name/email.
+CREATE TABLE IF NOT EXISTS ops_doc_reviews (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  doc_id       uuid NOT NULL REFERENCES ops_docs(id) ON DELETE CASCADE,
+  stage        text NOT NULL,                 -- review | changes | approved
+  note         text NOT NULL DEFAULT '',
+  author_name  text NOT NULL DEFAULT '',
+  author_email text NOT NULL DEFAULT '',
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_doc_reviews_doc ON ops_doc_reviews(doc_id, created_at);
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS review_stage text;
 `;
 
 let migrated = false;

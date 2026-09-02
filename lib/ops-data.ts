@@ -338,6 +338,7 @@ export interface OpsDoc {
    body: string;
    category: string;
    pinned: boolean;
+   review_stage?: string | null;
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -345,16 +346,69 @@ export interface OpsDoc {
 
 export async function listOpsDocs(): Promise<OpsDoc[]> {
    return query<OpsDoc>(
-      `SELECT id, title, body, category, pinned, created_by, created_at, updated_at
+      `SELECT id, title, body, category, pinned, review_stage, created_by, created_at, updated_at
      FROM ops_docs ORDER BY pinned DESC, updated_at DESC`
    );
 }
 
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
-      `SELECT id, title, body, category, pinned, created_by, created_at, updated_at FROM ops_docs WHERE id = $1`,
+      `SELECT id, title, body, category, pinned, review_stage, created_by, created_at, updated_at FROM ops_docs WHERE id = $1`,
       [id]
    );
+}
+
+/* -------- Doc review workflow (one stage per doc + attributed history) -------- */
+export const REVIEW_STAGES = ['review', 'changes', 'approved'] as const;
+export type ReviewStage = (typeof REVIEW_STAGES)[number];
+
+export function normReviewStage(s: unknown): ReviewStage | null {
+   const v = String(s ?? '').toLowerCase();
+   return (REVIEW_STAGES as readonly string[]).includes(v) ? (v as ReviewStage) : null;
+}
+
+export interface DocReview {
+   id: string;
+   doc_id: string;
+   stage: string;
+   note: string;
+   author_name: string;
+   author_email: string;
+   created_at: string;
+}
+const REVIEW_COLS = 'id, doc_id::text, stage, note, author_name, author_email, created_at';
+
+export async function listDocReviews(docId: string): Promise<DocReview[]> {
+   return query<DocReview>(
+      `SELECT ${REVIEW_COLS} FROM ops_doc_reviews WHERE doc_id = $1 ORDER BY created_at DESC`,
+      [docId]
+   );
+}
+
+// Set a doc's stage and record the change (with an optional note). Returns null
+// for an unknown stage so the route can 400.
+export async function setDocReview(
+   docId: string,
+   input: { stage: unknown; note?: string; author_name?: string; author_email?: string }
+): Promise<{ doc: OpsDoc | null; review: DocReview } | null> {
+   const stage = normReviewStage(input.stage);
+   if (!stage) return null;
+   const rows = await query<DocReview>(
+      `INSERT INTO ops_doc_reviews (doc_id, stage, note, author_name, author_email)
+     VALUES ($1,$2,$3,$4,$5) RETURNING ${REVIEW_COLS}`,
+      [
+         docId,
+         stage,
+         (input.note ?? '').slice(0, 4000),
+         input.author_name ?? '',
+         input.author_email ?? '',
+      ]
+   );
+   await query('UPDATE ops_docs SET review_stage = $1, updated_at = now() WHERE id = $2', [
+      stage,
+      docId,
+   ]);
+   return { doc: await getOpsDoc(docId), review: rows[0] };
 }
 
 export async function createOpsDoc(input: {

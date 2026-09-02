@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { DocMarkdown } from '@/components/common/docs/doc-render';
+import { DocReview } from '@/components/common/docs/doc-review';
 import { Comments } from '@/components/common/comments';
 import { CastleMark } from '@/components/brand/castle-mark';
 
@@ -147,6 +148,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                      year: 'numeric',
                   })}
                </p>
+               <div className="pt-5">
+                  <DocReview baseUrl={`/api/share/${token}/review`} />
+               </div>
                <div className="pt-5">
                   <DocMarkdown
                      body={st.doc.body}
