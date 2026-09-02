@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DocMarkdown, outline } from './doc-render';
 import { ShareDialog } from './share-dialog';
 import { DocReview } from './doc-review';
+import { DocDetails } from './doc-details';
 import { Comments } from '@/components/common/comments';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -16,6 +17,8 @@ interface Doc {
    category: string;
    pinned: boolean;
    review_stage?: string | null;
+   created_at?: string;
+   created_by?: string | null;
    updated_at: string;
 }
 
@@ -357,6 +360,7 @@ export function DocsView() {
                   </article>
 
                   <aside className="sticky top-0 hidden max-h-[calc(100vh-1rem)] w-80 shrink-0 space-y-5 self-start overflow-y-auto pt-1 lg:block">
+                     <DocDetails doc={selected} readMins={readMins} />
                      <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
                      {toc.length > 0 && (
                         <div>
