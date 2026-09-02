@@ -11,6 +11,7 @@ import { hydrateProject, type RawProject } from '@/lib/ops-hydrate';
 import { Issue } from '@/mock-data/issues';
 import { status as STATUSES } from '@/mock-data/status';
 import { useEscape } from '@/components/common/use-escape';
+import { Stagger, Item } from '@/components/motion';
 import {
    Select,
    SelectContent,
@@ -112,12 +113,13 @@ export function ProjectsView() {
             </div>
          )}
 
-         <div className="grid gap-4 md:grid-cols-2">
+         <Stagger className="grid gap-4 md:grid-cols-2">
             {rows.map(({ p, mine, inProgress, todo, done, pct, owners }) => {
                const st = STATUSES.find((s) => s.id === p.status.id) ?? p.status;
                return (
-                  <div
+                  <Item
                      key={p.id}
+                     hover
                      className="rounded-xl border bg-container p-4 transition-colors hover:border-primary/50"
                   >
                      <div className="flex items-start justify-between gap-2">
@@ -208,10 +210,10 @@ export function ProjectsView() {
                            ))}
                         </div>
                      </div>
-                  </div>
+                  </Item>
                );
             })}
-         </div>
+         </Stagger>
 
          {adding && (
             <NewProject

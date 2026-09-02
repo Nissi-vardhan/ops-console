@@ -21,6 +21,7 @@ import {
    XAxis,
 } from 'recharts';
 import { Stagger, Item, CountUp, Bar } from '@/components/motion';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
 
 const RTIP = {
@@ -170,7 +171,13 @@ function PendingPanel() {
             </p>
             {openBlockers > 0 && <Delta tone="down">{openBlockers} open</Delta>}
          </div>
-         {!loaded && <p className="text-xs text-muted-foreground">Loading…</p>}
+         {!loaded && (
+            <div className="space-y-2">
+               <Skeleton className="h-3 w-3/4" />
+               <Skeleton className="h-3 w-1/2" />
+               <Skeleton className="h-3 w-2/3" />
+            </div>
+         )}
          <div className="grid gap-4 md:grid-cols-2">
             {blockers.length > 0 && (
                <div className="space-y-1.5">
