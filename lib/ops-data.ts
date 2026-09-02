@@ -391,7 +391,10 @@ export async function setDocReview(
    docId: string,
    input: { stage: unknown; note?: string; author_name?: string; author_email?: string }
 ): Promise<{ doc: OpsDoc | null; review: DocReview } | null> {
-   const stage = normReviewStage(input.stage);
+   // 'note' is an append-only addendum: it's recorded in the history but does NOT
+   // change the doc's current stage. Any other value must be a real stage.
+   const isNote = String(input.stage ?? '').toLowerCase() === 'note';
+   const stage = isNote ? 'note' : normReviewStage(input.stage);
    if (!stage) return null;
    const rows = await query<DocReview>(
       `INSERT INTO ops_doc_reviews (doc_id, stage, note, author_name, author_email)
@@ -404,6 +407,7 @@ export async function setDocReview(
          input.author_email ?? '',
       ]
    );
+   if (isNote) return { doc: await getOpsDoc(docId), review: rows[0] };
    await query('UPDATE ops_docs SET review_stage = $1, updated_at = now() WHERE id = $2', [
       stage,
       docId,

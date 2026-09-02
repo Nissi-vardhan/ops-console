@@ -342,10 +342,6 @@ export function DocsView() {
                            </div>
                         </div>
 
-                        <div className="mb-6">
-                           <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
-                        </div>
-
                         {selected.body.trim() ? (
                            <DocMarkdown body={selected.body} />
                         ) : (
@@ -366,30 +362,33 @@ export function DocsView() {
                      </div>
                   </article>
 
-                  {toc.length > 0 && (
-                     <aside className="sticky top-0 hidden h-max w-52 shrink-0 pt-1 xl:block">
-                        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                           <Hash className="size-3" /> On this page
-                        </p>
-                        <nav className="border-l border-border">
-                           {toc.map((h) => (
-                              <button
-                                 key={h.id}
-                                 onClick={() => jumpTo(h.id)}
-                                 className={`-ml-px block w-full border-l py-1 text-left text-xs leading-snug transition-colors ${
-                                    h.level === 3 ? 'pl-6' : 'pl-3'
-                                 } ${
-                                    activeH === h.id
-                                       ? 'border-primary font-medium text-foreground'
-                                       : 'border-transparent text-muted-foreground hover:text-foreground'
-                                 }`}
-                              >
-                                 {h.text}
-                              </button>
-                           ))}
-                        </nav>
-                     </aside>
-                  )}
+                  <aside className="sticky top-0 hidden h-max w-64 shrink-0 space-y-5 pt-1 lg:block">
+                     <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
+                     {toc.length > 0 && (
+                        <div>
+                           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              <Hash className="size-3" /> On this page
+                           </p>
+                           <nav className="border-l border-border">
+                              {toc.map((h) => (
+                                 <button
+                                    key={h.id}
+                                    onClick={() => jumpTo(h.id)}
+                                    className={`-ml-px block w-full border-l py-1 text-left text-xs leading-snug transition-colors ${
+                                       h.level === 3 ? 'pl-6' : 'pl-3'
+                                    } ${
+                                       activeH === h.id
+                                          ? 'border-primary font-medium text-foreground'
+                                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                                    }`}
+                                 >
+                                    {h.text}
+                                 </button>
+                              ))}
+                           </nav>
+                        </div>
+                     )}
+                  </aside>
                </div>
             ) : (
                <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
