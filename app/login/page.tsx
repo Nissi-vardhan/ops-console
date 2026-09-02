@@ -1,15 +1,86 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, useReducedMotion, type Variants } from 'motion/react';
 import { CastleMark, Crenellation } from '@/components/brand/castle-mark';
 import { easeOut } from '@/components/motion';
+
+interface GsiId {
+   initialize: (o: { client_id: string; callback: (r: { credential: string }) => void }) => void;
+   renderButton: (el: HTMLElement, opts: Record<string, string>) => void;
+}
+declare global {
+   interface Window {
+      google?: { accounts?: { id?: GsiId } };
+   }
+}
 
 export default function OpsLogin() {
    const [email, setEmail] = useState('');
    const [password, setPassword] = useState('');
    const [busy, setBusy] = useState(false);
    const [err, setErr] = useState<string | null>(null);
+   const [clientId, setClientId] = useState<string | null>(null);
+   const [gmsg, setGmsg] = useState<string | null>(null);
+   const gbtn = useRef<HTMLDivElement>(null);
+
+   // Ask the server whether Google sign-in is available (and for the client id).
+   useEffect(() => {
+      fetch('/api/auth/google', { cache: 'no-store' })
+         .then((r) => (r.ok ? r.json() : null))
+         .then((d) => setClientId(d?.clientId ?? null))
+         .catch(() => setClientId(null));
+   }, []);
+
+   // Boot the Google Identity Services button once we have a client id.
+   useEffect(() => {
+      if (!clientId) return;
+      let cancelled = false;
+
+      const onCredential = async (resp: { credential: string }) => {
+         setGmsg('Verifying…');
+         const r = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: resp.credential }),
+         });
+         if (r.ok) {
+            window.location.href = '/';
+            return;
+         }
+         const d = await r.json().catch(() => ({}));
+         setGmsg(d.error || "That account can't access ops.");
+      };
+
+      const init = () => {
+         const id = window.google?.accounts?.id;
+         if (!id || cancelled) return;
+         id.initialize({ client_id: clientId, callback: onCredential });
+         if (gbtn.current) {
+            id.renderButton(gbtn.current, {
+               theme: 'filled_black',
+               size: 'large',
+               shape: 'pill',
+               text: 'continue_with',
+               width: '288',
+            });
+         }
+      };
+
+      if (window.google?.accounts?.id) {
+         init();
+      } else {
+         const s = document.createElement('script');
+         s.src = 'https://accounts.google.com/gsi/client';
+         s.async = true;
+         s.defer = true;
+         s.onload = init;
+         document.head.appendChild(s);
+      }
+      return () => {
+         cancelled = true;
+      };
+   }, [clientId]);
 
    const submit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -139,6 +210,21 @@ export default function OpsLogin() {
                >
                   {busy ? 'Signing in…' : 'Sign in'}
                </button>
+
+               {clientId && (
+                  <>
+                     <div className="flex items-center gap-3 pt-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <span className="h-px flex-1 bg-border" />
+                        or
+                        <span className="h-px flex-1 bg-border" />
+                     </div>
+                     <div className="flex flex-col items-center gap-1.5">
+                        <div ref={gbtn} className="flex justify-center" />
+                        {gmsg && <p className="text-xs text-destructive">{gmsg}</p>}
+                     </div>
+                  </>
+               )}
+
                <Crenellation className="!mt-5" />
                <p className="pt-1 text-center text-[11px] text-muted-foreground">
                   For Shortcastle ops accounts. Access is managed in the tracker&apos;s Members tab.
