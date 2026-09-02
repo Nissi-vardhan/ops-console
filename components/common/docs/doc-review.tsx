@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, MessageSquareWarning, Eye, Clock } from 'lucide-react';
+import { Check, MessageSquareWarning, Eye, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface Review {
    id: string;
@@ -47,6 +47,7 @@ export function DocReview({ baseUrl }: { baseUrl: string }) {
    const [loaded, setLoaded] = useState(false);
    const [note, setNote] = useState('');
    const [asking, setAsking] = useState(false); // showing the change-notes box
+   const [showHist, setShowHist] = useState(false); // history collapsed by default
    const [busy, setBusy] = useState(false);
 
    const load = useCallback(async () => {
@@ -170,7 +171,21 @@ export function DocReview({ baseUrl }: { baseUrl: string }) {
          )}
 
          {loaded && reviews.length > 0 && (
-            <ol className="mt-3 space-y-2 border-t pt-3">
+            <button
+               onClick={() => setShowHist((v) => !v)}
+               className="mt-2.5 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+               {showHist ? (
+                  <ChevronDown className="size-3.5" />
+               ) : (
+                  <ChevronRight className="size-3.5" />
+               )}
+               History ({reviews.length})
+            </button>
+         )}
+
+         {loaded && showHist && reviews.length > 0 && (
+            <ol className="mt-2 space-y-2 border-t pt-3">
                {reviews.map((r) => {
                   const meta = r.stage in STAGE ? STAGE[r.stage as StageKey] : null;
                   return (
