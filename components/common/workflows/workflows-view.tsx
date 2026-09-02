@@ -103,9 +103,9 @@ interface Detail {
    connections: Record<string, { main?: { node: string }[][] }>;
 }
 
-const NW = 190;
-const NH = 56;
-const PAD = 60;
+const NW = 212;
+const NH = 62;
+const PAD = 72;
 const shortType = (t: string) => t.split('.').pop() || t;
 
 function nodeStyle(type: string): { Icon: LucideIcon; color: string } {
@@ -170,6 +170,26 @@ function FlowCanvas({ detail }: { detail: Detail }) {
       return () => ro.disconnect();
    }, [pos.w, pos.h]);
 
+   // Wheel-zoom toward the cursor (native listener so we can preventDefault).
+   useEffect(() => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const onWheel = (e: WheelEvent) => {
+         e.preventDefault();
+         const rect = el.getBoundingClientRect();
+         const px = e.clientX - rect.left;
+         const py = e.clientY - rect.top;
+         setView((v) => {
+            const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+            const z = Math.max(0.15, Math.min(2, v.z * factor));
+            const k = z / v.z;
+            return { ...v, z, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
+         });
+      };
+      el.addEventListener('wheel', onWheel, { passive: false });
+      return () => el.removeEventListener('wheel', onWheel);
+   }, []);
+
    const nx = (name: string) => (pos.m[name]?.x ?? 0) - pos.minX + PAD;
    const ny = (name: string) => (pos.m[name]?.y ?? 0) - pos.minY + PAD;
 
@@ -211,7 +231,13 @@ function FlowCanvas({ detail }: { detail: Detail }) {
          onMouseMove={onMove}
          onMouseUp={onUp}
          onMouseLeave={onUp}
-         className="relative h-full w-full cursor-grab overflow-hidden rounded-lg border bg-muted/20 active:cursor-grabbing"
+         className="relative h-full w-full cursor-grab overflow-hidden rounded-xl border bg-background active:cursor-grabbing"
+         style={{
+            backgroundImage:
+               'radial-gradient(circle, color-mix(in oklab, var(--muted-foreground) 35%, transparent) 1px, transparent 1.4px)',
+            backgroundSize: `${22 * view.z}px ${22 * view.z}px`,
+            backgroundPosition: `${view.x}px ${view.y}px`,
+         }}
       >
          <div
             style={{
@@ -222,17 +248,21 @@ function FlowCanvas({ detail }: { detail: Detail }) {
             }}
             className="absolute left-0 top-0"
          >
-            <svg width={pos.w} height={pos.h} className="pointer-events-none absolute inset-0">
+            <svg
+               width={pos.w}
+               height={pos.h}
+               className="pointer-events-none absolute inset-0 overflow-visible"
+            >
                <defs>
                   <marker
                      id="wf-arrow"
-                     markerWidth="8"
-                     markerHeight="8"
-                     refX="6.5"
+                     markerWidth="9"
+                     markerHeight="9"
+                     refX="6"
                      refY="3"
                      orient="auto"
                   >
-                     <path d="M0,0 L7,3 L0,6 Z" fill="var(--muted-foreground)" opacity="0.5" />
+                     <path d="M0,0 L7,3 L0,6 Z" fill="var(--muted-foreground)" opacity="0.65" />
                   </marker>
                </defs>
                {edges.map((e) => (
@@ -241,8 +271,9 @@ function FlowCanvas({ detail }: { detail: Detail }) {
                      d={e.d}
                      fill="none"
                      stroke="var(--muted-foreground)"
-                     strokeOpacity={0.45}
-                     strokeWidth={2}
+                     strokeOpacity={0.55}
+                     strokeWidth={1.75}
+                     strokeLinecap="round"
                      markerEnd="url(#wf-arrow)"
                   />
                ))}
@@ -252,27 +283,36 @@ function FlowCanvas({ detail }: { detail: Detail }) {
                return (
                   <div
                      key={n.name}
-                     className={`absolute flex items-center gap-2 rounded-lg border bg-card px-2.5 py-2 shadow-sm ${n.disabled ? 'opacity-40' : ''}`}
-                     style={{
-                        left: nx(n.name),
-                        top: ny(n.name),
-                        width: NW,
-                        height: NH,
-                        borderLeft: `3px solid ${color}`,
-                     }}
+                     className={`group absolute flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 shadow-sm transition-colors hover:border-primary/50 hover:shadow-md ${
+                        n.disabled ? 'opacity-40' : ''
+                     }`}
+                     style={{ left: nx(n.name), top: ny(n.name), width: NW, height: NH }}
                      title={n.type}
                   >
+                     {/* input / output handles */}
                      <span
-                        className="flex size-6 shrink-0 items-center justify-center rounded-md"
-                        style={{ background: `${color}22`, color }}
+                        className="absolute -left-[5px] top-1/2 size-2.5 -translate-y-1/2 rounded-full border-2 border-background"
+                        style={{ background: color }}
+                     />
+                     <span
+                        className="absolute -right-[5px] top-1/2 size-2.5 -translate-y-1/2 rounded-full border-2 border-background"
+                        style={{ background: color }}
+                     />
+                     <span
+                        className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+                        style={{
+                           background: `color-mix(in oklab, ${color} 16%, transparent)`,
+                           color,
+                           boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} 38%, transparent)`,
+                        }}
                      >
-                        <Icon className="size-3.5" />
+                        <Icon className="size-4" />
                      </span>
                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-medium leading-tight">
+                        <span className="block truncate text-[12.5px] font-semibold leading-tight">
                            {n.name}
                         </span>
-                        <span className="block truncate text-[10px] text-muted-foreground">
+                        <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
                            {shortType(n.type)}
                         </span>
                      </span>
