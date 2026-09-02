@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listDocReviews, setDocReview, getOpsDoc } from '@/lib/ops-data';
+import { listDocReviews, setDocReview, getOpsDoc, clearDocReview } from '@/lib/ops-data';
 import { opsAuthorized } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 
@@ -28,4 +28,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
    });
    if (!res) return NextResponse.json({ error: 'Unknown stage' }, { status: 400 });
    return NextResponse.json({ stage: res.doc?.review_stage ?? null, review: res.review });
+}
+
+// DELETE /api/ops/docs/:id/review — reset the doc's review (clear stage + history).
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+   if (!(await opsAuthorized(request)))
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const cleared = await clearDocReview((await params).id);
+   return NextResponse.json({ ok: true, cleared });
 }

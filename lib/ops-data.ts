@@ -385,6 +385,18 @@ export async function listDocReviews(docId: string): Promise<DocReview[]> {
    );
 }
 
+// Reset a doc's review: wipe its history and clear the current stage.
+export async function clearDocReview(docId: string): Promise<number> {
+   const rows = await query<{ id: string }>(
+      'DELETE FROM ops_doc_reviews WHERE doc_id = $1 RETURNING id',
+      [docId]
+   );
+   await query('UPDATE ops_docs SET review_stage = NULL, updated_at = now() WHERE id = $1', [
+      docId,
+   ]);
+   return rows.length;
+}
+
 // Set a doc's stage and record the change (with an optional note). Returns null
 // for an unknown stage so the route can 400.
 export async function setDocReview(
