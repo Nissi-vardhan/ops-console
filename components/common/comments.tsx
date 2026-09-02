@@ -18,10 +18,13 @@ export function Comments({
    listUrl,
    postUrl,
    extra,
+   compact,
 }: {
    listUrl: string;
    postUrl?: string;
    extra?: Record<string, unknown>;
+   /** Tight spacing for a sidebar/rail (drops the large top separator). */
+   compact?: boolean;
 }) {
    const [items, setItems] = useState<Comment[]>([]);
    const [text, setText] = useState('');
@@ -71,7 +74,7 @@ export function Comments({
    const initials = (n: string) => (n || '?').slice(0, 2).toUpperCase();
 
    return (
-      <section className="mt-10 border-t pt-6">
+      <section className={compact ? '' : 'mt-10 border-t pt-6'}>
          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
             <MessageSquare className="size-4" /> Comments
             {items.length > 0 && (

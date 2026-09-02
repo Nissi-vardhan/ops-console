@@ -353,16 +353,10 @@ export function DocsView() {
                               .
                            </p>
                         )}
-
-                        <Comments
-                           listUrl={`/api/ops/comments?kind=doc&id=${selected.id}`}
-                           postUrl="/api/ops/comments"
-                           extra={{ kind: 'doc', id: selected.id }}
-                        />
                      </div>
                   </article>
 
-                  <aside className="sticky top-0 hidden h-max w-80 shrink-0 space-y-5 pt-1 lg:block">
+                  <aside className="sticky top-0 hidden max-h-[calc(100vh-1rem)] w-80 shrink-0 space-y-5 self-start overflow-y-auto pt-1 lg:block">
                      <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
                      {toc.length > 0 && (
                         <div>
@@ -388,6 +382,14 @@ export function DocsView() {
                            </nav>
                         </div>
                      )}
+                     <div className="border-t border-border/60 pt-4">
+                        <Comments
+                           listUrl={`/api/ops/comments?kind=doc&id=${selected.id}`}
+                           postUrl="/api/ops/comments"
+                           extra={{ kind: 'doc', id: selected.id }}
+                           compact
+                        />
+                     </div>
                   </aside>
                </div>
             ) : (
