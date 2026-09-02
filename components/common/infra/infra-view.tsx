@@ -17,6 +17,14 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/brand/empty-state';
 import { PageHeader } from '@/components/common/page-header';
 import { useConfirm } from '@/components/common/confirm';
+import { useEscape } from '@/components/common/use-escape';
+import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 
 interface Svc {
@@ -250,6 +258,7 @@ function SvcModal({
 }) {
    const [f, setF] = useState<Partial<Svc>>(svc ?? { kind: 'token', notes: '' });
    const set = (k: keyof Svc, v: string) => setF({ ...f, [k]: v });
+   useEscape(onClose);
    return (
       <div
          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -269,17 +278,18 @@ function SvcModal({
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                />
                <div className="flex gap-2">
-                  <select
-                     value={f.kind ?? 'token'}
-                     onChange={(e) => set('kind', e.target.value)}
-                     className="rounded-md border bg-background px-2 py-2 text-sm"
-                  >
-                     {KINDS.map((k) => (
-                        <option key={k} value={k}>
-                           {k}
-                        </option>
-                     ))}
-                  </select>
+                  <Select value={f.kind ?? 'token'} onValueChange={(v) => set('kind', v)}>
+                     <SelectTrigger className="w-[136px]">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent>
+                        {KINDS.map((k) => (
+                           <SelectItem key={k} value={k}>
+                              {k}
+                           </SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
                   <input
                      value={f.owner ?? ''}
                      onChange={(e) => set('owner', e.target.value)}

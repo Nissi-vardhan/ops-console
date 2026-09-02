@@ -381,6 +381,16 @@ export function WorkflowsView() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
    }, []);
 
+   // Esc closes the open workflow panel.
+   useEffect(() => {
+      if (!openId) return;
+      const onKey = (e: KeyboardEvent) => {
+         if (e.key === 'Escape') setOpenId(null);
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+   }, [openId]);
+
    const openDetail = useCallback((id: string) => {
       setOpenId(id);
       setDetail(null);

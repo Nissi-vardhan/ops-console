@@ -10,6 +10,14 @@ import { useIssuesStore } from '@/store/issues-store';
 import { hydrateProject, type RawProject } from '@/lib/ops-hydrate';
 import { Issue } from '@/mock-data/issues';
 import { status as STATUSES } from '@/mock-data/status';
+import { useEscape } from '@/components/common/use-escape';
+import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const isOpen = (i: Issue) => i.status.category !== 'completed' && i.status.category !== 'canceled';
@@ -233,6 +241,7 @@ function NewProject({
    const [statusId, setStatusId] = useState('in-progress');
    const [target, setTarget] = useState('');
    const [busy, setBusy] = useState(false);
+   useEscape(onClose);
 
    const submit = async () => {
       if (!name.trim()) return;
@@ -242,7 +251,7 @@ function NewProject({
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
             name,
-            lead_id: leadId || null,
+            lead_id: leadId && leadId !== '__none' ? leadId : null,
             status_id: statusId,
             target_date: target || null,
          }),
@@ -271,31 +280,33 @@ function NewProject({
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                />
                <div className="flex gap-2">
-                  <select
-                     value={statusId}
-                     onChange={(e) => setStatusId(e.target.value)}
-                     className="rounded-md border bg-background px-2 py-2 text-sm"
-                  >
-                     {STATUSES.filter((s) =>
-                        ['backlog', 'to-do', 'in-progress', 'done'].includes(s.id)
-                     ).map((s) => (
-                        <option key={s.id} value={s.id}>
-                           {s.name}
-                        </option>
-                     ))}
-                  </select>
-                  <select
-                     value={leadId}
-                     onChange={(e) => setLeadId(e.target.value)}
-                     className="flex-1 rounded-md border bg-background px-2 py-2 text-sm"
-                  >
-                     <option value="">No lead</option>
-                     {members.map((m) => (
-                        <option key={m.id} value={m.id}>
-                           {m.name}
-                        </option>
-                     ))}
-                  </select>
+                  <Select value={statusId} onValueChange={setStatusId}>
+                     <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent>
+                        {STATUSES.filter((s) =>
+                           ['backlog', 'to-do', 'in-progress', 'done'].includes(s.id)
+                        ).map((s) => (
+                           <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                           </SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
+                  <Select value={leadId || '__none'} onValueChange={setLeadId}>
+                     <SelectTrigger className="flex-1">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent>
+                        <SelectItem value="__none">No lead</SelectItem>
+                        {members.map((m) => (
+                           <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                           </SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
                </div>
                <label className="block text-[11px] text-muted-foreground">
                   Target date

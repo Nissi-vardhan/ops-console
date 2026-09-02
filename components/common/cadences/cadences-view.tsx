@@ -4,6 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/brand/empty-state';
 import { PageHeader } from '@/components/common/page-header';
 import { useConfirm } from '@/components/common/confirm';
+import { useEscape } from '@/components/common/use-escape';
+import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -431,6 +439,7 @@ function CadenceEditor({
          : emptyDraft()
    );
    const [busy, setBusy] = useState(false);
+   useEscape(onClose);
 
    const channelList = () =>
       d.channels
@@ -541,31 +550,36 @@ function CadenceEditor({
                         </button>
                      ))}
                   </div>
-                  <select
-                     value={d.status}
-                     onChange={(e) => setD({ ...d, status: e.target.value })}
-                     className="rounded-md border bg-background px-2 py-1.5 text-sm"
-                  >
-                     {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                           {STATUS_META[s].label}
-                        </option>
-                     ))}
-                  </select>
+                  <Select value={d.status} onValueChange={(v) => setD({ ...d, status: v })}>
+                     <SelectTrigger className="h-8 w-[130px]">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent>
+                        {STATUSES.map((s) => (
+                           <SelectItem key={s} value={s}>
+                              {STATUS_META[s].label}
+                           </SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
                </div>
 
-               <select
-                  value={d.issue_id}
-                  onChange={(e) => setD({ ...d, issue_id: e.target.value })}
-                  className={field}
+               <Select
+                  value={d.issue_id || '__none'}
+                  onValueChange={(v) => setD({ ...d, issue_id: v === '__none' ? '' : v })}
                >
-                  <option value="">Link to a task (optional)</option>
-                  {issues.map((i) => (
-                     <option key={i.id} value={i.id}>
-                        {i.identifier} — {i.title}
-                     </option>
-                  ))}
-               </select>
+                  <SelectTrigger className="w-full">
+                     <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                     <SelectItem value="__none">Link to a task (optional)</SelectItem>
+                     {issues.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                           {i.identifier} — {i.title}
+                        </SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
 
                {/* touches */}
                <div>
@@ -581,14 +595,18 @@ function CadenceEditor({
                            <span className="w-4 text-center text-[11px] text-muted-foreground">
                               {t.n}
                            </span>
-                           <select
+                           <Select
                               value={t.channel}
-                              onChange={(e) => setTouch(i, { channel: e.target.value })}
-                              className="rounded border bg-background px-1 py-1 text-xs"
+                              onValueChange={(v) => setTouch(i, { channel: v })}
                            >
-                              <option value="email">email</option>
-                              <option value="whatsapp">whatsapp</option>
-                           </select>
+                              <SelectTrigger className="h-7 w-[104px] px-2 text-xs">
+                                 <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value="email">email</SelectItem>
+                                 <SelectItem value="whatsapp">whatsapp</SelectItem>
+                              </SelectContent>
+                           </Select>
                            <input
                               value={t.label}
                               onChange={(e) => setTouch(i, { label: e.target.value })}
@@ -601,15 +619,19 @@ function CadenceEditor({
                               placeholder="Day 0"
                               className="w-16 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
                            />
-                           <select
+                           <Select
                               value={t.status}
-                              onChange={(e) => setTouch(i, { status: e.target.value })}
-                              className="rounded border bg-background px-1 py-1 text-xs"
+                              onValueChange={(v) => setTouch(i, { status: v })}
                            >
-                              <option value="planned">planned</option>
-                              <option value="sent">sent</option>
-                              <option value="skipped">skipped</option>
-                           </select>
+                              <SelectTrigger className="h-7 w-[96px] px-2 text-xs">
+                                 <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value="planned">planned</SelectItem>
+                                 <SelectItem value="sent">sent</SelectItem>
+                                 <SelectItem value="skipped">skipped</SelectItem>
+                              </SelectContent>
+                           </Select>
                            <button
                               type="button"
                               onClick={() => rmTouch(i)}
