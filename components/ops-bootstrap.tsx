@@ -13,6 +13,10 @@ import {
 
 // Loads real members + issues from the ops backend into the store on mount, so
 // the whole Circle UI renders live data instead of the mock seed.
+// Module-level guard: MainLayout re-mounts on every tab navigation, so without
+// this the whole dataset would re-fetch on each switch. Runs once per page load.
+let bootstrapped = false;
+
 export function OpsBootstrap() {
    const setIssues = useIssuesStore((s) => s.setIssues);
    const setMembers = useIssuesStore((s) => s.setMembers);
@@ -20,6 +24,8 @@ export function OpsBootstrap() {
    const setCurrentUser = useIssuesStore((s) => s.setCurrentUser);
 
    useEffect(() => {
+      if (bootstrapped) return;
+      bootstrapped = true;
       let live = true;
       const get = (p: string) =>
          fetch(p, { cache: 'no-store' })

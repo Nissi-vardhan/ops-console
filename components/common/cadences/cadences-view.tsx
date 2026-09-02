@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/brand/empty-state';
 import { PageHeader } from '@/components/common/page-header';
 import { useConfirm } from '@/components/common/confirm';
 import { useEscape } from '@/components/common/use-escape';
+import { Stagger, Item } from '@/components/motion';
 import {
    Select,
    SelectContent,
@@ -291,11 +292,11 @@ export function CadencesView() {
             </div>
          )}
 
-         <div className="space-y-4">
+         <Stagger className="space-y-4">
             {list.map((c) => {
                const st = STATUS_META[c.status] ?? STATUS_META.draft;
                return (
-                  <div key={c.key} className="rounded-xl border bg-container p-4 sm:p-5">
+                  <Item key={c.key} className="rounded-xl border bg-container p-4 sm:p-5">
                      <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-2">
                            <Radio className="size-4 text-primary" />
@@ -393,10 +394,10 @@ export function CadencesView() {
                            {c.notes}
                         </p>
                      )}
-                  </div>
+                  </Item>
                );
             })}
-         </div>
+         </Stagger>
 
          {editing && (
             <CadenceEditor

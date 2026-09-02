@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { Search, FileText, CircleDot, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/brand/empty-state';
 import { PageHeader } from '@/components/common/page-header';
+import { Stagger, Item } from '@/components/motion';
 
 interface Hit {
    kind: 'doc' | 'issue';
@@ -122,38 +123,41 @@ export function KnowledgeView() {
             </div>
          )}
 
-         <div className="space-y-2">
+         <Stagger className="space-y-2">
             {hits.map((h) => {
                const href = h.kind === 'issue' ? `${base}/issue/${h.ref}` : `${base}/docs`;
                return (
-                  <Link
-                     key={`${h.kind}:${h.id}`}
-                     href={href}
-                     className="block rounded-xl border bg-container p-3 transition-colors hover:border-primary/50"
-                  >
-                     <div className="flex items-center gap-2 text-sm">
-                        {h.kind === 'issue' ? (
-                           <CircleDot className="size-3.5 shrink-0 text-primary" />
-                        ) : (
-                           <FileText className="size-3.5 shrink-0 text-primary" />
+                  <Item key={`${h.kind}:${h.id}`}>
+                     <Link
+                        href={href}
+                        className="block rounded-xl border bg-container p-3 transition-colors hover:border-primary/50"
+                     >
+                        <div className="flex items-center gap-2 text-sm">
+                           {h.kind === 'issue' ? (
+                              <CircleDot className="size-3.5 shrink-0 text-primary" />
+                           ) : (
+                              <FileText className="size-3.5 shrink-0 text-primary" />
+                           )}
+                           {h.kind === 'issue' && (
+                              <span className="font-mono text-xs text-muted-foreground">
+                                 {h.ref}
+                              </span>
+                           )}
+                           <span className="font-medium">{h.title}</span>
+                           <span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {h.kind === 'issue' ? 'task' : h.category}
+                           </span>
+                        </div>
+                        {h.snippet && (
+                           <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                              <Snippet text={h.snippet} />
+                           </p>
                         )}
-                        {h.kind === 'issue' && (
-                           <span className="font-mono text-xs text-muted-foreground">{h.ref}</span>
-                        )}
-                        <span className="font-medium">{h.title}</span>
-                        <span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                           {h.kind === 'issue' ? 'task' : h.category}
-                        </span>
-                     </div>
-                     {h.snippet && (
-                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                           <Snippet text={h.snippet} />
-                        </p>
-                     )}
-                  </Link>
+                     </Link>
+                  </Item>
                );
             })}
-         </div>
+         </Stagger>
       </div>
    );
 }

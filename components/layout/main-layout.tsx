@@ -4,6 +4,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { CreateIssueModalProvider } from '@/components/common/issues/create-issue-modal-provider';
 import { CommandPalette } from '@/components/layout/command-palette';
 import { OpsBootstrap } from '@/components/ops-bootstrap';
+import { PageTransition } from '@/components/layout/page-transition';
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
@@ -48,7 +49,7 @@ export default function MainLayout({ children, header, headersNumber = 2 }: Main
                      isEmptyHeader(header) ? 'h-full' : height[headersNumber as keyof typeof height]
                   )}
                >
-                  {children}
+                  <PageTransition>{children}</PageTransition>
                </div>
             </div>
          </div>
