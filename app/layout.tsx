@@ -36,6 +36,7 @@ export const metadata: Metadata = {
 };
 
 import { ThemeProvider } from '@/components/layout/theme-provider';
+import { ConfirmProvider } from '@/components/common/confirm';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 export default function RootLayout({
@@ -54,7 +55,7 @@ export default function RootLayout({
          >
             <NuqsAdapter>
                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                  {children}
+                  <ConfirmProvider>{children}</ConfirmProvider>
                   <Toaster />
                </ThemeProvider>
             </NuqsAdapter>

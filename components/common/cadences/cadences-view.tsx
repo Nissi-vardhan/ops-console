@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/brand/empty-state';
 import { PageHeader } from '@/components/common/page-header';
+import { useConfirm } from '@/components/common/confirm';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -153,6 +155,7 @@ function StepTimeline({ steps, closedNote }: { steps: UStep[]; closedNote?: stri
 }
 
 export function CadencesView() {
+   const confirm = useConfirm();
    const [cadences, setCadences] = useState<Cadence[]>([]);
    const [feed, setFeed] = useState<FeedCadence[]>([]);
    const [loading, setLoading] = useState(true);
@@ -332,7 +335,13 @@ export function CadencesView() {
                                  size="xs"
                                  variant="ghost"
                                  onClick={async () => {
-                                    if (confirm('Delete this cadence?')) {
+                                    if (
+                                       await confirm({
+                                          title: 'Delete this cadence?',
+                                          danger: true,
+                                          confirmText: 'Delete',
+                                       })
+                                    ) {
                                        await fetch(`/api/ops/cadences/${c.editId}`, {
                                           method: 'DELETE',
                                        });
@@ -487,7 +496,7 @@ function CadenceEditor({
            });
       setBusy(false);
       if (r.ok) onSaved();
-      else alert('Failed to save cadence');
+      else toast.error('Failed to save cadence');
    };
 
    const field =

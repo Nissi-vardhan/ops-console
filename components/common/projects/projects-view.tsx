@@ -10,6 +10,7 @@ import { useIssuesStore } from '@/store/issues-store';
 import { hydrateProject, type RawProject } from '@/lib/ops-hydrate';
 import { Issue } from '@/mock-data/issues';
 import { status as STATUSES } from '@/mock-data/status';
+import { toast } from 'sonner';
 
 const isOpen = (i: Issue) => i.status.category !== 'completed' && i.status.category !== 'canceled';
 
@@ -248,7 +249,7 @@ function NewProject({
       });
       setBusy(false);
       if (r.ok) onCreated();
-      else alert('Failed to create project');
+      else toast.error('Failed to create project');
    };
 
    return (

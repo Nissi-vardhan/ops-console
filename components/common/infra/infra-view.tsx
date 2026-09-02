@@ -16,6 +16,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/brand/empty-state';
 import { PageHeader } from '@/components/common/page-header';
+import { useConfirm } from '@/components/common/confirm';
+import { toast } from 'sonner';
 
 interface Svc {
    id: string;
@@ -60,6 +62,7 @@ function due(d: string | null): { text: string; cls: string } | null {
 }
 
 export function InfraView() {
+   const confirm = useConfirm();
    const [svcs, setSvcs] = useState<Svc[]>([]);
    const [loading, setLoading] = useState(true);
    const [editing, setEditing] = useState<Svc | 'new' | null>(null);
@@ -105,7 +108,7 @@ export function InfraView() {
          load();
       } else {
          const j = await r.json().catch(() => ({}));
-         alert(j.error || 'Failed');
+         toast.error(j.error || 'Failed to save');
       }
    };
    const rotated = (s: Svc) =>
@@ -117,7 +120,7 @@ export function InfraView() {
          s.id
       );
    const del = async (s: Svc) => {
-      if (confirm(`Remove ${s.name}?`)) {
+      if (await confirm({ title: `Remove ${s.name}?`, danger: true, confirmText: 'Remove' })) {
          await fetch(`/api/ops/services/${s.id}`, { method: 'DELETE' });
          load();
       }

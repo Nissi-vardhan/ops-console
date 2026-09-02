@@ -7,6 +7,7 @@ import { DocMarkdown, outline } from './doc-render';
 import { ShareDialog } from './share-dialog';
 import { DocReview } from './doc-review';
 import { DocDetails } from './doc-details';
+import { useConfirm } from '@/components/common/confirm';
 import { Comments } from '@/components/common/comments';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -40,6 +41,7 @@ export function DocsView() {
    const scrollRef = useRef<HTMLDivElement>(null);
    const articleRef = useRef<HTMLElement>(null);
    const filterRef = useRef<HTMLInputElement>(null);
+   const confirm = useConfirm();
 
    const load = useCallback(async (keep?: string) => {
       const d = await fetch('/api/ops/docs', { cache: 'no-store' })
@@ -189,7 +191,15 @@ export function DocsView() {
       }
    };
    const del = async () => {
-      if (!selId || !confirm('Delete this doc?')) return;
+      if (!selId) return;
+      const ok = await confirm({
+         title: 'Delete this doc?',
+         message:
+            'This permanently removes the doc, its share link, and review history. This can’t be undone.',
+         danger: true,
+         confirmText: 'Delete',
+      });
+      if (!ok) return;
       await fetch(`/api/ops/docs/${selId}`, { method: 'DELETE' });
       setSelId(null);
       setEditing(false);

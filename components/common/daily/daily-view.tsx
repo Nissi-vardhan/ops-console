@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/common/confirm';
 import {
    Copy,
    Check,
@@ -94,6 +95,7 @@ function CopyBtn({
 }
 
 export function DailyView() {
+   const confirm = useConfirm();
    const [dates, setDates] = useState<string[]>([]);
    const [today, setToday] = useState('');
    const [sel, setSel] = useState('');
@@ -184,9 +186,12 @@ export function DailyView() {
    const regen = async () => {
       if (
          update?.edited &&
-         !confirm(
-            'This update was edited by hand. Regenerate from the logs and discard your edits?'
-         )
+         !(await confirm({
+            title: 'Regenerate this update?',
+            message: 'It was edited by hand — regenerating from the logs discards your edits.',
+            danger: true,
+            confirmText: 'Regenerate',
+         }))
       )
          return;
       load(sel, true);

@@ -31,6 +31,13 @@ import {
 import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/common/page-header';
+import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+} from '@/components/ui/select';
 
 interface WF {
    id: string;
@@ -393,27 +400,29 @@ export function WorkflowsView() {
                   className="h-9 w-full rounded-lg border bg-background pl-8 pr-3 text-sm outline-none focus:border-primary"
                />
             </div>
-            <select
-               value={status}
-               onChange={(e) => setStatus(e.target.value as typeof status)}
-               className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-none focus:border-primary"
-            >
-               <option value="all">All status</option>
-               <option value="active">Active</option>
-               <option value="paused">Paused</option>
-            </select>
-            <select
-               value={trig}
-               onChange={(e) => setTrig(e.target.value)}
-               className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-none focus:border-primary"
-            >
-               <option value="all">All triggers</option>
-               {triggers.map((t) => (
-                  <option key={t} value={t}>
-                     {t}
-                  </option>
-               ))}
-            </select>
+            <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+               <SelectTrigger className="h-9 w-[130px]">
+                  <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                  <SelectItem value="all">All status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+               </SelectContent>
+            </Select>
+            <Select value={trig} onValueChange={setTrig}>
+               <SelectTrigger className="h-9 w-[140px]">
+                  <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                  <SelectItem value="all">All triggers</SelectItem>
+                  {triggers.map((t) => (
+                     <SelectItem key={t} value={t}>
+                        {t}
+                     </SelectItem>
+                  ))}
+               </SelectContent>
+            </Select>
             <DateRangePicker value={range} onChange={setRange} className="h-9" />
          </div>
 
