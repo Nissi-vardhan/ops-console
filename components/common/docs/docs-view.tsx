@@ -8,6 +8,7 @@ import { ShareDialog } from './share-dialog';
 import { DocReview } from './doc-review';
 import { DocDetails } from './doc-details';
 import { useConfirm } from '@/components/common/confirm';
+import { Stagger, Item } from '@/components/motion';
 import { Comments } from '@/components/common/comments';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -261,45 +262,48 @@ export function DocsView() {
                      <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
                         {cat}
                      </div>
-                     {list.map((d) => (
-                        <button
-                           key={d.id}
-                           onClick={() => {
-                              setSelId(d.id);
-                              setEditing(false);
-                           }}
-                           className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50 ${
-                              selId === d.id && !editing
-                                 ? 'bg-muted/60 font-medium text-foreground'
-                                 : 'text-foreground/80'
-                           }`}
-                        >
-                           {d.pinned ? (
-                              <Pin className="size-3.5 shrink-0 text-primary" />
-                           ) : (
-                              <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-                           )}
-                           <span className="truncate">{d.title}</span>
-                           {d.review_stage && (
-                              <span
-                                 title={
-                                    d.review_stage === 'approved'
-                                       ? 'Approved'
-                                       : d.review_stage === 'changes'
-                                         ? 'Changes requested'
-                                         : 'In review'
-                                 }
-                                 className={`ml-auto size-2 shrink-0 rounded-full ${
-                                    d.review_stage === 'approved'
-                                       ? 'bg-emerald-500'
-                                       : d.review_stage === 'changes'
-                                         ? 'bg-red-500'
-                                         : 'bg-amber-500'
+                     <Stagger>
+                        {list.map((d) => (
+                           <Item key={d.id}>
+                              <button
+                                 onClick={() => {
+                                    setSelId(d.id);
+                                    setEditing(false);
+                                 }}
+                                 className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50 ${
+                                    selId === d.id && !editing
+                                       ? 'bg-muted/60 font-medium text-foreground'
+                                       : 'text-foreground/80'
                                  }`}
-                              />
-                           )}
-                        </button>
-                     ))}
+                              >
+                                 {d.pinned ? (
+                                    <Pin className="size-3.5 shrink-0 text-primary" />
+                                 ) : (
+                                    <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                                 )}
+                                 <span className="truncate">{d.title}</span>
+                                 {d.review_stage && (
+                                    <span
+                                       title={
+                                          d.review_stage === 'approved'
+                                             ? 'Approved'
+                                             : d.review_stage === 'changes'
+                                               ? 'Changes requested'
+                                               : 'In review'
+                                       }
+                                       className={`ml-auto size-2 shrink-0 rounded-full ${
+                                          d.review_stage === 'approved'
+                                             ? 'bg-emerald-500'
+                                             : d.review_stage === 'changes'
+                                               ? 'bg-red-500'
+                                               : 'bg-amber-500'
+                                       }`}
+                                    />
+                                 )}
+                              </button>
+                           </Item>
+                        ))}
+                     </Stagger>
                   </div>
                ))}
                {!loading && grouped.length === 0 && (

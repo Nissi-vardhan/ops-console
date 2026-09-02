@@ -28,9 +28,11 @@ import {
    Maximize2,
    type LucideIcon,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/common/page-header';
+import { easeOut } from '@/components/motion';
 import {
    Select,
    SelectContent,
@@ -366,6 +368,7 @@ export function WorkflowsView() {
    const [openId, setOpenId] = useState<string | null>(null);
    const [detail, setDetail] = useState<Detail | null>(null);
    const [detailLoading, setDetailLoading] = useState(false);
+   const reduce = useReducedMotion();
 
    useEffect(() => {
       fetch('/api/ops/workflows', { cache: 'no-store' })
@@ -521,13 +524,20 @@ export function WorkflowsView() {
                            </td>
                         </tr>
                      ))}
-                  {rows.map((w) => {
+                  {rows.map((w, i) => {
                      const TI = TRIGGER_ICON[w.trigger] ?? Circle;
                      return (
-                        <tr
+                        <motion.tr
                            key={w.id}
                            onClick={() => openDetail(w.id)}
                            className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
+                           initial={reduce ? false : { opacity: 0, y: 4 }}
+                           animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                           transition={{
+                              duration: 0.22,
+                              ease: easeOut,
+                              delay: Math.min(i, 24) * 0.015,
+                           }}
                         >
                            <td className="max-w-[320px] px-4 py-2.5">
                               <span className="flex items-center gap-2">
@@ -591,7 +601,7 @@ export function WorkflowsView() {
                                  <ExternalLink className="size-4" />
                               </a>
                            </td>
-                        </tr>
+                        </motion.tr>
                      );
                   })}
                   {!loading && rows.length === 0 && (
