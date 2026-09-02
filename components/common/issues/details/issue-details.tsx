@@ -3,8 +3,8 @@
 import { getIssueDetail } from '@/mock-data/issue-details';
 import { useIssuesStore } from '@/store/issues-store';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
@@ -18,7 +18,23 @@ import { Comments } from '@/components/common/comments';
  */
 export default function IssueDetails() {
    const { orgId, issueId } = useParams<{ orgId: string; issueId: string }>();
+   const router = useRouter();
    const { issues } = useIssuesStore();
+
+   // Esc closes the open task (back), unless you're typing in a field.
+   useEffect(() => {
+      const onKey = (e: KeyboardEvent) => {
+         if (e.key !== 'Escape') return;
+         const el = document.activeElement as HTMLElement | null;
+         if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+            el.blur();
+            return;
+         }
+         router.back();
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+   }, [router]);
 
    const issue = useMemo(
       () => issues.find((candidate) => candidate.identifier === issueId),

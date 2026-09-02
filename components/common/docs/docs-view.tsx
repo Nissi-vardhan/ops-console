@@ -39,6 +39,7 @@ export function DocsView() {
    });
    const scrollRef = useRef<HTMLDivElement>(null);
    const articleRef = useRef<HTMLElement>(null);
+   const filterRef = useRef<HTMLInputElement>(null);
 
    const load = useCallback(async (keep?: string) => {
       const d = await fetch('/api/ops/docs', { cache: 'no-store' })
@@ -111,12 +112,57 @@ export function DocsView() {
       setSelId(null);
       setEditing(true);
    };
+
+   // Keyboard shortcuts (Docs). Esc closes the open doc; / filters; e edits; n new.
+   const kb = useRef({ selId, editing, shareOpen });
+   kb.current = { selId, editing, shareOpen };
+   const kbActions = useRef({ startNew, startEdit: () => {} });
+   useEffect(() => {
+      const onKey = (e: KeyboardEvent) => {
+         const el = document.activeElement as HTMLElement | null;
+         const typing =
+            !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+         const { selId: sid, editing: ed, shareOpen: sh } = kb.current;
+         if (e.key === 'Escape') {
+            if (sh) return; // the share dialog handles its own Esc
+            if (ed) {
+               e.preventDefault();
+               setEditing(false);
+               return;
+            }
+            if (typing) {
+               el?.blur();
+               return;
+            }
+            if (sid) {
+               e.preventDefault();
+               setSelId(null);
+            }
+            return;
+         }
+         if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+         const k = e.key.toLowerCase();
+         if (e.key === '/') {
+            e.preventDefault();
+            filterRef.current?.focus();
+         } else if (k === 'n') {
+            e.preventDefault();
+            kbActions.current.startNew();
+         } else if (k === 'e' && kb.current.selId && !kb.current.editing) {
+            e.preventDefault();
+            kbActions.current.startEdit();
+         }
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+   }, []);
    const startEdit = () => {
       if (selected) {
          setDraft({ title: selected.title, category: selected.category, body: selected.body });
          setEditing(true);
       }
    };
+   kbActions.current = { startNew, startEdit };
    const save = async () => {
       if (!draft.title.trim()) return;
       if (selId) {
@@ -185,9 +231,10 @@ export function DocsView() {
                <div className="relative">
                   <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                   <input
+                     ref={filterRef}
                      value={filter}
                      onChange={(e) => setFilter(e.target.value)}
-                     placeholder="Filter docs…"
+                     placeholder="Filter docs…  ( / )"
                      className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-xs outline-none focus:border-primary"
                   />
                </div>
