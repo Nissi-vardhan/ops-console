@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
+import { JourneyPanel } from './journey-panel';
 import { Comments } from '@/components/common/comments';
 
 /**
@@ -59,6 +60,9 @@ export default function IssueDetails() {
                      <p className="text-sm text-muted-foreground">No description.</p>
                   )}
                </div>
+
+               {/* Journey — ordered, checkable steps across the 5 work phases */}
+               <JourneyPanel issueId={issue.id} />
 
                {/* Progress log — appended by `ops note` / agents as they work */}
                {issue.progress?.trim() && (

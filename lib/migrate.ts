@@ -176,6 +176,28 @@ CREATE TABLE IF NOT EXISTS ops_attachments (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ops_attachments_doc ON ops_attachments(doc_id);
+
+-- The task "Journey": each ops_issue records its work as ordered, checkable steps
+-- across 5 phases (plan -> prepare -> execute -> verify -> done). Every step keeps
+-- its own completion history (done_at/done_by) so the log is "every step, stored".
+CREATE TABLE IF NOT EXISTS ops_task_steps (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  issue_id   uuid NOT NULL REFERENCES ops_issues(id) ON DELETE CASCADE,
+  phase      text NOT NULL DEFAULT 'plan',    -- plan | prepare | execute | verify | done
+  seq        integer NOT NULL DEFAULT 0,      -- order within the phase
+  title      text NOT NULL,
+  status     text NOT NULL DEFAULT 'pending', -- pending | doing | done | skipped
+  note       text NOT NULL DEFAULT '',
+  done_at    timestamptz,
+  done_by    text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_task_steps_issue ON ops_task_steps(issue_id, phase, seq);
+
+-- Denormalised board pointer: the earliest phase with an incomplete step (or
+-- 'done' when all steps are complete, NULL when a task has no journey yet).
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS current_phase text;
 `;
 
 let migrated = false;

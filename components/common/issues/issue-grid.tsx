@@ -16,6 +16,26 @@ import { ProjectBadge } from './project-badge';
 import { StatusSelector } from './status-selector';
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { IssueContextMenu } from './issue-context-menu';
+import { PHASE_LABEL } from '@/lib/journey';
+
+// Small "Execute 3/5" pill showing a task's current journey phase + step progress.
+function JourneyPill({ issue }: { issue: Issue }) {
+   if (!issue.journey || issue.journey.total === 0) return null;
+   const { done, total } = issue.journey;
+   const label = issue.currentPhase
+      ? ((PHASE_LABEL as Record<string, string>)[issue.currentPhase] ?? issue.currentPhase)
+      : 'Journey';
+   const complete = done >= total;
+   return (
+      <span
+         className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+            complete ? 'bg-emerald-500/12 text-emerald-500' : 'bg-primary/10 text-primary'
+         }`}
+      >
+         {label} {done}/{total}
+      </span>
+   );
+}
 
 export const IssueDragType = 'ISSUE';
 type IssueGridProps = {
@@ -139,8 +159,10 @@ export function IssueGrid({ issue }: IssueGridProps) {
                   </h3>
                </Link>
                {((displayProperties.labels && issue.labels.length > 0) ||
-                  (displayProperties.project && issue.project)) && (
-                  <div className="mb-2.5 flex flex-wrap gap-1.5">
+                  (displayProperties.project && issue.project) ||
+                  (issue.journey && issue.journey.total > 0)) && (
+                  <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+                     <JourneyPill issue={issue} />
                      {displayProperties.labels && issue.labels.length > 0 && (
                         <LabelBadge label={issue.labels} />
                      )}
