@@ -9,6 +9,7 @@ import {
    Clock,
    ChevronDown,
    ChevronRight,
+   ClipboardCheck,
 } from 'lucide-react';
 
 interface Review {
@@ -110,158 +111,163 @@ export function DocReview({ baseUrl }: { baseUrl: string }) {
    );
 
    return (
-      <div className="rounded-xl border bg-container p-3">
-         <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Review</span>
+      <div className="overflow-hidden rounded-xl border border-border bg-foreground/[0.04] shadow-sm">
+         {/* Header */}
+         <div className="flex items-center gap-2 border-b border-border/60 bg-foreground/[0.03] px-3.5 py-2.5">
+            <ClipboardCheck className="size-4 text-primary" />
+            <h3 className="text-sm font-semibold tracking-tight">Review</h3>
             {cur ? (
                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cur.cls}`}
+                  className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cur.cls}`}
                >
                   <cur.Icon className="size-3" /> {cur.label}
                </span>
             ) : (
-               <span className="text-[11px] text-muted-foreground">Not in review</span>
+               <span className="ml-auto text-[11px] text-muted-foreground">Not in review</span>
             )}
          </div>
 
-         <div className="mt-2 flex flex-wrap gap-1">
-            {stageBtn('review', 'Review', '', () => {
-               setAsking(false);
-               setAddingNote(false);
-               post('review');
-            })}
-            {stageBtn('changes', 'Request changes', asking ? 'x' : '', () => {
-               setAddingNote(false);
-               setAsking((v) => !v);
-            })}
-            {stageBtn('approved', 'Approve', '', () => {
-               setAsking(false);
-               setAddingNote(false);
-               post('approved');
-            })}
-         </div>
-
-         {asking && (
-            <div className="mt-2.5 space-y-2">
-               <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  autoFocus
-                  rows={3}
-                  placeholder="What needs to change? (recorded and attributed)"
-                  className="w-full rounded-md border bg-background p-2 text-sm outline-none focus:border-primary"
-               />
-               <div className="flex items-center gap-2">
-                  <button
-                     disabled={busy || !note.trim()}
-                     onClick={() => post('changes', note.trim())}
-                     className="rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
-                  >
-                     Request changes
-                  </button>
-                  <button
-                     onClick={() => {
-                        setAsking(false);
-                        setNote('');
-                     }}
-                     className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                     Cancel
-                  </button>
-               </div>
+         {/* Body */}
+         <div className="p-3.5">
+            <div className="flex flex-wrap gap-1">
+               {stageBtn('review', 'Review', '', () => {
+                  setAsking(false);
+                  setAddingNote(false);
+                  post('review');
+               })}
+               {stageBtn('changes', 'Request changes', asking ? 'x' : '', () => {
+                  setAddingNote(false);
+                  setAsking((v) => !v);
+               })}
+               {stageBtn('approved', 'Approve', '', () => {
+                  setAsking(false);
+                  setAddingNote(false);
+                  post('approved');
+               })}
             </div>
-         )}
 
-         {addingNote && (
-            <div className="mt-2.5 space-y-2">
-               <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  autoFocus
-                  rows={3}
-                  placeholder="Add a note to the review (doesn’t change the stage)"
-                  className="w-full rounded-md border bg-background p-2 text-sm outline-none focus:border-primary"
-               />
-               <div className="flex items-center gap-2">
-                  <button
-                     disabled={busy || !note.trim()}
-                     onClick={() => post('note', note.trim())}
-                     className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-                  >
-                     Add note
-                  </button>
-                  <button
-                     onClick={() => {
-                        setAddingNote(false);
-                        setNote('');
-                     }}
-                     className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                     Cancel
-                  </button>
+            {asking && (
+               <div className="mt-2.5 space-y-2">
+                  <textarea
+                     value={note}
+                     onChange={(e) => setNote(e.target.value)}
+                     autoFocus
+                     rows={3}
+                     placeholder="What needs to change? (recorded and attributed)"
+                     className="w-full rounded-md border bg-background p-2 text-sm outline-none focus:border-primary"
+                  />
+                  <div className="flex items-center gap-2">
+                     <button
+                        disabled={busy || !note.trim()}
+                        onClick={() => post('changes', note.trim())}
+                        className="rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
+                     >
+                        Request changes
+                     </button>
+                     <button
+                        onClick={() => {
+                           setAsking(false);
+                           setNote('');
+                        }}
+                        className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                     >
+                        Cancel
+                     </button>
+                  </div>
                </div>
-            </div>
-         )}
+            )}
 
-         {loaded && reviews.length > 0 && (
-            <div className="mt-2.5 flex items-center justify-between">
-               <button
-                  onClick={() => setShowHist((v) => !v)}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-               >
-                  {showHist ? (
-                     <ChevronDown className="size-3.5" />
-                  ) : (
-                     <ChevronRight className="size-3.5" />
-                  )}
-                  History ({reviews.length})
-               </button>
-               {!asking && !addingNote && (
+            {addingNote && (
+               <div className="mt-2.5 space-y-2">
+                  <textarea
+                     value={note}
+                     onChange={(e) => setNote(e.target.value)}
+                     autoFocus
+                     rows={3}
+                     placeholder="Add a note to the review (doesn’t change the stage)"
+                     className="w-full rounded-md border bg-background p-2 text-sm outline-none focus:border-primary"
+                  />
+                  <div className="flex items-center gap-2">
+                     <button
+                        disabled={busy || !note.trim()}
+                        onClick={() => post('note', note.trim())}
+                        className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                     >
+                        Add note
+                     </button>
+                     <button
+                        onClick={() => {
+                           setAddingNote(false);
+                           setNote('');
+                        }}
+                        className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                     >
+                        Cancel
+                     </button>
+                  </div>
+               </div>
+            )}
+
+            {loaded && reviews.length > 0 && (
+               <div className="mt-2.5 flex items-center justify-between">
                   <button
-                     onClick={() => {
-                        setNote('');
-                        setAddingNote(true);
-                     }}
+                     onClick={() => setShowHist((v) => !v)}
                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                   >
-                     <MessageSquarePlus className="size-3.5" /> Add note
+                     {showHist ? (
+                        <ChevronDown className="size-3.5" />
+                     ) : (
+                        <ChevronRight className="size-3.5" />
+                     )}
+                     History ({reviews.length})
                   </button>
-               )}
-            </div>
-         )}
+                  {!asking && !addingNote && (
+                     <button
+                        onClick={() => {
+                           setNote('');
+                           setAddingNote(true);
+                        }}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                     >
+                        <MessageSquarePlus className="size-3.5" /> Add note
+                     </button>
+                  )}
+               </div>
+            )}
 
-         {loaded && showHist && reviews.length > 0 && (
-            <ol className="mt-2 space-y-2 border-t pt-3">
-               {reviews.map((r) => {
-                  const meta = r.stage in STAGE ? STAGE[r.stage as StageKey] : null;
-                  return (
-                     <li key={r.id} className="text-xs">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                           {meta && <meta.Icon className={`size-3 ${meta.cls.split(' ')[1]}`} />}
-                           <span className="font-medium text-foreground/90">
-                              {r.author_name || r.author_email || 'someone'}
-                           </span>
-                           <span>
-                              {r.stage === 'note'
-                                 ? 'added a note'
-                                 : meta
-                                   ? meta.label.toLowerCase()
-                                   : r.stage}
-                           </span>
-                           <span className="ml-auto inline-flex items-center gap-1 whitespace-nowrap">
-                              <Clock className="size-3" /> {when(r.created_at)}
-                           </span>
-                        </div>
-                        {r.note && (
-                           <p className="mt-0.5 rounded-md bg-muted/40 px-2 py-1 text-foreground/90">
-                              {r.note}
-                           </p>
-                        )}
-                     </li>
-                  );
-               })}
-            </ol>
-         )}
+            {loaded && showHist && reviews.length > 0 && (
+               <ol className="mt-2 space-y-2 border-t pt-3">
+                  {reviews.map((r) => {
+                     const meta = r.stage in STAGE ? STAGE[r.stage as StageKey] : null;
+                     return (
+                        <li key={r.id} className="text-xs">
+                           <div className="flex items-center gap-1.5 text-muted-foreground">
+                              {meta && <meta.Icon className={`size-3 ${meta.cls.split(' ')[1]}`} />}
+                              <span className="font-medium text-foreground/90">
+                                 {r.author_name || r.author_email || 'someone'}
+                              </span>
+                              <span>
+                                 {r.stage === 'note'
+                                    ? 'added a note'
+                                    : meta
+                                      ? meta.label.toLowerCase()
+                                      : r.stage}
+                              </span>
+                              <span className="ml-auto inline-flex items-center gap-1 whitespace-nowrap">
+                                 <Clock className="size-3" /> {when(r.created_at)}
+                              </span>
+                           </div>
+                           {r.note && (
+                              <p className="mt-0.5 rounded-md bg-muted/40 px-2 py-1 text-foreground/90">
+                                 {r.note}
+                              </p>
+                           )}
+                        </li>
+                     );
+                  })}
+               </ol>
+            )}
+         </div>
       </div>
    );
 }

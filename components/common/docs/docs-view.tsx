@@ -290,7 +290,7 @@ export function DocsView() {
                   </div>
                </div>
             ) : selected ? (
-               <div className="mx-auto flex w-full max-w-[980px] gap-8 px-4 py-6 sm:px-6 sm:py-8">
+               <div className="mx-auto flex w-full max-w-[1440px] gap-8 px-4 py-6 sm:px-6 sm:py-8">
                   <article ref={articleRef} className="min-w-0 flex-1">
                      <div className="rounded-2xl border border-border bg-foreground/[0.06] px-5 py-6 shadow-sm sm:px-9 sm:py-8">
                         <div className="mb-6 border-b border-border/60 pb-5">
@@ -362,7 +362,7 @@ export function DocsView() {
                      </div>
                   </article>
 
-                  <aside className="sticky top-0 hidden h-max w-64 shrink-0 space-y-5 pt-1 lg:block">
+                  <aside className="sticky top-0 hidden h-max w-80 shrink-0 space-y-5 pt-1 lg:block">
                      <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
                      {toc.length > 0 && (
                         <div>
