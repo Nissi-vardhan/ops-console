@@ -223,6 +223,18 @@ CREATE TABLE IF NOT EXISTS ops_doc_links (
   PRIMARY KEY (doc_id, issue_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ops_doc_links_issue ON ops_doc_links(issue_id);
+
+-- Append-only daily standup: each session posts what it worked on (via the ops
+-- standup CLI), and the nightly daily-update agent compiles the day's entries.
+CREATE TABLE IF NOT EXISTS ops_standup (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  day        date NOT NULL,
+  session    text NOT NULL DEFAULT '',
+  author     text NOT NULL DEFAULT '',
+  text       text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_standup_day ON ops_standup(day, created_at);
 `;
 
 let migrated = false;
