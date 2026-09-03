@@ -1,85 +1,131 @@
 'use client';
 
+import { useEffect, useState, type ReactNode } from 'react';
 import { Switch } from '@/components/ui/switch';
-import { Mail, Monitor, Slack, Smartphone } from 'lucide-react';
-import { EnabledDot, SettingsCard, SettingsRow, SettingsSection, SettingsShell } from './shared';
+import { Bell, Mail, Monitor, Slack } from 'lucide-react';
+import { SettingsCard, SettingsRow, SettingsSection, SettingsShell } from './shared';
 
-const CHANNELS = [
+// Where + what you get notified about. In-app notifications always land in the
+// bell; these preferences persist per-browser.
+const CHANNELS: { key: string; icon: ReactNode; title: string; description: string }[] = [
    {
+      key: 'browser',
       icon: <Monitor className="size-4" />,
-      title: 'Desktop',
-      status: 'Enabled for assignments, status changes, 13 others',
+      title: 'Browser',
+      description: 'Desktop push while the ops console is open',
    },
    {
-      icon: <Smartphone className="size-4" />,
-      title: 'Mobile',
-      status: 'Enabled for assignments, status changes, 13 others',
+      key: 'email',
+      icon: <Mail className="size-4" />,
+      title: 'Email',
+      description: 'A summary to your Shortcastle inbox',
    },
-   { icon: <Mail className="size-4" />, title: 'Email', status: 'Enabled for all notifications' },
-   { icon: <Slack className="size-4" />, title: 'Slack', status: 'Enabled for all notifications' },
+   {
+      key: 'slack',
+      icon: <Slack className="size-4" />,
+      title: 'Slack',
+      description: 'A direct message in your workspace',
+   },
 ];
 
-/** Personal notification settings (push channels + product updates). */
+const EVENTS: { key: string; title: string; description: string }[] = [
+   { key: 'assigned', title: 'Assigned to me', description: 'A task is assigned to you' },
+   {
+      key: 'status',
+      title: 'Status changes',
+      description: 'A task you created or own changes status',
+   },
+   {
+      key: 'mentions',
+      title: 'Comments & mentions',
+      description: 'Someone comments on or @-mentions you on a task or doc',
+   },
+   {
+      key: 'reviews',
+      title: 'Doc reviews',
+      description: 'A doc is shared with you or its review stage changes',
+   },
+   {
+      key: 'blockers',
+      title: 'Blockers & cadences',
+      description: 'A new blocker or pending cadence step lands on the board',
+   },
+];
+
+const STORE_KEY = 'ops_notif_prefs';
+const ALL = [...CHANNELS, ...EVENTS].map((x) => x.key);
+const defaults = (): Record<string, boolean> => Object.fromEntries(ALL.map((k) => [k, true]));
+
+/** Personal notification preferences (channels + which ops events notify you). */
 export default function AccountNotifications() {
+   const [prefs, setPrefs] = useState<Record<string, boolean>>(defaults);
+
+   useEffect(() => {
+      try {
+         const raw = localStorage.getItem(STORE_KEY);
+         if (raw) setPrefs({ ...defaults(), ...JSON.parse(raw) });
+      } catch {
+         /* storage blocked — keep defaults */
+      }
+   }, []);
+
+   const set = (key: string, v: boolean) => {
+      setPrefs((prev) => {
+         const next = { ...prev, [key]: v };
+         try {
+            localStorage.setItem(STORE_KEY, JSON.stringify(next));
+         } catch {
+            /* storage blocked */
+         }
+         return next;
+      });
+   };
+
    return (
       <SettingsShell title="Notifications">
          <SettingsSection
-            title="Push notifications"
-            description="Choose which notifications are pushed to your devices. All notifications will still appear in your inbox."
+            title="Channels"
+            description="Where you'd like to be notified. In-app notifications always appear in the bell regardless of these."
          >
             <SettingsCard>
-               {CHANNELS.map((channel) => (
+               {CHANNELS.map((c) => (
                   <SettingsRow
-                     key={channel.title}
-                     icon={channel.icon}
-                     title={channel.title}
-                     description={<EnabledDot>{channel.status}</EnabledDot>}
-                     chevron
-                     onClick={() => {}}
+                     key={c.key}
+                     icon={c.icon}
+                     title={c.title}
+                     description={c.description}
+                     trailing={
+                        <Switch
+                           checked={prefs[c.key] ?? true}
+                           onCheckedChange={(v) => set(c.key, v)}
+                           aria-label={`${c.title} notifications`}
+                        />
+                     }
                   />
                ))}
             </SettingsCard>
          </SettingsSection>
 
          <SettingsSection
-            title="Updates from LNDev UI"
-            description="Subscribe to product announcements and important changes from the LNDev UI team"
+            title="Notify me about"
+            description="Pick the ops events worth a ping. Everything still shows in the console."
          >
-            <h3 className="text-sm font-medium mt-2">Changelog</h3>
             <SettingsCard>
-               <SettingsRow
-                  title="Show updates in sidebar"
-                  description="Highlight new features and improvements in the app sidebar"
-                  trailing={<Switch defaultChecked />}
-               />
-               <SettingsRow
-                  title="Changelog newsletter"
-                  description="Receive an email twice a month highlighting new features and improvements"
-                  trailing={<Switch />}
-               />
-            </SettingsCard>
-
-            <h3 className="text-sm font-medium mt-2">Marketing</h3>
-            <SettingsCard>
-               <SettingsRow
-                  title="Marketing and onboarding"
-                  description="Occasional updates to help you get the most out of LNDev UI"
-                  trailing={<Switch />}
-               />
-            </SettingsCard>
-
-            <h3 className="text-sm font-medium mt-2">Other updates</h3>
-            <SettingsCard>
-               <SettingsRow
-                  title="Invite accepted"
-                  description="Receive an email when an invite you sent is accepted"
-                  trailing={<Switch defaultChecked />}
-               />
-               <SettingsRow
-                  title="Privacy and legal updates"
-                  description="Important updates about terms of service or privacy policy changes"
-                  trailing={<Switch defaultChecked />}
-               />
+               {EVENTS.map((e) => (
+                  <SettingsRow
+                     key={e.key}
+                     icon={<Bell className="size-4" />}
+                     title={e.title}
+                     description={e.description}
+                     trailing={
+                        <Switch
+                           checked={prefs[e.key] ?? true}
+                           onCheckedChange={(v) => set(e.key, v)}
+                           aria-label={e.title}
+                        />
+                     }
+                  />
+               ))}
             </SettingsCard>
          </SettingsSection>
       </SettingsShell>
