@@ -31,7 +31,7 @@ export function NavOps() {
    const base = `/${orgId || 'shortcastle'}`;
    const pathname = usePathname();
    const items = [
-      { name: 'Tasks', icon: CircleDot, url: `${base}/team/CORE/all` },
+      { name: 'All tasks', icon: CircleDot, url: `${base}/team/CORE/all` },
       { name: 'My Tasks', icon: UserRound, url: `${base}/my-issues` },
       { name: 'Dashboard', icon: LayoutDashboard, url: `${base}/dashboard` },
       { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily` },

@@ -213,6 +213,16 @@ CREATE TABLE IF NOT EXISTS ops_doc_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_ops_doc_reviews_doc ON ops_doc_reviews(doc_id, created_at);
 ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS review_stage text;
+
+-- Many-to-many links between docs and tasks (a runbook ↔ the task it documents),
+-- surfaced on both the doc detail and the task detail.
+CREATE TABLE IF NOT EXISTS ops_doc_links (
+  doc_id     uuid NOT NULL REFERENCES ops_docs(id) ON DELETE CASCADE,
+  issue_id   uuid NOT NULL REFERENCES ops_issues(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (doc_id, issue_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ops_doc_links_issue ON ops_doc_links(issue_id);
 `;
 
 let migrated = false;

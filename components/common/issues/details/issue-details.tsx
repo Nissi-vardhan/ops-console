@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
 import { JourneyPanel } from './journey-panel';
 import { TaskSessions } from './task-sessions';
+import { TaskLinkedDocs } from '@/components/common/docs/doc-links';
 import { Comments } from '@/components/common/comments';
 
 /**
@@ -80,6 +81,8 @@ export default function IssueDetails() {
 
                {/* Journey — ordered, checkable steps across the 5 work phases */}
                <JourneyPanel issueId={issue.id} />
+
+               <TaskLinkedDocs issueRef={issue.identifier} base={`/${orgId ?? 'shortcastle'}`} />
 
                {/* Progress log — appended by `ops note` / agents as they work */}
                {issue.progress?.trim() && (

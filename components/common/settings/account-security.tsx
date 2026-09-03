@@ -1,54 +1,64 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { KeyRound, Laptop, Smartphone } from 'lucide-react';
+import { KeyRound, LogOut, Mail } from 'lucide-react';
+import { INTEGRATION_LOGOS } from './integration-logos';
 import { SettingsCard, SettingsRow, SettingsSection, SettingsShell } from './shared';
 
-/** Personal "Security & access" settings (sessions, passkeys, API keys). */
+const GoogleLogo = INTEGRATION_LOGOS['google-calendar'];
+
+/** Security & access — honest to how the ops console actually authenticates. */
 export default function AccountSecurity() {
+   const [email, setEmail] = useState<string | null>(null);
+   const [busy, setBusy] = useState(false);
+
+   useEffect(() => {
+      fetch('/api/ops/me', { cache: 'no-store' })
+         .then((r) => (r.ok ? r.json() : null))
+         .then((d) => setEmail(d?.user?.email ?? null))
+         .catch(() => {});
+   }, []);
+
+   const signOut = async () => {
+      setBusy(true);
+      await fetch('/api/auth', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ action: 'sign_out' }),
+      }).catch(() => {});
+      window.location.href = '/login';
+   };
+
    return (
       <SettingsShell title="Security & access">
-         <SettingsSection title="Sessions" description="Devices logged into your account">
+         <SettingsSection title="How you sign in" description="Your ops console account.">
             <SettingsCard>
                <SettingsRow
-                  icon={<Laptop className="size-4" />}
-                  title="Chrome on macOS"
-                  description={
-                     <span className="inline-flex items-center gap-1.5">
-                        <span className="size-1.5 rounded-full bg-[#00cc66]" />
-                        <span className="text-[#00a05a]">Current session</span> · Paris, FR · (EN,
-                        FR)
-                     </span>
-                  }
-               />
-            </SettingsCard>
-            <SettingsCard>
-               <SettingsRow
-                  title="1 other session"
-                  trailing={
-                     <Button size="xs" variant="ghost">
-                        Revoke all
-                     </Button>
-                  }
+                  icon={<Mail className="size-4" />}
+                  title="Email & password"
+                  description={email ? `Signed in as ${email}` : 'Email + password'}
                />
                <SettingsRow
-                  icon={<Smartphone className="size-4" />}
-                  title="LNDev UI iOS"
-                  description="Paris, FR · Last seen about 3 hours ago"
+                  icon={<GoogleLogo className="size-4" />}
+                  title="Google sign-in"
+                  description="Continue with an allow-listed Google account"
                />
             </SettingsCard>
          </SettingsSection>
 
          <SettingsSection
-            title="Passkeys"
-            description="Passkeys are a secure way to sign in to your account"
+            title="Session"
+            description="Access is a 30-day signed cookie in this browser."
          >
             <SettingsCard>
                <SettingsRow
-                  title="No passkeys registered"
+                  icon={<LogOut className="size-4" />}
+                  title="Sign out of this browser"
+                  description="You'll need to sign in again to get back in."
                   trailing={
-                     <Button size="xs" variant="ghost">
-                        New passkey
+                     <Button size="sm" variant="outline" onClick={signOut} disabled={busy}>
+                        Sign out
                      </Button>
                   }
                />
@@ -56,45 +66,15 @@ export default function AccountSecurity() {
          </SettingsSection>
 
          <SettingsSection
-            title="Personal API keys"
-            description="Use the GraphQL API to build your own integrations"
+            title="Workspace access"
+            description="Server-to-server access is a shared bearer secret used by the ops CLI and nightly feeds — managed in Infra, not here."
          >
             <SettingsCard>
-               <SettingsRow
-                  title="1 API key"
-                  trailing={
-                     <Button size="xs" variant="ghost">
-                        New API key
-                     </Button>
-                  }
-               />
                <SettingsRow
                   icon={<KeyRound className="size-4" />}
-                  title={
-                     <>
-                        LNDEV_PERSONAL_API_KEY
-                        <span className="text-xs text-muted-foreground font-normal">
-                           · full access · public & private teams
-                        </span>
-                     </>
-                  }
-                  description="Created 2 months ago · last used on Jul 16, 2026"
-               />
-            </SettingsCard>
-         </SettingsSection>
-
-         <SettingsSection
-            title="Commit signing key"
-            description="Coding sessions use this key to sign your commits"
-         >
-            <SettingsCard>
-               <SettingsRow
-                  title="No signing key added"
-                  trailing={
-                     <Button size="xs" variant="ghost">
-                        Add key
-                     </Button>
-                  }
+                  title="OPS_AUTH_SECRET"
+                  description="Rotate it from the Infra & tokens registry"
+                  muted
                />
             </SettingsCard>
          </SettingsSection>

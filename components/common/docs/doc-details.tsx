@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { useParams } from 'next/navigation';
 import { Info, Paperclip, Users, Pin } from 'lucide-react';
+import { DocLinkedTasks } from './doc-links';
 
 interface DocMeta {
    id: string;
@@ -88,6 +90,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
  * "case detail" side panel but in the ops dark theme.
  */
 export function DocDetails({ doc, readMins }: { doc: DocMeta; readMins: number }) {
+   const { orgId } = useParams<{ orgId: string }>();
+   const base = `/${orgId || 'shortcastle'}`;
    const [author, setAuthor] = useState<string | null>(null);
    const [emails, setEmails] = useState<string[]>([]);
    const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -189,6 +193,8 @@ export function DocDetails({ doc, readMins }: { doc: DocMeta; readMins: number }
                </ul>
             )}
          </Card>
+
+         <DocLinkedTasks docId={doc.id} base={base} />
       </>
    );
 }

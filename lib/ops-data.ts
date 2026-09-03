@@ -397,6 +397,59 @@ export async function clearDocReview(docId: string): Promise<number> {
    return rows.length;
 }
 
+/* -------- Doc ↔ task links (bidirectional) -------- */
+export interface LinkedIssue {
+   id: string;
+   identifier: string | null;
+   title: string;
+   status_id: string;
+}
+export interface LinkedDoc {
+   id: string;
+   title: string;
+   category: string;
+}
+
+export async function linkDocIssue(docId: string, issueRef: string): Promise<boolean> {
+   const issueId = await resolveOpsIssueId(issueRef);
+   if (!issueId) return false;
+   const doc = await queryOne<{ id: string }>('SELECT id FROM ops_docs WHERE id = $1', [docId]);
+   if (!doc) return false;
+   await query(
+      'INSERT INTO ops_doc_links (doc_id, issue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [docId, issueId]
+   );
+   return true;
+}
+
+export async function unlinkDocIssue(docId: string, issueRef: string): Promise<boolean> {
+   const issueId = await resolveOpsIssueId(issueRef);
+   if (!issueId) return false;
+   const rows = await query<{ doc_id: string }>(
+      'DELETE FROM ops_doc_links WHERE doc_id = $1 AND issue_id = $2 RETURNING doc_id',
+      [docId, issueId]
+   );
+   return rows.length > 0;
+}
+
+export async function listDocLinkedIssues(docId: string): Promise<LinkedIssue[]> {
+   return query<LinkedIssue>(
+      `SELECT i.id, i.identifier, i.title, i.status_id
+       FROM ops_doc_links l JOIN ops_issues i ON i.id = l.issue_id
+       WHERE l.doc_id = $1 ORDER BY i.identifier`,
+      [docId]
+   );
+}
+
+export async function listIssueLinkedDocs(issueId: string): Promise<LinkedDoc[]> {
+   return query<LinkedDoc>(
+      `SELECT d.id, d.title, d.category
+       FROM ops_doc_links l JOIN ops_docs d ON d.id = l.doc_id
+       WHERE l.issue_id = $1 ORDER BY d.title`,
+      [issueId]
+   );
+}
+
 // Set a doc's stage and record the change (with an optional note). Returns null
 // for an unknown stage so the route can 400.
 export async function setDocReview(
