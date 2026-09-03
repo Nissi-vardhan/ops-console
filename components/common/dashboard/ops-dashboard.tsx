@@ -737,7 +737,11 @@ export function OpsDashboard() {
                               {statusData.length > 0 ? (
                                  <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                       <Tooltip contentStyle={RTIP} />
+                                       <Tooltip
+                                          contentStyle={RTIP}
+                                          itemStyle={{ color: 'var(--popover-foreground)' }}
+                                          labelStyle={{ color: 'var(--popover-foreground)' }}
+                                       />
                                        <Pie
                                           data={statusData}
                                           dataKey="value"

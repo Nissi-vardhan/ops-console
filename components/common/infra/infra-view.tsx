@@ -57,9 +57,10 @@ const KIND_LABEL: Record<string, string> = {
 const today = () => new Date().toISOString().slice(0, 10);
 function daysUntil(d: string | null): number | null {
    if (!d) return null;
-   return Math.round(
-      (new Date(d + 'T00:00:00').getTime() - new Date(today() + 'T00:00:00').getTime()) / 86400000
-   );
+   // Accept both date-only ("2026-11-25") and full-timestamp values; take the date.
+   const t = new Date(d.slice(0, 10) + 'T00:00:00').getTime();
+   if (Number.isNaN(t)) return null;
+   return Math.round((t - new Date(today() + 'T00:00:00').getTime()) / 86400000);
 }
 function due(d: string | null): { text: string; cls: string } | null {
    const n = daysUntil(d);

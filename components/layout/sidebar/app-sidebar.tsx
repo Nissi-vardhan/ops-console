@@ -24,8 +24,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                      <CastleMark className="size-7 rounded-md" />
                      <div className="flex flex-col leading-none">
                         <span className="text-sm font-semibold">Shortcastle Ops</span>
-                        <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
-                           O-O
+                        <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+                           Operations console
                         </span>
                      </div>
                   </div>
