@@ -4,7 +4,7 @@ import { Priority } from '@/mock-data/priorities';
 import { Project } from '@/mock-data/projects';
 import { Status } from '@/mock-data/status';
 import { User } from '@/mock-data/users';
-import { hydrateIssue, issuePatchToRaw, type RawIssue } from '@/lib/ops-hydrate';
+import { issuePatchToRaw, type RawIssue } from '@/lib/ops-hydrate';
 import { create } from 'zustand';
 
 // Persist a change to the ops backend (fire-and-forget; local state is optimistic).
@@ -33,12 +33,15 @@ interface IssuesState {
    members: User[];
    projects: Project[];
    currentUserId: string | null;
+   /** True once the first real bootstrap fetch has resolved (for loading states). */
+   hydrated: boolean;
 
    // Real-data bootstrap
    setIssues: (issues: Issue[]) => void;
    setMembers: (members: User[]) => void;
    setProjects: (projects: Project[]) => void;
    setCurrentUser: (id: string | null) => void;
+   setHydrated: (v: boolean) => void;
 
    //
    getAllIssues: () => Issue[];
@@ -85,12 +88,14 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
    members: [],
    projects: [],
    currentUserId: null,
+   hydrated: false,
 
    setIssues: (issues: Issue[]) => {
       const sorted = [...issues].sort((a, b) => b.rank.localeCompare(a.rank));
       set({ issues: sorted, issuesByStatus: groupIssuesByStatus(sorted) });
    },
    setMembers: (members: User[]) => set({ members }),
+   setHydrated: (hydrated: boolean) => set({ hydrated }),
    setProjects: (projects: Project[]) => set({ projects }),
    setCurrentUser: (id: string | null) => set({ currentUserId: id }),
 

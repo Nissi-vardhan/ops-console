@@ -22,6 +22,7 @@ export function OpsBootstrap() {
    const setMembers = useIssuesStore((s) => s.setMembers);
    const setProjects = useIssuesStore((s) => s.setProjects);
    const setCurrentUser = useIssuesStore((s) => s.setCurrentUser);
+   const setHydrated = useIssuesStore((s) => s.setHydrated);
 
    useEffect(() => {
       if (bootstrapped) return;
@@ -56,11 +57,12 @@ export function OpsBootstrap() {
             hydrateIssue(row, users, projects)
          );
          setIssues(issues);
+         setHydrated(true);
       })();
       return () => {
          live = false;
       };
-   }, [setIssues, setMembers, setProjects, setCurrentUser]);
+   }, [setIssues, setMembers, setProjects, setCurrentUser, setHydrated]);
 
    return null;
 }
