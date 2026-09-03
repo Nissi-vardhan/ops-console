@@ -8,6 +8,8 @@ export interface StandupEntry {
    session: string;
    author: string;
    text: string;
+   session_id?: string | null;
+   cwd?: string | null;
    created_at: string;
 }
 
@@ -18,16 +20,25 @@ export async function addStandup(input: {
    session?: string;
    author?: string;
    text: string;
+   session_id?: string;
+   cwd?: string;
 }): Promise<StandupEntry> {
    const session = (input.session ?? '').slice(0, 80);
    if (session) {
       await query('DELETE FROM ops_standup WHERE day = $1 AND session = $2', [input.day, session]);
    }
    const rows = await query<StandupEntry>(
-      `INSERT INTO ops_standup (day, session, author, text)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, day::text, session, author, text, created_at`,
-      [input.day, session, (input.author ?? '').slice(0, 80), input.text.slice(0, 4000)]
+      `INSERT INTO ops_standup (day, session, author, text, session_id, cwd)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, day::text, session, author, text, session_id, cwd, created_at`,
+      [
+         input.day,
+         session,
+         (input.author ?? '').slice(0, 80),
+         input.text.slice(0, 4000),
+         (input.session_id ?? '').slice(0, 100) || null,
+         (input.cwd ?? '').slice(0, 300) || null,
+      ]
    );
    return rows[0];
 }
@@ -41,7 +52,7 @@ export async function deleteStandup(id: string): Promise<boolean> {
 
 export async function listStandup(day: string): Promise<StandupEntry[]> {
    return query<StandupEntry>(
-      `SELECT id, day::text, session, author, text, created_at
+      `SELECT id, day::text, session, author, text, session_id, cwd, created_at
      FROM ops_standup WHERE day = $1 ORDER BY created_at`,
       [day]
    );

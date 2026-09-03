@@ -235,6 +235,9 @@ CREATE TABLE IF NOT EXISTS ops_standup (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ops_standup_day ON ops_standup(day, created_at);
+-- Full session id + cwd so a past update can hand back a claude --resume command.
+ALTER TABLE ops_standup ADD COLUMN IF NOT EXISTS session_id text;
+ALTER TABLE ops_standup ADD COLUMN IF NOT EXISTS cwd text;
 `;
 
 let migrated = false;

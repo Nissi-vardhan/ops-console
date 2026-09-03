@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useConfirm } from '@/components/common/confirm';
+import { DailyResume } from '@/components/common/daily/daily-resume';
 import {
    Copy,
    Check,
@@ -394,6 +395,8 @@ export function DailyView() {
                      )}
                   </div>
                )}
+
+               {!editing && !loading && sel && <DailyResume day={sel} />}
             </div>
          </div>
       </div>
