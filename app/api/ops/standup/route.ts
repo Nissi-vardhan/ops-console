@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { opsAuthorized } from '@/lib/ops-guard';
-import { addStandup, listStandup } from '@/lib/ops-standup';
+import { addStandup, listStandup, deleteStandup } from '@/lib/ops-standup';
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 function istToday(): string {
@@ -31,4 +31,17 @@ export async function POST(request: Request) {
       text,
    });
    return NextResponse.json({ ok: true, entry });
+}
+
+// DELETE /api/ops/standup?id=<uuid> — remove one entry (prune junk/mistakes).
+export async function DELETE(request: Request) {
+   if (!(await opsAuthorized(request)))
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const body = await request.json().catch(() => ({}));
+   const id =
+      (typeof body?.id === 'string' ? body.id : '') ||
+      new URL(request.url).searchParams.get('id') ||
+      '';
+   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+   return NextResponse.json({ ok: await deleteStandup(id) });
 }
