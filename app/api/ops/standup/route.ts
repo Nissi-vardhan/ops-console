@@ -4,8 +4,15 @@ import { getOpsUser } from '@/lib/ops-session';
 import { addStandup, listStandup, deleteStandup } from '@/lib/ops-standup';
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-function istToday(): string {
-   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).slice(0, 10);
+// The "work day" runs 5AM→5AM IST (matching the nightly agent's git `--since 05:00`
+// window). Anything logged between midnight and 5AM belongs to the day that just
+// ended — so a session that posts its standup in the small hours is filed under
+// the work day it actually describes, not the next calendar day. This is what
+// keeps a day's update from picking up the previous day's work.
+function workDayIST(): string {
+   return new Date(Date.now() - 5 * 60 * 60 * 1000)
+      .toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' })
+      .slice(0, 10);
 }
 
 // The resume fields (full session id + cwd) are Nissi-only + PIN-locked, exactly
@@ -28,7 +35,7 @@ function pinOk(request: Request): boolean {
 export async function GET(request: Request) {
    if (!(await opsAuthorized(request)))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-   const day = new URL(request.url).searchParams.get('day') || istToday();
+   const day = new URL(request.url).searchParams.get('day') || workDayIST();
    if (!DAY_RE.test(day)) return NextResponse.json({ error: 'bad date' }, { status: 400 });
 
    let canResume = bearerOk(request);
@@ -49,7 +56,7 @@ export async function POST(request: Request) {
    const b = await request.json().catch(() => null);
    const text = typeof b?.text === 'string' ? b.text.trim() : '';
    if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 });
-   const day = typeof b?.day === 'string' && DAY_RE.test(b.day) ? b.day : istToday();
+   const day = typeof b?.day === 'string' && DAY_RE.test(b.day) ? b.day : workDayIST();
    const entry = await addStandup({
       day,
       session: typeof b?.session === 'string' ? b.session : '',
