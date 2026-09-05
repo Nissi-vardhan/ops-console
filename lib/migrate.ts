@@ -202,6 +202,18 @@ ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS current_phase text;
 -- Tag a project to one of the fixed workspaces (see lib/workspaces.ts).
 ALTER TABLE ops_projects ADD COLUMN IF NOT EXISTS workspace text;
 
+-- Workspace scoping across the console: issues, docs and cadences each carry
+-- their own workspace tag (mirroring projects), so a workspace view scopes the
+-- whole console. Idempotent ALTERs.
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS workspace text;
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS workspace text;
+ALTER TABLE ops_cadences ADD COLUMN IF NOT EXISTS workspace text;
+
+-- Backfill each issue's workspace from its project once (only where the issue is
+-- still untagged and the project has a workspace). Idempotent.
+UPDATE ops_issues i SET workspace = p.workspace FROM ops_projects p
+  WHERE i.project_id = p.id AND i.workspace IS NULL AND p.workspace IS NOT NULL;
+
 -- Doc review workflow: one stage per doc (review | changes | approved), set by
 -- reviewers (on the shared link) or the owner. ops_doc_reviews is the history —
 -- every stage change, with the "request changes" note, attributed by name/email.

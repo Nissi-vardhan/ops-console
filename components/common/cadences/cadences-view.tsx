@@ -28,6 +28,11 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIssuesStore } from '@/store/issues-store';
+import {
+   useActiveWorkspaceStore,
+   inActiveWorkspace,
+   ALL_WORKSPACES,
+} from '@/store/active-workspace-store';
 
 interface Touch {
    n: number;
@@ -47,6 +52,7 @@ interface Cadence {
    touches: Touch[];
    blockers: string[];
    notes: string;
+   workspace?: string | null;
    updated_at: string;
 }
 
@@ -170,6 +176,7 @@ export function CadencesView() {
    const [loading, setLoading] = useState(true);
    const [editing, setEditing] = useState<null | 'new' | string>(null);
    const issues = useIssuesStore((s) => s.issues);
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const { orgId } = useParams<{ orgId: string }>();
 
    const load = useCallback(async () => {
@@ -242,9 +249,13 @@ export function CadencesView() {
          notes: c.notes,
          source: 'db',
       });
-      return [...feed.map(fromFeed), ...cadences.map(fromDb)];
+      // Scope to the active workspace: DB cadences by their workspace tag; feed
+      // cadences carry no workspace, so they show only under "All workspaces".
+      const scopedFeed = activeWorkspace === ALL_WORKSPACES ? feed : [];
+      const scopedDb = cadences.filter((c) => inActiveWorkspace(c.workspace, activeWorkspace));
+      return [...scopedFeed.map(fromFeed), ...scopedDb.map(fromDb)];
       // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [feed, cadences, issues]);
+   }, [feed, cadences, issues, activeWorkspace]);
 
    const totals = useMemo(
       () => ({
@@ -440,6 +451,7 @@ function CadenceEditor({
          : emptyDraft()
    );
    const [busy, setBusy] = useState(false);
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    useEscape(onClose);
 
    const channelList = () =>
@@ -502,7 +514,10 @@ function CadenceEditor({
          : await fetch('/api/ops/cadences', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
+              body: JSON.stringify({
+                 ...payload,
+                 workspace: activeWorkspace !== ALL_WORKSPACES ? activeWorkspace : null,
+              }),
            });
       setBusy(false);
       if (r.ok) onSaved();

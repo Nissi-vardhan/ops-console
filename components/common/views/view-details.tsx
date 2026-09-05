@@ -5,18 +5,20 @@ import { InsightsPanel } from '@/components/common/issues/insights-panel';
 import ProjectsList from '@/components/common/projects/projects-list';
 import { ProjectGroup } from '@/components/common/projects/projects';
 import { status as allStatus } from '@/mock-data/status';
-import {
-   filterIssuesForView,
-   filterProjectsForView,
-   getViewById,
-   View,
-} from '@/mock-data/views';
+import { filterIssuesForView, filterProjectsForView, getViewById, View } from '@/mock-data/views';
 import { useRightPanelStore } from '@/store/right-panel-store';
+import { useActiveWorkspaceStore, inActiveWorkspace } from '@/store/active-workspace-store';
 import { useMemo } from 'react';
 
 function IssueViewBody({ view }: { view: View }) {
    const { openPanel } = useRightPanelStore();
-   const issues = useMemo(() => filterIssuesForView(view), [view]);
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
+   // Scope to the active workspace before the view's own filtering.
+   const issues = useMemo(
+      () =>
+         filterIssuesForView(view).filter((i) => inActiveWorkspace(i.workspace, activeWorkspace)),
+      [view, activeWorkspace]
+   );
 
    return (
       <div className="w-full h-full flex flex-col overflow-hidden">

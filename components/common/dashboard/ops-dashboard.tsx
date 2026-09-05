@@ -31,6 +31,7 @@ import { Stagger, Item, CountUp, Bar } from '@/components/motion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
 import { useIssuesStore } from '@/store/issues-store';
+import { useActiveWorkspaceStore, inActiveWorkspace } from '@/store/active-workspace-store';
 import { status as STATUSES } from '@/mock-data/status';
 import { priorities as PRIORITIES } from '@/mock-data/priorities';
 import type { Issue } from '@/mock-data/issues';
@@ -342,11 +343,18 @@ function ActivityTip({ active, payload, label, weekly }: TipProps) {
 /* -------------------------------- dashboard ------------------------------- */
 
 export function OpsDashboard() {
-   const issues = useIssuesStore((s) => s.issues);
+   const allIssues = useIssuesStore((s) => s.issues);
    const members = useIssuesStore((s) => s.members);
    const hydrated = useIssuesStore((s) => s.hydrated);
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const reduce = useReducedMotion();
    const [range, setRange] = useState<Range>({});
+
+   // Scope every stat/chart below to the active workspace.
+   const issues = useMemo(
+      () => allIssues.filter((i) => inActiveWorkspace(i.workspace, activeWorkspace)),
+      [allIssues, activeWorkspace]
+   );
 
    const m = useMemo(() => {
       const now = Date.now();

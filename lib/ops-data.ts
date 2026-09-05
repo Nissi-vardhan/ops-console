@@ -26,6 +26,7 @@ export interface OpsIssue {
    rank: string;
    due_date: string | null;
    progress: string;
+   workspace?: string | null;
    current_phase?: string | null;
    step_total?: number;
    step_done?: number;
@@ -154,7 +155,7 @@ export async function updateOpsProject(
 // step counts) so board cards can render "Execute 3/5" without a second call.
 const ISSUE_SELECT = `
   i.id, i.seq, i.identifier, i.title, i.description, i.status_id, i.priority_id,
-  i.assignee_id, i.project_id, i.label_ids, i.rank, i.due_date, i.progress, i.current_phase,
+  i.assignee_id, i.project_id, i.label_ids, i.rank, i.due_date, i.progress, i.workspace, i.current_phase,
   i.created_by, i.created_at, i.updated_at,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id) AS step_total,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id
@@ -178,11 +179,12 @@ export async function createOpsIssue(input: {
    label_ids?: string[];
    rank?: string;
    due_date?: string | null;
+   workspace?: string | null;
    created_by?: string | null;
 }): Promise<OpsIssue> {
    const rows = await query<OpsIssue>(
-      `INSERT INTO ops_issues (title, description, status_id, priority_id, assignee_id, project_id, label_ids, rank, due_date, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10)
+      `INSERT INTO ops_issues (title, description, status_id, priority_id, assignee_id, project_id, label_ids, rank, due_date, workspace, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11)
      RETURNING id, seq`,
       [
          input.title,
@@ -194,6 +196,7 @@ export async function createOpsIssue(input: {
          input.label_ids ?? [],
          input.rank ?? null,
          input.due_date ?? null,
+         input.workspace ?? null,
          await validUserId(input.created_by),
       ]
    );
@@ -201,7 +204,7 @@ export async function createOpsIssue(input: {
    const done = await query<OpsIssue>(
       `UPDATE ops_issues SET identifier = 'OPS-' || $1 WHERE id = $2
      RETURNING id, seq, identifier, title, description, status_id, priority_id,
-               assignee_id, project_id, label_ids, rank, due_date, progress, created_by, created_at, updated_at`,
+               assignee_id, project_id, label_ids, rank, due_date, progress, workspace, created_by, created_at, updated_at`,
       [seq, id]
    );
    return done[0];
@@ -217,6 +220,7 @@ const ISSUE_FIELDS = new Set([
    'label_ids',
    'rank',
    'due_date',
+   'workspace',
 ]);
 
 export async function updateOpsIssue(
@@ -243,7 +247,7 @@ export async function updateOpsIssue(
    const rows = await query<OpsIssue>(
       `UPDATE ops_issues SET ${sets.join(', ')}, updated_at = now() WHERE id = $${i}
      RETURNING id, seq, identifier, title, description, status_id, priority_id,
-               assignee_id, project_id, label_ids, rank, due_date, progress, created_by, created_at, updated_at`,
+               assignee_id, project_id, label_ids, rank, due_date, progress, workspace, created_by, created_at, updated_at`,
       vals
    );
    return rows[0] ?? null;
@@ -385,6 +389,7 @@ export interface OpsDoc {
    category: string;
    pinned: boolean;
    review_stage?: string | null;
+   workspace?: string | null;
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -392,14 +397,14 @@ export interface OpsDoc {
 
 export async function listOpsDocs(): Promise<OpsDoc[]> {
    return query<OpsDoc>(
-      `SELECT id, title, body, category, pinned, review_stage, created_by, created_at, updated_at
+      `SELECT id, title, body, category, pinned, review_stage, workspace, created_by, created_at, updated_at
      FROM ops_docs ORDER BY pinned DESC, updated_at DESC`
    );
 }
 
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
-      `SELECT id, title, body, category, pinned, review_stage, created_by, created_at, updated_at FROM ops_docs WHERE id = $1`,
+      `SELECT id, title, body, category, pinned, review_stage, workspace, created_by, created_at, updated_at FROM ops_docs WHERE id = $1`,
       [id]
    );
 }
@@ -531,24 +536,26 @@ export async function createOpsDoc(input: {
    body?: string;
    category?: string;
    pinned?: boolean;
+   workspace?: string | null;
    created_by?: string | null;
 }): Promise<OpsDoc> {
    const rows = await query<OpsDoc>(
-      `INSERT INTO ops_docs (title, body, category, pinned, created_by)
-     VALUES ($1,$2,$3,$4,$5)
-     RETURNING id, title, body, category, pinned, created_by, created_at, updated_at`,
+      `INSERT INTO ops_docs (title, body, category, pinned, workspace, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     RETURNING id, title, body, category, pinned, workspace, created_by, created_at, updated_at`,
       [
          input.title,
          input.body ?? '',
          input.category ?? 'Doc',
          input.pinned ?? false,
+         input.workspace ?? null,
          await validUserId(input.created_by),
       ]
    );
    return rows[0];
 }
 
-const DOC_FIELDS = new Set(['title', 'body', 'category', 'pinned']);
+const DOC_FIELDS = new Set(['title', 'body', 'category', 'pinned', 'workspace']);
 export async function updateOpsDoc(
    id: string,
    patch: Record<string, unknown>
@@ -565,7 +572,7 @@ export async function updateOpsDoc(
    vals.push(id);
    const rows = await query<OpsDoc>(
       `UPDATE ops_docs SET ${sets.join(', ')}, updated_at = now() WHERE id = $${i}
-     RETURNING id, title, body, category, pinned, created_by, created_at, updated_at`,
+     RETURNING id, title, body, category, pinned, workspace, created_by, created_at, updated_at`,
       vals
    );
    return rows[0] ?? null;
@@ -597,13 +604,14 @@ export interface OpsCadence {
    touches: OpsCadenceTouch[];
    blockers: string[];
    notes: string;
+   workspace?: string | null;
    created_by: string | null;
    created_at: string;
    updated_at: string;
 }
 
 const CADENCE_COLS =
-   'id, name, audience, channels, status, issue_id, touches, blockers, notes, created_by, created_at, updated_at';
+   'id, name, audience, channels, status, issue_id, touches, blockers, notes, workspace, created_by, created_at, updated_at';
 
 export async function listOpsCadences(): Promise<OpsCadence[]> {
    return query<OpsCadence>(`SELECT ${CADENCE_COLS} FROM ops_cadences ORDER BY updated_at DESC`);
@@ -622,11 +630,12 @@ export async function createOpsCadence(input: {
    touches?: OpsCadenceTouch[];
    blockers?: string[];
    notes?: string;
+   workspace?: string | null;
    created_by?: string | null;
 }): Promise<OpsCadence> {
    const rows = await query<OpsCadence>(
-      `INSERT INTO ops_cadences (name, audience, channels, status, issue_id, touches, blockers, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      `INSERT INTO ops_cadences (name, audience, channels, status, issue_id, touches, blockers, notes, workspace, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING ${CADENCE_COLS}`,
       [
          input.name,
@@ -637,13 +646,21 @@ export async function createOpsCadence(input: {
          JSON.stringify(input.touches ?? []),
          JSON.stringify(input.blockers ?? []),
          input.notes ?? '',
+         input.workspace ?? null,
          await validUserId(input.created_by),
       ]
    );
    return rows[0];
 }
 
-const CADENCE_TEXT_FIELDS = new Set(['name', 'audience', 'channels', 'status', 'notes']);
+const CADENCE_TEXT_FIELDS = new Set([
+   'name',
+   'audience',
+   'channels',
+   'status',
+   'notes',
+   'workspace',
+]);
 const CADENCE_JSON_FIELDS = new Set(['touches', 'blockers']);
 export async function updateOpsCadence(
    id: string,

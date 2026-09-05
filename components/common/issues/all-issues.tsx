@@ -4,6 +4,7 @@ import { Issue } from '@/mock-data/issues';
 import { getStatusesByCategory, StatusCategory, displayOrderedStatus } from '@/mock-data/status';
 import { useFilterStore } from '@/store/filter-store';
 import { useIssuesStore } from '@/store/issues-store';
+import { useActiveWorkspaceStore, inActiveWorkspace } from '@/store/active-workspace-store';
 import { applyIssueFilters } from './issue-filter-columns';
 import { IssueFilterBar } from './issue-filter-bar';
 import { useRightPanelStore } from '@/store/right-panel-store';
@@ -27,6 +28,7 @@ export default function AllIssues({ categories }: AllIssuesProps) {
    const { viewType } = useViewStore();
    const { filters } = useFilterStore();
    const { issues } = useIssuesStore();
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const { openPanel } = useRightPanelStore();
 
    const isSearching = isSearchOpen && searchQuery.trim() !== '';
@@ -37,13 +39,11 @@ export default function AllIssues({ categories }: AllIssuesProps) {
       [categories]
    );
 
-   const scopedIssues = useMemo<Issue[]>(
-      () =>
-         categories
-            ? issues.filter((issue) => categories.includes(issue.status.category))
-            : issues,
-      [issues, categories]
-   );
+   const scopedIssues = useMemo<Issue[]>(() => {
+      // Scope to the active workspace first, then the status-category tabs.
+      const inWs = issues.filter((issue) => inActiveWorkspace(issue.workspace, activeWorkspace));
+      return categories ? inWs.filter((issue) => categories.includes(issue.status.category)) : inWs;
+   }, [issues, categories, activeWorkspace]);
 
    const displayedIssues = useMemo(
       () => applyIssueFilters(scopedIssues, filters),

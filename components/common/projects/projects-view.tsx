@@ -7,6 +7,11 @@ import { Box, Plus, CircleDot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIssuesStore } from '@/store/issues-store';
+import {
+   useActiveWorkspaceStore,
+   inActiveWorkspace,
+   ALL_WORKSPACES,
+} from '@/store/active-workspace-store';
 import { hydrateProject, type RawProject } from '@/lib/ops-hydrate';
 import { Issue } from '@/mock-data/issues';
 import { status as STATUSES } from '@/mock-data/status';
@@ -34,11 +39,18 @@ function breakdown(mine: Issue[]) {
 }
 
 export function ProjectsView() {
-   const projects = useIssuesStore((s) => s.projects);
+   const allProjects = useIssuesStore((s) => s.projects);
    const issues = useIssuesStore((s) => s.issues);
    const members = useIssuesStore((s) => s.members);
    const setProjects = useIssuesStore((s) => s.setProjects);
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const [adding, setAdding] = useState(false);
+
+   // Scope projects to the active workspace (untagged projects show under "All").
+   const projects = useMemo(
+      () => allProjects.filter((p) => inActiveWorkspace(p.workspace, activeWorkspace)),
+      [allProjects, activeWorkspace]
+   );
 
    const rows = useMemo(
       () =>
@@ -59,7 +71,8 @@ export function ProjectsView() {
    );
 
    const totals = useMemo(() => {
-      const assigned = issues.filter((i) => i.project);
+      const scopedIds = new Set(projects.map((p) => p.id));
+      const assigned = issues.filter((i) => i.project && scopedIds.has(i.project.id));
       return {
          projects: projects.length,
          open: assigned.filter(isOpen).length,
@@ -272,10 +285,14 @@ function NewProject({
    onClose: () => void;
    onCreated: () => void;
 }) {
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const [name, setName] = useState('');
    const [leadId, setLeadId] = useState('');
    const [statusId, setStatusId] = useState('in-progress');
-   const [workspace, setWorkspace] = useState('__none');
+   // Default the new project's workspace to the active one (when scoped).
+   const [workspace, setWorkspace] = useState(
+      activeWorkspace !== ALL_WORKSPACES ? activeWorkspace : '__none'
+   );
    const [target, setTarget] = useState('');
    const [busy, setBusy] = useState(false);
    useEscape(onClose);

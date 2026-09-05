@@ -11,6 +11,11 @@ import { useConfirm } from '@/components/common/confirm';
 import { Stagger, Item } from '@/components/motion';
 import { Comments } from '@/components/common/comments';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+   useActiveWorkspaceStore,
+   inActiveWorkspace,
+   ALL_WORKSPACES,
+} from '@/store/active-workspace-store';
 
 interface Doc {
    id: string;
@@ -19,6 +24,7 @@ interface Doc {
    category: string;
    pinned: boolean;
    review_stage?: string | null;
+   workspace?: string | null;
    created_at?: string;
    created_by?: string | null;
    updated_at: string;
@@ -43,6 +49,7 @@ export function DocsView() {
    const articleRef = useRef<HTMLElement>(null);
    const filterRef = useRef<HTMLInputElement>(null);
    const confirm = useConfirm();
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
 
    const load = useCallback(async (keep?: string) => {
       const d = await fetch('/api/ops/docs', { cache: 'no-store' })
@@ -182,7 +189,10 @@ export function DocsView() {
          const r = await fetch('/api/ops/docs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(draft),
+            body: JSON.stringify({
+               ...draft,
+               workspace: activeWorkspace !== ALL_WORKSPACES ? activeWorkspace : null,
+            }),
          });
          const j = await r.json().catch(() => null);
          if (r.ok && j?.doc) {
@@ -220,11 +230,13 @@ export function DocsView() {
       const q = filter.trim().toLowerCase();
       const g: Record<string, Doc[]> = {};
       for (const d of docs) {
+         // Scope to the active workspace (untagged docs show under "All").
+         if (!inActiveWorkspace(d.workspace, activeWorkspace)) continue;
          if (q && !`${d.title} ${d.category}`.toLowerCase().includes(q)) continue;
          (g[d.category || 'Doc'] ??= []).push(d);
       }
       return Object.entries(g);
-   }, [docs, filter]);
+   }, [docs, filter, activeWorkspace]);
 
    return (
       <div className="flex h-full w-full overflow-hidden">

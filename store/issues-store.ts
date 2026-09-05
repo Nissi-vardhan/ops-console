@@ -118,6 +118,8 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
          label_ids: issue.labels.map((l) => l.id),
          rank: issue.rank,
          due_date: issue.dueDate ?? null,
+         // Active workspace wins; otherwise inherit the chosen project's workspace.
+         workspace: issue.workspace ?? issue.project?.workspace ?? null,
       })
          .then((r) => (r && 'json' in r ? (r as Response).json() : null))
          .then((d: { issue?: RawIssue } | null) => {

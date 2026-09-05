@@ -9,6 +9,7 @@ import { BreakdownPanel } from './breakdown-panel';
 import { displayOrderedStatus } from '@/mock-data/status';
 import { useFilterStore } from '@/store/filter-store';
 import { useIssuesStore } from '@/store/issues-store';
+import { useActiveWorkspaceStore, inActiveWorkspace } from '@/store/active-workspace-store';
 import { useRightPanelStore } from '@/store/right-panel-store';
 import { useSearchStore } from '@/store/search-store';
 import { useViewStore } from '@/store/view-store';
@@ -26,12 +27,16 @@ export default function MyIssues() {
    const { viewType } = useViewStore();
    const { filters } = useFilterStore();
    const { issues, currentUserId } = useIssuesStore();
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const { openPanel } = useRightPanelStore();
 
    const isSearching = isSearchOpen && searchQuery.trim() !== '';
    const isViewTypeGrid = viewType === 'grid';
 
-   const scopedIssues = useMemo(() => scopeMyIssues(issues, tab, currentUserId), [issues, tab, currentUserId]);
+   const scopedIssues = useMemo(() => {
+      const inWs = issues.filter((issue) => inActiveWorkspace(issue.workspace, activeWorkspace));
+      return scopeMyIssues(inWs, tab, currentUserId);
+   }, [issues, tab, currentUserId, activeWorkspace]);
 
    const displayedIssues = useMemo(
       () => applyIssueFilters(scopedIssues, filters),

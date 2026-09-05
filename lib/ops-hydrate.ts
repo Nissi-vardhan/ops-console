@@ -28,6 +28,7 @@ export interface RawIssue {
    rank: string;
    due_date: string | null;
    progress?: string;
+   workspace?: string | null;
    current_phase?: string | null;
    step_total?: number;
    step_done?: number;
@@ -118,6 +119,7 @@ export function hydrateIssue(row: RawIssue, users: User[], projects: Project[] =
       rank: row.rank || '0|hzzzzz:',
       dueDate: row.due_date || undefined,
       progress: row.progress || '',
+      workspace: row.workspace ?? undefined,
       currentPhase: row.current_phase ?? null,
       journey: { done: row.step_done ?? 0, total: row.step_total ?? 0 },
    };
@@ -136,5 +138,6 @@ export function issuePatchToRaw(patch: Partial<Issue>): Record<string, unknown> 
    if (patch.labels !== undefined) raw.label_ids = patch.labels.map((l) => l.id);
    if (patch.rank !== undefined) raw.rank = patch.rank;
    if (patch.dueDate !== undefined) raw.due_date = patch.dueDate ?? null;
+   if (patch.workspace !== undefined) raw.workspace = patch.workspace ?? null;
    return raw;
 }

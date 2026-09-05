@@ -12,6 +12,7 @@ import { priorities } from '@/mock-data/priorities';
 import { status } from '@/mock-data/status';
 import { useIssuesStore } from '@/store/issues-store';
 import { useCreateIssueStore } from '@/store/create-issue-store';
+import { useActiveWorkspaceStore, ALL_WORKSPACES } from '@/store/active-workspace-store';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { StatusSelector } from './status-selector';
@@ -26,6 +27,7 @@ export function CreateNewIssue() {
    const [createMore, setCreateMore] = useState<boolean>(false);
    const { isOpen, defaultStatus, openModal, closeModal } = useCreateIssueStore();
    const { addIssue, getAllIssues } = useIssuesStore();
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
 
    const generateUniqueIdentifier = useCallback(() => {
       const identifiers = getAllIssues().map((issue) => issue.identifier);
@@ -56,8 +58,11 @@ export function CreateNewIssue() {
          project: undefined,
          subissues: [],
          rank: ranks[ranks.length - 1],
+         // Tag the new issue to the active workspace when the console is scoped;
+         // otherwise it falls back to the chosen project's workspace on create.
+         workspace: activeWorkspace !== ALL_WORKSPACES ? activeWorkspace : undefined,
       };
-   }, [defaultStatus, generateUniqueIdentifier]);
+   }, [defaultStatus, generateUniqueIdentifier, activeWorkspace]);
 
    const [addIssueForm, setAddIssueForm] = useState<Issue>(createDefaultData());
 

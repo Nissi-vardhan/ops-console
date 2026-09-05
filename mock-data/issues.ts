@@ -26,6 +26,8 @@ export interface Issue {
    /** Journey: current phase + step tallies (for board cards). */
    currentPhase?: string | null;
    journey?: { done: number; total: number };
+   /** Workspace slug this issue is tagged to (see lib/workspaces.ts). */
+   workspace?: string;
 }
 
 /* -------------------------------------------------------------------------- */
