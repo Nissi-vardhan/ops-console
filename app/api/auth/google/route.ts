@@ -5,19 +5,24 @@ import { normalizeRole } from '@/lib/rbac';
 import { setOpsCookie } from '@/lib/ops-session';
 import { verifyGoogleIdToken, googleClientId } from '@/lib/google-verify';
 
-// Google sign-in for the ops console. Verifies the Google ID token, gates on a
-// small allow-list of Google accounts, then mints the SAME ops session that
-// password login issues. If the email matches a local `users` row we adopt its
-// id/username/role; otherwise we mint a stable synthetic identity (full access)
-// so an allow-listed Google account works even without a password row.
+// Google sign-in for the ops console. Verifies the Google ID token, gates on
+// EITHER the OPS_GOOGLE_ALLOWLIST env bootstrap OR an active local `users` row
+// with ops_access=true (the users table is the primary provisioning source),
+// then mints the SAME ops session that password login issues. If the email
+// matches a local `users` row we adopt its id/username/role; otherwise (an
+// allow-listed email with no row) we mint a stable synthetic identity defaulted
+// to the least-privileged 'member' role — never a synthetic owner.
 
-// Allow-list of Google emails. Overridable without a redeploy via
-// OPS_GOOGLE_ALLOWLIST (comma-separated); falls back to the two owner accounts.
+// Allow-list of Google emails, from OPS_GOOGLE_ALLOWLIST (comma-separated).
+// Fails CLOSED: no hardcoded fallback. An empty/unset env yields an empty list,
+// so access then depends entirely on a matching active ops-access users row.
 function allowlist(): string[] {
    const raw = process.env.OPS_GOOGLE_ALLOWLIST;
-   const list =
-      raw && raw.trim() ? raw.split(',') : ['nissi@shortcastle.com', 'nissivardhan@gmail.com'];
-   return list.map((e) => e.trim().toLowerCase()).filter(Boolean);
+   if (!raw || !raw.trim()) return [];
+   return raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
 }
 
 interface Row {
@@ -25,6 +30,7 @@ interface Row {
    email: string;
    username: string;
    role: string;
+   ops_access: boolean;
    active: boolean;
 }
 
@@ -43,17 +49,27 @@ export async function POST(request: Request) {
    }
 
    const email = identity.email.toLowerCase();
-   if (!allowlist().includes(email)) {
-      return NextResponse.json({ error: `${email} isn't allowed to access ops.` }, { status: 403 });
-   }
+   const list = allowlist();
+   const inAllowlist = list.includes(email);
 
    // Adopt a matching local account if one exists; otherwise synthesize one.
    const user = await query<Row>(
-      'SELECT id, email, username, role, active FROM users WHERE email = $1',
+      'SELECT id, email, username, role, ops_access, active FROM users WHERE email = $1',
       [email]
    )
       .then((r) => r[0] ?? null)
       .catch(() => null);
+
+   const dbAllowed = !!user && user.active !== false && user.ops_access === true;
+
+   // Fail closed: allowed only if in the env bootstrap OR an active ops-access row.
+   if (!inAllowlist && !dbAllowed) {
+      const error =
+         list.length === 0 && !user
+            ? 'Google sign-in not configured.'
+            : `${email} isn't allowed to access ops.`;
+      return NextResponse.json({ error }, { status: 403 });
+   }
 
    if (user && user.active === false) {
       return NextResponse.json({ error: 'This account is inactive.' }, { status: 403 });
@@ -70,7 +86,7 @@ export async function POST(request: Request) {
            id: 'g:' + createHash('sha256').update(email).digest('hex').slice(0, 24),
            email,
            username: email.split('@')[0],
-           role: 'owner',
+           role: 'member',
         };
 
    await setOpsCookie(session);

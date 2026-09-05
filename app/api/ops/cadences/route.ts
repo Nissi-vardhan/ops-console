@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listOpsCadences, createOpsCadence } from '@/lib/ops-data';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole } from '@/lib/ops-guard';
 
 export async function GET(request: Request) {
    if (!(await opsAuthorized(request)))
@@ -9,8 +9,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'admin');
+   if (denied) return denied;
    const body = await request.json().catch(() => null);
    const name = typeof body?.name === 'string' ? body.name.trim() : '';
    if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });

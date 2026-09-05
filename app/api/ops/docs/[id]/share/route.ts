@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { getShareByDoc, upsertShare, deleteShare } from '@/lib/ops-shares';
 import { googleConfigured } from '@/lib/google-verify';
@@ -14,8 +14,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'admin');
+   if (denied) return denied;
    const body = await request.json().catch(() => ({}));
    const user = await getOpsUser();
    const share = await upsertShare((await params).id, body?.allowed_emails, user?.id ?? null);
@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'admin');
+   if (denied) return denied;
    return NextResponse.json({ ok: await deleteShare((await params).id) });
 }

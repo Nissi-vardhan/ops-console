@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { listComments, addComment } from '@/lib/ops-comments';
 
@@ -18,8 +18,8 @@ export async function GET(request: Request) {
 
 // POST { kind, id, body }
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const body = await request.json().catch(() => ({}));
    const kind = String(body?.kind ?? '');
    const id = String(body?.id ?? '');

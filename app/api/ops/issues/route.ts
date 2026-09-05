@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listOpsIssues, createOpsIssue } from '@/lib/ops-data';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 
 export async function GET(request: Request) {
@@ -10,8 +10,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const body = await request.json().catch(() => null);
    const title = typeof body?.title === 'string' ? body.title.trim() : '';
    if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 });

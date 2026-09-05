@@ -10,6 +10,7 @@ import {
    SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { SettingsCard, SettingsSection, SettingsShell } from './shared';
 import { ROLES, ROLE_LABEL, type Role } from '@/lib/rbac';
 import { WORKSPACES } from '@/lib/workspaces';
@@ -45,6 +46,16 @@ export default function UsersAdmin() {
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
    const [busy, setBusy] = useState<string | null>(null);
+
+   // Add-a-user form state.
+   const [nu, setNu] = useState<{
+      email: string;
+      username: string;
+      role: Role;
+      mode: 'password' | 'google';
+   }>({ email: '', username: '', role: 'member', mode: 'password' });
+   const [creating, setCreating] = useState(false);
+   const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);
 
    const load = useCallback(async () => {
       setError(null);
@@ -117,6 +128,28 @@ export default function UsersAdmin() {
          setError((e as Error).message);
       } finally {
          setBusy(null);
+      }
+   };
+
+   const createUser = async () => {
+      setCreating(true);
+      setError(null);
+      setCreated(null);
+      try {
+         const r = await fetch('/api/ops/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nu),
+         });
+         const d = await r.json().catch(() => ({}));
+         if (!r.ok) throw new Error(d?.error || 'Could not create the user.');
+         setCreated({ email: nu.email, password: d.generated_password ?? null });
+         setNu({ email: '', username: '', role: 'member', mode: 'password' });
+         await load();
+      } catch (e) {
+         setError((e as Error).message);
+      } finally {
+         setCreating(false);
       }
    };
 
@@ -249,17 +282,113 @@ export default function UsersAdmin() {
             </SettingsCard>
          </SettingsSection>
 
-         <SettingsSection
-            title="Add a new user"
-            description="Invite someone who isn't in the console yet — a colleague's @shortcastle.com Google account, or an external person with a generated password."
-         >
-            <SettingsCard>
-               <div className="p-4 text-sm text-muted-foreground">
-                  Coming next — creating brand-new accounts is an auth-sensitive step being wired up
-                  separately. For now, add existing users to workspaces above.
-               </div>
-            </SettingsCard>
-         </SettingsSection>
+         {canManage && (
+            <SettingsSection
+               title="Add a new user"
+               description="A @shortcastle.com colleague who signs in with Google, or an external person with a one-time password."
+            >
+               <SettingsCard>
+                  <div className="flex flex-col gap-3 p-4">
+                     {created && (
+                        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+                           <div className="font-medium text-emerald-700 dark:text-emerald-300">
+                              Created {created.email}
+                           </div>
+                           {created.password ? (
+                              <div className="mt-1.5">
+                                 <span className="text-muted-foreground">
+                                    One-time password (shown once — copy it now):
+                                 </span>
+                                 <div className="mt-1 flex items-center gap-2">
+                                    <code className="rounded bg-background px-2 py-1 font-mono text-sm">
+                                       {created.password}
+                                    </code>
+                                    <Button
+                                       size="sm"
+                                       variant="outline"
+                                       onClick={() =>
+                                          navigator.clipboard?.writeText(created.password ?? '')
+                                       }
+                                    >
+                                       Copy
+                                    </Button>
+                                 </div>
+                                 <p className="mt-1 text-xs text-muted-foreground">
+                                    They'll be asked to change it on first sign-in.
+                                 </p>
+                              </div>
+                           ) : (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                 They can now sign in with their @shortcastle.com Google account.
+                              </p>
+                           )}
+                        </div>
+                     )}
+                     <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                           type="email"
+                           placeholder="email@shortcastle.com"
+                           value={nu.email}
+                           onChange={(e) => setNu({ ...nu, email: e.target.value })}
+                           className="h-9 min-w-56 flex-1"
+                           disabled={creating}
+                        />
+                        <Input
+                           placeholder="Name (optional)"
+                           value={nu.username}
+                           onChange={(e) => setNu({ ...nu, username: e.target.value })}
+                           className="h-9 w-40"
+                           disabled={creating}
+                        />
+                     </div>
+                     <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                           value={nu.mode}
+                           onValueChange={(v) => setNu({ ...nu, mode: v as 'password' | 'google' })}
+                           disabled={creating}
+                        >
+                           <SelectTrigger className="h-9 w-52 text-sm">
+                              <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                              <SelectItem value="password">External · one-time password</SelectItem>
+                              <SelectItem value="google">@shortcastle · Google sign-in</SelectItem>
+                           </SelectContent>
+                        </Select>
+                        <Select
+                           value={nu.role}
+                           onValueChange={(v) => setNu({ ...nu, role: v as Role })}
+                           disabled={creating}
+                        >
+                           <SelectTrigger className="h-9 w-32 text-sm">
+                              <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                              {ROLES.filter((r) => r !== 'owner' || me?.role === 'owner').map(
+                                 (r) => (
+                                    <SelectItem key={r} value={r}>
+                                       {ROLE_LABEL[r]}
+                                    </SelectItem>
+                                 )
+                              )}
+                           </SelectContent>
+                        </Select>
+                        <Button
+                           size="sm"
+                           onClick={createUser}
+                           disabled={creating || !nu.email.trim()}
+                        >
+                           {creating ? 'Creating…' : 'Create user'}
+                        </Button>
+                     </div>
+                     <p className="text-xs text-muted-foreground">
+                        New users get ops access and no workspaces — add them to workspaces with the
+                        chips above once created.
+                     </p>
+                  </div>
+               </SettingsCard>
+            </SettingsSection>
+         )}
       </SettingsShell>
    );
 }

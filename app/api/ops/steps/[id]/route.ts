@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { updateStep, deleteStep } from '@/lib/ops-data';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 
 // Who to credit for a completion: an explicit `by` (the CLI passes a user id or a
@@ -13,8 +13,8 @@ async function actor(bodyBy: unknown): Promise<string | null> {
 // PATCH /api/ops/steps/:id — update/complete/skip/reopen a step, or edit its text.
 // Body: { status?, title?, note?, phase?, seq?, by? }
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const body = await request.json().catch(() => ({}));
    const { by, ...patch } = body ?? {};
    const step = await updateStep((await params).id, patch ?? {}, await actor(by));
@@ -23,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    return NextResponse.json({ ok: await deleteStep((await params).id) });
 }

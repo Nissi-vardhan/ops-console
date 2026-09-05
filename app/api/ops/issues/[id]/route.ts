@@ -8,7 +8,7 @@ import {
    listIssueSteps,
    type OpsTaskStep,
 } from '@/lib/ops-data';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole } from '@/lib/ops-guard';
 import { JOURNEY_PHASES } from '@/lib/journey';
 
 // `id` may be a uuid or an OPS-<n> identifier.
@@ -36,8 +36,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const id = await resolve((await params).id);
    if (!id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    const body = await request.json().catch(() => ({}));
@@ -48,8 +48,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 // Append a progress note: POST { note, author_id?, session? }
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const id = await resolve((await params).id);
    if (!id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    const body = await request.json().catch(() => null);
@@ -62,8 +62,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const id = await resolve((await params).id);
    if (!id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({ ok: await deleteOpsIssue(id) });

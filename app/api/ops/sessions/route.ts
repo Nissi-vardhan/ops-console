@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, safeEqual } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { recordSession, listSessions } from '@/lib/ops-sessions';
 
@@ -8,13 +8,15 @@ import { recordSession, listSessions } from '@/lib/ops-sessions';
 function bearerOk(request: Request): boolean {
    const secret = process.env.OPS_AUTH_SECRET;
    const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-   return !!secret && token === secret;
+   return !!secret && safeEqual(token, secret);
 }
 function pinOk(request: Request): boolean {
-   const pin = process.env.OPS_SESSIONS_PIN || '151205';
+   // Fail closed if no PIN is configured — no hardcoded default grants access.
+   const pin = process.env.OPS_SESSIONS_PIN;
+   if (!pin) return false;
    const got =
       request.headers.get('x-ops-pin') || new URL(request.url).searchParams.get('pin') || '';
-   return got === pin;
+   return safeEqual(got, pin);
 }
 const s = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 

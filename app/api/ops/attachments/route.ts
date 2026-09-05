@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { putObject, storageConfigured } from '@/lib/storage';
 import { createAttachment, listAttachments } from '@/lib/ops-attachments';
@@ -21,8 +21,8 @@ export async function GET(request: Request) {
 
 // POST multipart { file, doc_id? } → upload to object storage
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    if (!storageConfigured())
       return NextResponse.json(
          { error: 'Object storage not configured (set MINIO_*).' },
