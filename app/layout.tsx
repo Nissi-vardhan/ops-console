@@ -33,6 +33,19 @@ export const metadata: Metadata = {
    },
    authors: [{ name: 'Shortcastle' }],
    keywords: ['shortcastle', 'ops', 'issues', 'runbooks'],
+   manifest: '/manifest.webmanifest',
+   appleWebApp: {
+      capable: true,
+      title: 'Ops',
+      statusBarStyle: 'black-translucent',
+   },
+   icons: {
+      apple: '/images/icon-192.png',
+   },
+};
+
+export const viewport = {
+   themeColor: '#0a0a0a',
 };
 
 import { ThemeProvider } from '@/components/layout/theme-provider';
