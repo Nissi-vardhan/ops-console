@@ -314,7 +314,7 @@ export default function UsersAdmin() {
                                     </Button>
                                  </div>
                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    They'll be asked to change it on first sign-in.
+                                    They&apos;ll be asked to change it on first sign-in.
                                  </p>
                               </div>
                            ) : (

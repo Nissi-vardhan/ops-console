@@ -7,16 +7,7 @@ import {
    SidebarMenuButton,
    SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import {
-   Bell,
-   Blocks,
-   Boxes,
-   KeyRound,
-   LucideIcon,
-   Settings,
-   UserRound,
-   Users,
-} from 'lucide-react';
+import { Bell, Blocks, Boxes, LucideIcon, Settings, UserRound, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 
