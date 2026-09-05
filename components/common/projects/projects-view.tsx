@@ -119,7 +119,7 @@ export function ProjectsView() {
                { label: 'In progress', value: totals.inProgress, tint: 'text-amber-500' },
                { label: 'Completed', value: totals.done, tint: 'text-emerald-500' },
             ].map((s) => (
-               <div key={s.label} className="rounded-xl border bg-container p-3">
+               <div key={s.label} className="paper-card rounded-xl border bg-container p-3">
                   <div className={`text-2xl font-semibold tabular-nums ${s.tint}`}>{s.value}</div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                      {s.label}
@@ -144,14 +144,14 @@ export function ProjectsView() {
                   <Item
                      key={p.id}
                      hover
-                     className="rounded-xl border bg-container p-4 transition-colors hover:border-primary/50"
+                     className="paper-card rounded-xl border bg-container p-4 transition-colors hover:border-primary/50"
                   >
                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                           <span className="flex size-7 items-center justify-center rounded-md bg-primary/15">
+                        <div className="flex min-w-0 items-center gap-2">
+                           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15">
                               <Box className="size-4 text-primary" />
                            </span>
-                           <span className="font-medium">{p.name}</span>
+                           <span className="truncate font-medium">{p.name}</span>
                         </div>
                         <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
                            <span
@@ -218,15 +218,15 @@ export function ProjectsView() {
                      {mine.length > 0 && (
                         <div className="mt-3 space-y-1 border-t pt-3">
                            {mine.slice(0, 3).map((i) => (
-                              <div key={i.id} className="flex items-center gap-2 text-xs">
+                              <div key={i.id} className="flex min-w-0 items-center gap-2 text-xs">
                                  <CircleDot
                                     className="size-3 shrink-0"
                                     style={{ color: i.status.color }}
                                  />
-                                 <span className="truncate text-muted-foreground">
+                                 <span className="shrink-0 text-muted-foreground">
                                     {i.identifier}
                                  </span>
-                                 <span className="truncate">{i.title}</span>
+                                 <span className="min-w-0 flex-1 truncate">{i.title}</span>
                               </div>
                            ))}
                            {mine.length > 3 && (
