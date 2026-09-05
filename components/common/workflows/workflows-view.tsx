@@ -361,6 +361,52 @@ function FlowCanvas({ detail }: { detail: Detail }) {
    );
 }
 
+/* ------------------- mobile: node list (canvas is unusable) ----------------- */
+
+// On phones the pan/zoom canvas fits to ~15% and is unreadable, so we show the
+// nodes as a simple ordered list instead. "Open in n8n" covers the real graph.
+function FlowNodeList({ detail }: { detail: Detail }) {
+   if (!detail.nodes.length) {
+      return <p className="p-4 text-sm text-muted-foreground">This workflow has no nodes.</p>;
+   }
+   // n8n stores nodes left-to-right; sort by x then y so the list reads in flow order.
+   const ordered = [...detail.nodes].sort(
+      (a, b) => a.position[0] - b.position[0] || a.position[1] - b.position[1]
+   );
+   return (
+      <ol className="h-full space-y-1.5 overflow-y-auto p-1">
+         {ordered.map((n, i) => {
+            const { Icon, color } = nodeStyle(n.type);
+            return (
+               <li
+                  key={`${n.name}-${i}`}
+                  className={`flex items-center gap-3 rounded-lg border bg-container px-3 py-2.5 ${
+                     n.disabled ? 'opacity-50' : ''
+                  }`}
+               >
+                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                     {i + 1}
+                  </span>
+                  <span
+                     className="flex size-8 shrink-0 items-center justify-center rounded-md"
+                     style={{ backgroundColor: `${color}1a`, color }}
+                  >
+                     <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                     <span className="block truncate text-sm font-medium">{n.name}</span>
+                     <span className="block truncate text-[11px] text-muted-foreground">
+                        {shortType(n.type)}
+                        {n.disabled ? ' · disabled' : ''}
+                     </span>
+                  </span>
+               </li>
+            );
+         })}
+      </ol>
+   );
+}
+
 /* --------------------------------- view ------------------------------------ */
 
 export function WorkflowsView() {
@@ -716,7 +762,17 @@ export function WorkflowsView() {
                      {detailLoading && (
                         <p className="p-6 text-sm text-muted-foreground">Loading flow…</p>
                      )}
-                     {detail && <FlowCanvas detail={detail} />}
+                     {detail && (
+                        <>
+                           {/* desktop: pan/zoom canvas; mobile: readable node list */}
+                           <div className="hidden h-full sm:block">
+                              <FlowCanvas detail={detail} />
+                           </div>
+                           <div className="h-full sm:hidden">
+                              <FlowNodeList detail={detail} />
+                           </div>
+                        </>
+                     )}
                      {!detailLoading && !detail && (
                         <p className="p-6 text-sm text-muted-foreground">
                            Couldn’t load this workflow.

@@ -50,6 +50,7 @@ export const viewport = {
 
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { ConfirmProvider } from '@/components/common/confirm';
+import { PwaRegister } from '@/components/pwa-register';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 export default function RootLayout({
@@ -70,6 +71,7 @@ export default function RootLayout({
                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
                   <ConfirmProvider>{children}</ConfirmProvider>
                   <Toaster />
+                  <PwaRegister />
                </ThemeProvider>
             </NuqsAdapter>
          </body>
