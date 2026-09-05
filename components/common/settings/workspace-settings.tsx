@@ -11,6 +11,7 @@ import {
    SelectValue,
 } from '@/components/ui/select';
 import { SettingsCard, SettingsRow, SettingsSection, SettingsShell } from './shared';
+import UsersAdmin from './users-admin';
 import { WORKSPACE_STATUS, workspaceBySlug } from '@/lib/workspaces';
 import { useActiveWorkspaceStore, ALL_WORKSPACES } from '@/store/active-workspace-store';
 import { ASSIGNABLE_ROLES, ROLE_LABEL, type Role } from '@/lib/rbac';
@@ -141,19 +142,10 @@ export default function WorkspaceSettings() {
       }
    };
 
+   // "All workspaces" → global user administration (manage everyone + assign to
+   // workspaces). Pick a specific workspace to manage just its members below.
    if (active === ALL_WORKSPACES || !ws) {
-      return (
-         <SettingsShell title="Workspace" description="Per-workspace members and access.">
-            <SettingsCard>
-               <SettingsRow
-                  icon={<Boxes className="size-4" />}
-                  title="Pick a workspace"
-                  description="Choose a workspace from the switcher (top-left) to manage its members."
-                  muted
-               />
-            </SettingsCard>
-         </SettingsShell>
-      );
+      return <UsersAdmin />;
    }
 
    return (
