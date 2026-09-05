@@ -151,23 +151,25 @@ export function NavOps() {
                {(() => {
                   const isActive = pathname === allTasksUrl || pathname.startsWith(allTasksUrl);
                   return (
-                     <SidebarMenuItem className="relative">
-                        {isActive && activeMark(allTasksUrl)}
-                        <SidebarMenuButton asChild isActive={isActive}>
-                           <Link href={allTasksUrl}>
-                              <CircleDot className="size-4" />
-                              <span>All tasks</span>
-                           </Link>
-                        </SidebarMenuButton>
-                        <button
-                           onClick={() => setTasksOpen((v) => !v)}
-                           aria-label={tasksOpen ? 'Collapse tasks' : 'Expand tasks'}
-                           className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                        >
-                           <ChevronRight
-                              className={`size-3.5 transition-transform ${tasksOpen ? 'rotate-90' : ''}`}
-                           />
-                        </button>
+                     <SidebarMenuItem>
+                        <div className="relative">
+                           {isActive && activeMark(allTasksUrl)}
+                           <SidebarMenuButton asChild isActive={isActive} className="pr-8">
+                              <Link href={allTasksUrl}>
+                                 <CircleDot className="size-4" />
+                                 <span>All tasks</span>
+                              </Link>
+                           </SidebarMenuButton>
+                           <button
+                              onClick={() => setTasksOpen((v) => !v)}
+                              aria-label={tasksOpen ? 'Collapse tasks' : 'Expand tasks'}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                           >
+                              <ChevronRight
+                                 className={`size-3.5 transition-transform ${tasksOpen ? 'rotate-90' : ''}`}
+                              />
+                           </button>
+                        </div>
                         {tasksOpen && (
                            <SidebarMenuSub>
                               {taskChildren.map((c) => (
