@@ -253,6 +253,14 @@ CREATE INDEX IF NOT EXISTS idx_ops_standup_day ON ops_standup(day, created_at);
 -- Full session id + cwd so a past update can hand back a claude --resume command.
 ALTER TABLE ops_standup ADD COLUMN IF NOT EXISTS session_id text;
 ALTER TABLE ops_standup ADD COLUMN IF NOT EXISTS cwd text;
+
+-- Workspace tags for n8n workflows. Workflows are read LIVE from n8n (no ops
+-- row), so their workspace tag persists here keyed by the n8n workflow id.
+CREATE TABLE IF NOT EXISTS ops_workflow_workspace (
+  workflow_id text PRIMARY KEY,
+  workspace   text NOT NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 let migrated = false;

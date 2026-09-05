@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useParams } from 'next/navigation';
+import Link from 'next/link';
 
 import { NavOps } from '@/components/layout/sidebar/nav-ops';
 import { NavSettings } from '@/components/layout/sidebar/nav-settings';
@@ -64,6 +65,7 @@ function WorkspaceSwitcher() {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
    const pathname = usePathname();
+   const { orgId } = useParams<{ orgId: string }>();
    const isSettings = pathname.includes('/settings');
    return (
       <Sidebar collapsible="offcanvas" {...props}>
@@ -72,7 +74,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                <BackToApp />
             ) : (
                <div className="px-1 pt-1.5">
-                  <div className="flex items-center gap-2 px-1">
+                  <Link
+                     href={`/${orgId || 'shortcastle'}/workspaces`}
+                     className="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-sidebar-accent/50"
+                     title="All workspaces"
+                  >
                      <CastleMark className="size-7 rounded-md" />
                      <div className="flex flex-col leading-none">
                         <span className="text-sm font-semibold">Shortcastle Ops</span>
@@ -80,7 +86,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                            Operations console
                         </span>
                      </div>
-                  </div>
+                  </Link>
                   <div className="mt-3 px-1">
                      <WorkspaceSwitcher />
                   </div>

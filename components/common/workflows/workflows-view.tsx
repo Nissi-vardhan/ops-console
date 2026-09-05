@@ -40,6 +40,12 @@ import {
    SelectTrigger,
    SelectValue,
 } from '@/components/ui/select';
+import {
+   useActiveWorkspaceStore,
+   inActiveWorkspace,
+   ALL_WORKSPACES,
+} from '@/store/active-workspace-store';
+import { WORKSPACES } from '@/lib/workspaces';
 
 interface WF {
    id: string;
@@ -51,6 +57,7 @@ interface WF {
    createdAt: string | null;
    updatedAt: string | null;
    lastRun: { at: string; status: string } | null;
+   workspace: string | null;
 }
 
 const TRIGGER_ICON: Record<string, typeof Webhook> = {
@@ -368,6 +375,7 @@ export function WorkflowsView() {
    const [openId, setOpenId] = useState<string | null>(null);
    const [detail, setDetail] = useState<Detail | null>(null);
    const [detailLoading, setDetailLoading] = useState(false);
+   const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
    const reduce = useReducedMotion();
 
    useEffect(() => {
@@ -414,6 +422,7 @@ export function WorkflowsView() {
       const from = range.from ? +range.from : null;
       const to = range.to ? +range.to + 864e5 : null; // inclusive end-of-day
       return wfs.filter((w) => {
+         if (!inActiveWorkspace(w.workspace, activeWorkspace)) return false;
          if (status === 'active' && !w.active) return false;
          if (status === 'paused' && w.active) return false;
          if (trig !== 'all' && w.trigger !== trig) return false;
@@ -424,16 +433,38 @@ export function WorkflowsView() {
          if (s && !`${w.name} ${w.tags.join(' ')}`.toLowerCase().includes(s)) return false;
          return true;
       });
-   }, [wfs, q, status, trig, range]);
+   }, [wfs, q, status, trig, range, activeWorkspace]);
 
-   const activeCount = wfs.filter((w) => w.active).length;
+   const scoped = useMemo(
+      () => wfs.filter((w) => inActiveWorkspace(w.workspace, activeWorkspace)),
+      [wfs, activeWorkspace]
+   );
+   const scopedActive = scoped.filter((w) => w.active).length;
+   const isScoped = activeWorkspace !== ALL_WORKSPACES;
+
+   // Re-tag a workflow to a workspace (or clear it), then patch the row in place.
+   const retag = useCallback((id: string, ws: string) => {
+      const workspace = ws === '__none' ? null : ws;
+      setWfs((prev) => prev.map((w) => (w.id === id ? { ...w, workspace } : w)));
+      fetch('/api/ops/workflows/workspace', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ id, workspace }),
+      }).catch(() => {});
+   }, []);
 
    return (
       <div className="mx-auto w-full max-w-[1400px] space-y-4 p-4 sm:p-6">
          <PageHeader
             icon={WorkflowIcon}
             title="Workflows"
-            subtitle={loading ? 'Loading…' : `${wfs.length} n8n workflows · ${activeCount} active`}
+            subtitle={
+               loading
+                  ? 'Loading…'
+                  : isScoped
+                    ? `${scoped.length} in workspace · ${scopedActive} active · ${wfs.length} total`
+                    : `${wfs.length} n8n workflows · ${scopedActive} active`
+            }
          />
 
          {!configured && (
@@ -481,13 +512,14 @@ export function WorkflowsView() {
 
          {/* table */}
          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[960px] text-sm">
                <thead>
                   <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
                      <th className="px-4 py-2.5 font-medium">Workflow</th>
                      <th className="px-3 py-2.5 font-medium">Status</th>
                      <th className="px-3 py-2.5 font-medium">Trigger</th>
                      <th className="px-3 py-2.5 font-medium">Tags</th>
+                     <th className="px-3 py-2.5 font-medium">Workspace</th>
                      <th className="px-3 py-2.5 text-right font-medium">Nodes</th>
                      <th className="px-3 py-2.5 font-medium">Last run</th>
                      <th className="px-3 py-2.5 font-medium">Updated</th>
@@ -509,6 +541,9 @@ export function WorkflowsView() {
                            </td>
                            <td className="px-3 py-3">
                               <Skeleton className="h-4 w-20" />
+                           </td>
+                           <td className="px-3 py-3">
+                              <Skeleton className="h-4 w-24" />
                            </td>
                            <td className="px-3 py-3">
                               <Skeleton className="ml-auto h-4 w-6" />
@@ -580,6 +615,24 @@ export function WorkflowsView() {
                                  )}
                               </span>
                            </td>
+                           <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                 value={w.workspace || '__none'}
+                                 onValueChange={(v) => retag(w.id, v)}
+                              >
+                                 <SelectTrigger className="h-7 w-[132px] border-border bg-card text-xs text-muted-foreground">
+                                    <SelectValue placeholder="— None —" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                    <SelectItem value="__none">— None —</SelectItem>
+                                    {WORKSPACES.map((ws) => (
+                                       <SelectItem key={ws.slug} value={ws.slug}>
+                                          {ws.name}
+                                       </SelectItem>
+                                    ))}
+                                 </SelectContent>
+                              </Select>
+                           </td>
                            <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                               {w.nodeCount}
                            </td>
@@ -607,7 +660,7 @@ export function WorkflowsView() {
                   {!loading && rows.length === 0 && (
                      <tr>
                         <td
-                           colSpan={8}
+                           colSpan={9}
                            className="px-4 py-10 text-center text-sm text-muted-foreground"
                         >
                            No workflows match.
