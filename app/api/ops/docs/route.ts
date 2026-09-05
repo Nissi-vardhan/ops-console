@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { listOpsDocs, createOpsDoc } from '@/lib/ops-data';
-import { opsAuthorized, requireRole } from '@/lib/ops-guard';
+import {
+   opsAuthorized,
+   requireRole,
+   accessibleWorkspaces,
+   workspaceAllowed,
+} from '@/lib/ops-guard';
 
 export async function GET(request: Request) {
    if (!(await opsAuthorized(request)))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-   return NextResponse.json({ docs: await listOpsDocs() });
+   const allowed = await accessibleWorkspaces();
+   const docs = (await listOpsDocs()).filter((d) => workspaceAllowed(allowed, d.workspace));
+   return NextResponse.json({ docs });
 }
 
 export async function POST(request: Request) {
