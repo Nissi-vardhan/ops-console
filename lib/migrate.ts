@@ -199,6 +199,9 @@ CREATE INDEX IF NOT EXISTS idx_ops_task_steps_issue ON ops_task_steps(issue_id, 
 -- 'done' when all steps are complete, NULL when a task has no journey yet).
 ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS current_phase text;
 
+-- Tag a project to one of the fixed workspaces (see lib/workspaces.ts).
+ALTER TABLE ops_projects ADD COLUMN IF NOT EXISTS workspace text;
+
 -- Doc review workflow: one stage per doc (review | changes | approved), set by
 -- reviewers (on the shared link) or the owner. ops_doc_reviews is the history —
 -- every stage change, with the "request changes" note, attributed by name/email.

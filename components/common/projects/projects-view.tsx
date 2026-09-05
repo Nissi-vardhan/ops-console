@@ -11,6 +11,7 @@ import { hydrateProject, type RawProject } from '@/lib/ops-hydrate';
 import { Issue } from '@/mock-data/issues';
 import { status as STATUSES } from '@/mock-data/status';
 import { useEscape } from '@/components/common/use-escape';
+import { WORKSPACES } from '@/lib/workspaces';
 import { Stagger, Item } from '@/components/motion';
 import {
    Select,
@@ -72,6 +73,16 @@ export function ProjectsView() {
          .then((r) => (r.ok ? r.json() : null))
          .catch(() => null);
       setProjects(((d?.projects ?? []) as RawProject[]).map((row) => hydrateProject(row, members)));
+   };
+
+   // Re-tag a project to a workspace (or clear it) from the card, then refresh.
+   const retag = async (id: string, ws: string) => {
+      await fetch(`/api/ops/projects/${id}`, {
+         method: 'PATCH',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ workspace: ws === '__none' ? null : ws }),
+      }).catch(() => {});
+      refresh();
    };
 
    return (
@@ -167,6 +178,29 @@ export function ProjectsView() {
                         </span>
                      </div>
 
+                     {/* workspace tag */}
+                     <div className="mt-3 flex items-center gap-2 border-t pt-3">
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                           Workspace
+                        </span>
+                        <Select
+                           value={p.workspace || '__none'}
+                           onValueChange={(v) => retag(p.id, v)}
+                        >
+                           <SelectTrigger className="h-7 flex-1 text-xs">
+                              <SelectValue placeholder="— None —" />
+                           </SelectTrigger>
+                           <SelectContent>
+                              <SelectItem value="__none">— None —</SelectItem>
+                              {WORKSPACES.map((w) => (
+                                 <SelectItem key={w.slug} value={w.slug}>
+                                    {w.name}
+                                 </SelectItem>
+                              ))}
+                           </SelectContent>
+                        </Select>
+                     </div>
+
                      {/* recent issues */}
                      {mine.length > 0 && (
                         <div className="mt-3 space-y-1 border-t pt-3">
@@ -241,6 +275,7 @@ function NewProject({
    const [name, setName] = useState('');
    const [leadId, setLeadId] = useState('');
    const [statusId, setStatusId] = useState('in-progress');
+   const [workspace, setWorkspace] = useState('__none');
    const [target, setTarget] = useState('');
    const [busy, setBusy] = useState(false);
    useEscape(onClose);
@@ -255,6 +290,7 @@ function NewProject({
             name,
             lead_id: leadId && leadId !== '__none' ? leadId : null,
             status_id: statusId,
+            workspace: workspace !== '__none' ? workspace : null,
             target_date: target || null,
          }),
       });
@@ -310,6 +346,24 @@ function NewProject({
                      </SelectContent>
                   </Select>
                </div>
+               {/* TODO(workspace-edit): the create path tags a workspace here. To let an
+                  existing project be re-tagged, add a workspace <Select> to the project
+                  overview (components/common/projects/details/project-overview.tsx) and
+                  PATCH { workspace } to /api/ops/projects/:id — the route + updateOpsProject
+                  allowlist already accept `workspace`. Projects currently have no edit UI. */}
+               <Select value={workspace} onValueChange={setWorkspace}>
+                  <SelectTrigger className="w-full">
+                     <SelectValue placeholder="Workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                     <SelectItem value="__none">— None —</SelectItem>
+                     {WORKSPACES.map((w) => (
+                        <SelectItem key={w.slug} value={w.slug}>
+                           {w.name}
+                        </SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
                <label className="block text-[11px] text-muted-foreground">
                   Target date
                   <input

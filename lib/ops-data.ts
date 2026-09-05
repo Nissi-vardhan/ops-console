@@ -45,6 +45,7 @@ export interface OpsProject {
    percent_complete: number;
    start_date: string | null;
    target_date: string | null;
+   workspace?: string | null;
    created_at: string;
 }
 
@@ -71,7 +72,7 @@ export async function listOpsMembers(): Promise<OpsMember[]> {
 export async function listOpsProjects(): Promise<OpsProject[]> {
    return query<OpsProject>(
       `SELECT id, name, description, status_id, priority_id, lead_id, health,
-            percent_complete, start_date, target_date, created_at
+            percent_complete, start_date, target_date, workspace, created_at
      FROM ops_projects ORDER BY created_at DESC`
    );
 }
@@ -85,11 +86,12 @@ export async function createOpsProject(input: {
    health?: string;
    start_date?: string | null;
    target_date?: string | null;
+   workspace?: string | null;
 }): Promise<OpsProject> {
    const rows = await query<OpsProject>(
-      `INSERT INTO ops_projects (name, description, status_id, priority_id, lead_id, health, start_date, target_date)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     RETURNING id, name, description, status_id, priority_id, lead_id, health, percent_complete, start_date, target_date, created_at`,
+      `INSERT INTO ops_projects (name, description, status_id, priority_id, lead_id, health, start_date, target_date, workspace)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING id, name, description, status_id, priority_id, lead_id, health, percent_complete, start_date, target_date, workspace, created_at`,
       [
          input.name,
          input.description ?? '',
@@ -99,9 +101,53 @@ export async function createOpsProject(input: {
          input.health ?? 'on-track',
          input.start_date ?? null,
          input.target_date ?? null,
+         input.workspace ?? null,
       ]
    );
    return rows[0];
+}
+
+const PROJECT_FIELDS = new Set([
+   'name',
+   'description',
+   'status_id',
+   'priority_id',
+   'lead_id',
+   'health',
+   'start_date',
+   'target_date',
+   'workspace',
+]);
+
+export async function updateOpsProject(
+   id: string,
+   patch: Record<string, unknown>
+): Promise<OpsProject | null> {
+   if ('lead_id' in patch) patch.lead_id = await validUserId(patch.lead_id as string | null);
+   const sets: string[] = [];
+   const vals: unknown[] = [];
+   let i = 1;
+   for (const [k, v] of Object.entries(patch)) {
+      if (!PROJECT_FIELDS.has(k)) continue;
+      sets.push(`${k} = $${i++}`);
+      vals.push(v);
+   }
+   if (sets.length === 0) {
+      return queryOne<OpsProject>(
+         `SELECT id, name, description, status_id, priority_id, lead_id, health,
+               percent_complete, start_date, target_date, workspace, created_at
+        FROM ops_projects WHERE id = $1`,
+         [id]
+      );
+   }
+   vals.push(id);
+   const rows = await query<OpsProject>(
+      `UPDATE ops_projects SET ${sets.join(', ')}, updated_at = now() WHERE id = $${i}
+     RETURNING id, name, description, status_id, priority_id, lead_id, health,
+               percent_complete, start_date, target_date, workspace, created_at`,
+      vals
+   );
+   return rows[0] ?? null;
 }
 
 // Columns for a single issue row, including the journey summary (current phase +

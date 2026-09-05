@@ -42,6 +42,8 @@ export interface Project {
    teamId: string;
    labels: LabelInterface[];
    initiative?: string;
+   /** Slug of the workspace (product) this project is tagged to (see lib/workspaces.ts). */
+   workspace?: string;
    /** Days since the last health update (undefined = no update yet). */
    healthUpdatedAgoDays?: number;
 }

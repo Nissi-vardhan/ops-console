@@ -61,6 +61,7 @@ export interface RawProject {
    percent_complete: number;
    start_date: string | null;
    target_date: string | null;
+   workspace?: string | null;
 }
 
 const PLACEHOLDER_USER: User = {
@@ -90,6 +91,7 @@ export function hydrateProject(row: RawProject, users: User[]): Project {
       health: HEALTHS.find((h) => h.id === row.health) ?? HEALTHS[0],
       teamId: 'CORE',
       labels: [],
+      workspace: row.workspace ?? undefined,
    };
 }
 
