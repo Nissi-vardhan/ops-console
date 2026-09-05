@@ -7,7 +7,16 @@ import {
    SidebarMenuButton,
    SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { Bell, Blocks, KeyRound, LucideIcon, Settings, UserRound, Users } from 'lucide-react';
+import {
+   Bell,
+   Blocks,
+   Boxes,
+   KeyRound,
+   LucideIcon,
+   Settings,
+   UserRound,
+   Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 
@@ -39,6 +48,7 @@ export const settingsNav: SettingsNavGroup[] = [
    {
       label: 'Workspace',
       items: [
+         { name: 'Workspace', url: '/settings/workspace', icon: Boxes },
          { name: 'Connected accounts', url: '/settings/connected-accounts', icon: Users },
          { name: 'Integrations', url: '/settings/integrations', icon: Blocks },
       ],

@@ -261,6 +261,32 @@ CREATE TABLE IF NOT EXISTS ops_workflow_workspace (
   workspace   text NOT NULL,
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
+
+-- Per-workspace membership + RBAC. A user is a member of a workspace (can access
+-- it) with a per-workspace role. Owner always has access to everything and is
+-- not gated by this table. Backfill below seeds every current ops user into all
+-- six workspaces so nobody is locked out; access is tightened later via the UI.
+CREATE TABLE IF NOT EXISTS ops_workspace_members (
+  workspace  text NOT NULL,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role       text NOT NULL DEFAULT 'member',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ops_workspace_members_user ON ops_workspace_members(user_id);
+
+-- Idempotent, non-breaking backfill: every user with ops_access becomes a member
+-- of all six workspaces, carrying their global users.role as the workspace role.
+-- Set-based over a VALUES list of the six slugs; user ids are never hardcoded.
+INSERT INTO ops_workspace_members (workspace, user_id, role)
+SELECT w.slug, u.id, u.role
+FROM (VALUES
+  ('chesslang'), ('prolearnr'), ('bytechess'),
+  ('chessmethod'), ('trainerdb'), ('shortcastle')
+) AS w(slug)
+CROSS JOIN users u
+WHERE u.ops_access = true
+ON CONFLICT (workspace, user_id) DO NOTHING;
 `;
 
 let migrated = false;

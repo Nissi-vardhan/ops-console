@@ -10,6 +10,7 @@ import { useActiveWorkspaceStore } from '@/store/active-workspace-store';
 import { Issue } from '@/mock-data/issues';
 import { Stagger, Item } from '@/components/motion';
 import { WORKSPACES, WORKSPACE_STATUS } from '@/lib/workspaces';
+import { useMyWorkspaces } from '@/hooks/use-my-workspaces';
 
 const isOpen = (i: Issue) => i.status.category !== 'completed' && i.status.category !== 'canceled';
 
@@ -20,6 +21,7 @@ export function WorkspacesView() {
    const setActive = useActiveWorkspaceStore((s) => s.setActive);
    const projects = useIssuesStore((s) => s.projects);
    const issues = useIssuesStore((s) => s.issues);
+   const { slugs } = useMyWorkspaces();
 
    // Clicking a card enters that workspace: scope the console, then go to All tasks.
    const enterWorkspace = (slug: string) => {
@@ -29,7 +31,9 @@ export function WorkspacesView() {
 
    const cards = useMemo(
       () =>
-         WORKSPACES.map((ws) => {
+         // Show only the workspaces the current user may access. Until the
+         // permission list loads (or if it fails) fall back to all six.
+         WORKSPACES.filter((ws) => (slugs ? slugs.includes(ws.slug) : true)).map((ws) => {
             const tagged = projects
                .filter((p) => p.workspace === ws.slug)
                .sort((a, b) => a.name.localeCompare(b.name));
@@ -41,7 +45,7 @@ export function WorkspacesView() {
                totalIssues: mine.length,
             };
          }),
-      [projects, issues]
+      [projects, issues, slugs]
    );
 
    return (

@@ -19,13 +19,19 @@ import {
 } from '@/components/ui/select';
 import { WORKSPACES, WORKSPACE_STATUS, workspaceBySlug } from '@/lib/workspaces';
 import { useActiveWorkspaceStore, ALL_WORKSPACES } from '@/store/active-workspace-store';
+import { useMyWorkspaces } from '@/hooks/use-my-workspaces';
 
 // Top-left workspace switcher: scopes the whole console to one workspace (or
 // "All workspaces"). The selection lives in the persisted active-workspace store.
+// Only workspaces the current user may access are listed; until the permission
+// list loads (or if it fails), we fall back to showing all six.
 function WorkspaceSwitcher() {
    const active = useActiveWorkspaceStore((s) => s.active);
    const setActive = useActiveWorkspaceStore((s) => s.setActive);
    const current = workspaceBySlug(active);
+   const { slugs } = useMyWorkspaces();
+
+   const visible = slugs ? WORKSPACES.filter((w) => slugs.includes(w.slug)) : WORKSPACES;
 
    return (
       <Select value={active} onValueChange={setActive}>
@@ -48,7 +54,7 @@ function WorkspaceSwitcher() {
                   All workspaces
                </span>
             </SelectItem>
-            {WORKSPACES.map((w) => (
+            {visible.map((w) => (
                <SelectItem key={w.slug} value={w.slug}>
                   <span className="flex items-center gap-2">
                      <span
