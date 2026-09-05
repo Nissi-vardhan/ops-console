@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
    CircleDot,
    LayoutDashboard,
@@ -86,7 +86,16 @@ export function NavOps() {
 
    const allTasksUrl = `${base}/team/CORE/all`;
 
-   const { taskChildren, projectCount } = useMemo(() => {
+   const myTasksUrl = `${base}/my-issues`;
+   const [meId, setMeId] = useState<string | null>(null);
+   useEffect(() => {
+      fetch('/api/ops/me', { cache: 'no-store' })
+         .then((r) => (r.ok ? r.json() : null))
+         .then((d) => setMeId(d?.user?.id ?? null))
+         .catch(() => {});
+   }, []);
+
+   const { taskChildren, myTaskChildren, projectCount } = useMemo(() => {
       const scoped =
          active === ALL_WORKSPACES ? issues : issues.filter((i) => i.workspace === active);
       const children = BUCKETS.map((b) => ({
@@ -95,18 +104,26 @@ export function NavOps() {
          count: scoped.filter((i) => b.ids.includes(i.status.id)).length,
          href: statusFilterHref(allTasksUrl, b.ids),
       }));
+      // My Tasks: same buckets, scoped to issues assigned to the current user.
+      const mine = meId ? scoped.filter((i) => i.assignee?.id === meId) : [];
+      const myChildren = BUCKETS.map((b) => ({
+         name: b.name,
+         color: b.color,
+         count: mine.filter((i) => b.ids.includes(i.status.id)).length,
+         href: `${statusFilterHref(myTasksUrl, b.ids)}&tab=assigned`,
+      }));
       const projectCount =
          active === ALL_WORKSPACES
             ? projects.length
             : projects.filter((p) => p.workspace === active).length;
-      return { taskChildren: children, projectCount };
-   }, [issues, projects, active, allTasksUrl]);
+      return { taskChildren: children, myTaskChildren: myChildren, projectCount };
+   }, [issues, projects, active, allTasksUrl, myTasksUrl, meId]);
    const counts = { projectCount };
    const [tasksOpen, setTasksOpen] = useState(true);
+   const [myTasksOpen, setMyTasksOpen] = useState(false);
 
    const flatItems = [
       { name: 'Dashboard', icon: LayoutDashboard, url: `${base}/dashboard` },
-      { name: 'My Tasks', icon: UserRound, url: `${base}/my-issues` },
       { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily` },
       { name: 'Projects', icon: Box, url: `${base}/projects`, badge: counts.projectCount },
       { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
@@ -173,6 +190,53 @@ export function NavOps() {
                         {tasksOpen && (
                            <SidebarMenuSub>
                               {taskChildren.map((c) => (
+                                 <SidebarMenuSubItem key={c.name}>
+                                    <SidebarMenuSubButton asChild>
+                                       <Link href={c.href}>
+                                          <span
+                                             className="size-1.5 shrink-0 rounded-[3px]"
+                                             style={{ backgroundColor: c.color }}
+                                          />
+                                          <span className="flex-1">{c.name}</span>
+                                          <span className="tabular-nums text-muted-foreground">
+                                             {c.count}
+                                          </span>
+                                       </Link>
+                                    </SidebarMenuSubButton>
+                                 </SidebarMenuSubItem>
+                              ))}
+                           </SidebarMenuSub>
+                        )}
+                     </SidebarMenuItem>
+                  );
+               })()}
+
+               {/* My Tasks — collapsible, same status buckets scoped to me */}
+               {(() => {
+                  const isActive = pathname.startsWith(myTasksUrl);
+                  return (
+                     <SidebarMenuItem>
+                        <div className="relative">
+                           {isActive && activeMark(myTasksUrl)}
+                           <SidebarMenuButton asChild isActive={isActive} className="pr-8">
+                              <Link href={myTasksUrl} onClick={() => setMyTasksOpen((v) => !v)}>
+                                 <UserRound className="size-4" />
+                                 <span>My Tasks</span>
+                              </Link>
+                           </SidebarMenuButton>
+                           <button
+                              onClick={() => setMyTasksOpen((v) => !v)}
+                              aria-label={myTasksOpen ? 'Collapse my tasks' : 'Expand my tasks'}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                           >
+                              <ChevronRight
+                                 className={`size-3.5 transition-transform ${myTasksOpen ? 'rotate-90' : ''}`}
+                              />
+                           </button>
+                        </div>
+                        {myTasksOpen && (
+                           <SidebarMenuSub>
+                              {myTaskChildren.map((c) => (
                                  <SidebarMenuSubItem key={c.name}>
                                     <SidebarMenuSubButton asChild>
                                        <Link href={c.href}>

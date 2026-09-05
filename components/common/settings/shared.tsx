@@ -22,10 +22,10 @@ export function SettingsShell({
 }) {
    return (
       <div className="w-full overflow-y-auto h-full">
-         <div className="max-w-2xl mx-auto px-6 py-10 pb-20">
+         <div className="max-w-2xl mx-auto px-4 py-7 pb-16 sm:px-6">
             <h1 className="text-2xl font-medium">{title}</h1>
             {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
-            <div className="flex flex-col gap-10 mt-10">{children}</div>
+            <div className="flex flex-col gap-7 mt-7">{children}</div>
          </div>
       </div>
    );
@@ -55,7 +55,7 @@ export function SettingsSection({
                {action}
             </div>
          )}
-         <div className="mt-3 flex flex-col gap-3">{children}</div>
+         <div className="mt-2.5 flex flex-col gap-2.5">{children}</div>
       </section>
    );
 }
@@ -68,7 +68,12 @@ export function SettingsCard({
    className?: string;
 }) {
    return (
-      <div className={cn('rounded-xl border bg-container divide-y divide-border/60', className)}>
+      <div
+         className={cn(
+            'paper-card rounded-xl border bg-container divide-y divide-border/60',
+            className
+         )}
+      >
          {children}
       </div>
    );

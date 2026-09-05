@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/layout/theme-toggle-button';
 
@@ -17,6 +19,7 @@ function signOut() {
 /** Signed-in user card for the sidebar footer — avatar, name/email, sign out. */
 export function SidebarUser() {
    const [me, setMe] = useState<{ email?: string; username?: string } | null>(null);
+   const { orgId } = useParams<{ orgId: string }>();
    useEffect(() => {
       fetch('/api/ops/me', { cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null))
@@ -26,16 +29,26 @@ export function SidebarUser() {
 
    const name = me?.username || (me?.email ? me.email.split('@')[0] : 'Ops');
    const initials = name.slice(0, 2).toUpperCase();
+   const accountHref = `/${orgId || 'shortcastle'}/settings/profile`;
 
    return (
       <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-2">
-         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
-            {initials}
-         </span>
-         <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-medium">{name}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{me?.email || 'signed in'}</p>
-         </div>
+         {/* click name/avatar → Account settings */}
+         <Link
+            href={accountHref}
+            title="Account settings"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg -m-1 p-1 transition-colors hover:bg-sidebar-accent"
+         >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
+               {initials}
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+               <p className="truncate text-sm font-medium">{name}</p>
+               <p className="truncate text-[11px] text-muted-foreground">
+                  {me?.email || 'signed in'}
+               </p>
+            </div>
+         </Link>
          <div className="flex shrink-0 items-center gap-0.5">
             <ThemeToggleButton />
             <button

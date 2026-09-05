@@ -1,11 +1,10 @@
 'use client';
 
 import { type ReactNode } from 'react';
-import { Server, Workflow, Database } from 'lucide-react';
+import { Server, Workflow, Database, MessagesSquare } from 'lucide-react';
 import { INTEGRATION_LOGOS } from './integration-logos';
 import { EnabledDot, SettingsCard, SettingsRow, SettingsSection, SettingsShell } from './shared';
 
-const SlackLogo = INTEGRATION_LOGOS['slack'];
 const GithubLogo = INTEGRATION_LOGOS['github'];
 const GoogleLogo = INTEGRATION_LOGOS['google-calendar'];
 
@@ -19,14 +18,14 @@ const Live = () => (
 // server-side for the workspace (not per-user OAuth), so this page is a reference.
 const INTEGRATIONS: { icon: ReactNode; title: string; description: string }[] = [
    {
-      icon: <SlackLogo className="size-4" />,
-      title: 'Slack',
-      description: 'Doc comment threads sent to Claude, and ops notifications',
+      icon: <MessagesSquare className="size-4" style={{ color: '#3370ff' }} />,
+      title: 'Lark',
+      description: 'Ops notifications, alerts and the daily call list land in Lark',
    },
    {
       icon: <GoogleLogo className="size-4" />,
       title: 'Google',
-      description: 'Google sign-in for the dashboard and gated doc-share links',
+      description: 'Google sign-in for the console and gated doc-share links',
    },
    {
       icon: <GithubLogo className="size-4" />,

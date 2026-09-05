@@ -93,7 +93,9 @@ function ChangePassword() {
 const GoogleLogo = INTEGRATION_LOGOS['google-calendar'];
 
 /** Security & access — honest to how the ops console actually authenticates. */
-export default function AccountSecurity() {
+// The security sections without a page shell, so they can be embedded in the
+// merged "Account" page (profile + security) as well as stand alone.
+export function AccountSecuritySections() {
    const [email, setEmail] = useState<string | null>(null);
    const [busy, setBusy] = useState(false);
 
@@ -115,7 +117,7 @@ export default function AccountSecurity() {
    };
 
    return (
-      <SettingsShell title="Security & access">
+      <>
          <SettingsSection title="How you sign in" description="Your ops console account.">
             <SettingsCard>
                <SettingsRow
@@ -176,6 +178,14 @@ export default function AccountSecurity() {
                />
             </SettingsCard>
          </SettingsSection>
+      </>
+   );
+}
+
+export default function AccountSecurity() {
+   return (
+      <SettingsShell title="Security & access">
+         <AccountSecuritySections />
       </SettingsShell>
    );
 }

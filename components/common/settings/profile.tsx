@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { SettingsCard, SettingsRow, SettingsSection, SettingsShell } from './shared';
+import { AccountSecuritySections } from './account-security';
 
-/** Personal "Profile" settings — bound to the signed-in ops user. */
+/** Merged "Account" settings — profile + security for the signed-in ops user. */
 export default function Profile() {
    const [me, setMe] = useState<{ email?: string; username?: string } | null>(null);
    useEffect(() => {
@@ -21,8 +22,8 @@ export default function Profile() {
    const initials = display.slice(0, 2).toUpperCase();
 
    return (
-      <SettingsShell title="Profile">
-         <SettingsSection>
+      <SettingsShell title="Account" description="Your profile and how you sign in.">
+         <SettingsSection title="Profile">
             <SettingsCard>
                <SettingsRow
                   title="Profile picture"
@@ -45,6 +46,7 @@ export default function Profile() {
                />
             </SettingsCard>
          </SettingsSection>
+         <AccountSecuritySections />
       </SettingsShell>
    );
 }

@@ -254,3 +254,21 @@ input[type='search'] {
    --sidebar-accent: #26282e;
    --sidebar-accent-foreground: #eef0f3;
 }
+
+/* Paper-grain texture for settings cards: a faint monochrome noise overlay that
+   reads as paper stock in light mode and a subtle grain in dark mode. Sits
+   behind row content (painted before children), never intercepts clicks. */
+.paper-card {
+   position: relative;
+}
+.paper-card::before {
+   content: '';
+   position: absolute;
+   inset: 0;
+   border-radius: inherit;
+   pointer-events: none;
+   opacity: 0.55;
+   mix-blend-mode: soft-light;
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+   background-size: 160px 160px;
+}
