@@ -31,7 +31,11 @@ import { Stagger, Item, CountUp, Bar } from '@/components/motion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker, type Range } from '@/components/common/date-range-picker';
 import { useIssuesStore } from '@/store/issues-store';
-import { useActiveWorkspaceStore, inActiveWorkspace } from '@/store/active-workspace-store';
+import {
+   useActiveWorkspaceStore,
+   inActiveWorkspace,
+   ALL_WORKSPACES,
+} from '@/store/active-workspace-store';
 import { status as STATUSES } from '@/mock-data/status';
 import { priorities as PRIORITIES } from '@/mock-data/priorities';
 import type { Issue } from '@/mock-data/issues';
@@ -609,8 +613,17 @@ export function OpsDashboard() {
                <div>
                   <Eyebrow>Needs attention</Eyebrow>
                   <Stagger className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                     <PendingPanel className="lg:col-span-7" />
-                     <Card className="lg:col-span-5">
+                     {/* Pending feed is Chesslang's — only show it there (or org-wide). */}
+                     {(activeWorkspace === ALL_WORKSPACES || activeWorkspace === 'chesslang') && (
+                        <PendingPanel className="lg:col-span-7" />
+                     )}
+                     <Card
+                        className={
+                           activeWorkspace === ALL_WORKSPACES || activeWorkspace === 'chesslang'
+                              ? 'lg:col-span-5'
+                              : 'lg:col-span-12'
+                        }
+                     >
                         <div className="mb-3 flex items-center justify-between">
                            <p className="flex items-center gap-1.5 text-sm font-semibold">
                               <Flame className="size-4 text-orange-500" /> High-priority open
