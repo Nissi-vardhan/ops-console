@@ -32,6 +32,46 @@ import {
 import { VIEWS } from '@/components/common/views/saved-views';
 import { useIssuesStore } from '@/store/issues-store';
 import { useActiveWorkspaceStore, ALL_WORKSPACES } from '@/store/active-workspace-store';
+import { status as STATUSES } from '@/mock-data/status';
+
+// Status buckets shown under "All tasks" — derived from the status list so the
+// sidebar counts and the click-through filter always agree.
+const BUCKETS: { name: string; color: string; ids: string[] }[] = [
+   {
+      name: 'To-do',
+      color: '#99a2b2',
+      ids: STATUSES.filter((s) => ['unstarted', 'backlog', 'triage'].includes(s.category)).map(
+         (s) => s.id
+      ),
+   },
+   {
+      name: 'In Progress',
+      color: '#f2c94c',
+      ids: STATUSES.filter((s) => s.category === 'started' && s.id !== 'technical-review').map(
+         (s) => s.id
+      ),
+   },
+   { name: 'In Review', color: '#5e6ad2', ids: ['technical-review'] },
+   {
+      name: 'Completed',
+      color: '#4cb782',
+      ids: STATUSES.filter((s) => s.category === 'completed').map((s) => s.id),
+   },
+];
+
+// A URL that opens All tasks with the status filter pre-applied (bazza/ui shape,
+// read from ?filters= by the filter store).
+function statusFilterHref(base: string, ids: string[]): string {
+   const model = [
+      {
+         columnId: 'status',
+         type: 'option',
+         operator: ids.length > 1 ? 'is any of' : 'is',
+         values: ids,
+      },
+   ];
+   return `${base}?filters=${encodeURIComponent(JSON.stringify(model))}`;
+}
 
 // Real ops nav. Dashboard leads; "All tasks" expands into per-status counts,
 // all scoped to the active workspace (matching the rest of the console).
@@ -44,36 +84,24 @@ export function NavOps() {
    const projects = useIssuesStore((s) => s.projects);
    const active = useActiveWorkspaceStore((s) => s.active);
 
-   const counts = useMemo(() => {
+   const allTasksUrl = `${base}/team/CORE/all`;
+
+   const { taskChildren, projectCount } = useMemo(() => {
       const scoped =
          active === ALL_WORKSPACES ? issues : issues.filter((i) => i.workspace === active);
-      const inCat = (cats: string[]) =>
-         scoped.filter((i) => cats.includes(i.status.category)).length;
-      const todo = inCat(['unstarted', 'backlog', 'triage']);
-      const review = scoped.filter((i) => i.status.id === 'technical-review').length;
-      const inProgress = scoped.filter((i) => i.status.category === 'started').length - review;
-      const done = inCat(['completed']);
+      const children = BUCKETS.map((b) => ({
+         name: b.name,
+         color: b.color,
+         count: scoped.filter((i) => b.ids.includes(i.status.id)).length,
+         href: statusFilterHref(allTasksUrl, b.ids),
+      }));
       const projectCount =
          active === ALL_WORKSPACES
             ? projects.length
             : projects.filter((p) => p.workspace === active).length;
-      return {
-         total: scoped.length,
-         todo,
-         inProgress: Math.max(0, inProgress),
-         review,
-         done,
-         projectCount,
-      };
-   }, [issues, projects, active]);
-
-   const allTasksUrl = `${base}/team/CORE/all`;
-   const taskChildren = [
-      { name: 'To-do', count: counts.todo, color: '#99a2b2' },
-      { name: 'In Progress', count: counts.inProgress, color: '#f2c94c' },
-      { name: 'In Review', count: counts.review, color: '#5e6ad2' },
-      { name: 'Completed', count: counts.done, color: '#4cb782' },
-   ];
+      return { taskChildren: children, projectCount };
+   }, [issues, projects, active, allTasksUrl]);
+   const counts = { projectCount };
    const [tasksOpen, setTasksOpen] = useState(true);
 
    const flatItems = [
@@ -145,7 +173,7 @@ export function NavOps() {
                               {taskChildren.map((c) => (
                                  <SidebarMenuSubItem key={c.name}>
                                     <SidebarMenuSubButton asChild>
-                                       <Link href={allTasksUrl}>
+                                       <Link href={c.href}>
                                           <span
                                              className="size-1.5 shrink-0 rounded-[3px]"
                                              style={{ backgroundColor: c.color }}
