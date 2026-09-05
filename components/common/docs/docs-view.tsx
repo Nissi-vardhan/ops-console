@@ -1,7 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Hash, Pencil, Pin, Plus, Save, Search, Share2, Trash2, X } from 'lucide-react';
+import {
+   ChevronLeft,
+   FileText,
+   Hash,
+   Pencil,
+   Pin,
+   Plus,
+   Save,
+   Search,
+   Share2,
+   Trash2,
+   X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DocMarkdown, outline } from './doc-render';
 import { ShareDialog } from './share-dialog';
@@ -40,6 +52,9 @@ export function DocsView() {
    const [editing, setEditing] = useState(false);
    const [activeH, setActiveH] = useState<string>('');
    const [shareOpen, setShareOpen] = useState(false);
+   // Mobile master–detail: below sm the list and reading pane can't sit side by
+   // side, so we show one at a time. `mobileList` true = list is showing.
+   const [mobileList, setMobileList] = useState(false);
    const [draft, setDraft] = useState<{ title: string; category: string; body: string }>({
       title: '',
       category: 'Doc',
@@ -121,6 +136,7 @@ export function DocsView() {
       setDraft({ title: '', category: 'Doc', body: '' });
       setSelId(null);
       setEditing(true);
+      setMobileList(false);
    };
 
    // Keyboard shortcuts (Docs). Esc closes the open doc; / filters; e edits; n new.
@@ -240,8 +256,12 @@ export function DocsView() {
 
    return (
       <div className="flex h-full w-full overflow-hidden">
-         {/* doc list */}
-         <aside className="hidden w-64 shrink-0 flex-col border-r sm:flex">
+         {/* doc list — full-width on mobile (toggled), fixed rail on sm+ */}
+         <aside
+            className={`shrink-0 flex-col border-r sm:flex sm:w-64 ${
+               mobileList ? 'flex w-full' : 'hidden'
+            }`}
+         >
             <div className="flex items-center justify-between px-3 pt-3">
                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Docs
@@ -281,6 +301,7 @@ export function DocsView() {
                                  onClick={() => {
                                     setSelId(d.id);
                                     setEditing(false);
+                                    setMobileList(false);
                                  }}
                                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50 ${
                                     selId === d.id && !editing
@@ -327,7 +348,19 @@ export function DocsView() {
          </aside>
 
          {/* reading pane */}
-         <div ref={scrollRef} className="flex-1 overflow-y-auto">
+         <div
+            ref={scrollRef}
+            className={`flex-1 overflow-y-auto ${mobileList ? 'hidden sm:block' : ''}`}
+         >
+            {/* mobile-only: return to the docs list */}
+            {!editing && (
+               <button
+                  onClick={() => setMobileList(true)}
+                  className="sticky top-0 z-10 flex w-full items-center gap-1.5 border-b bg-background/90 px-4 py-2.5 text-sm font-medium text-foreground backdrop-blur sm:hidden"
+               >
+                  <ChevronLeft className="size-4" /> All docs
+               </button>
+            )}
             {editing ? (
                <div className="mx-auto w-full max-w-3xl space-y-3 p-4 sm:p-6">
                   <input
