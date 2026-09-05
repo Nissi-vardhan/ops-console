@@ -155,7 +155,7 @@ export function NavOps() {
                         <div className="relative">
                            {isActive && activeMark(allTasksUrl)}
                            <SidebarMenuButton asChild isActive={isActive} className="pr-8">
-                              <Link href={allTasksUrl}>
+                              <Link href={allTasksUrl} onClick={() => setTasksOpen((v) => !v)}>
                                  <CircleDot className="size-4" />
                                  <span>All tasks</span>
                               </Link>
