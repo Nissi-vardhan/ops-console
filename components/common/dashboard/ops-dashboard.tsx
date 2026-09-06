@@ -104,17 +104,17 @@ function Delta({ tone, children }: { tone: Tone; children: ReactNode }) {
    );
 }
 
-/** Colourless mini trend (Stripe pattern — colour is reserved for status). */
-function Spark({ data, color = 'var(--muted-foreground)' }: { data: number[]; color?: string }) {
+/** Compact mini trend shown inline beside the delta on a KPI tile. */
+function Spark({ data, color = 'var(--primary)' }: { data: number[]; color?: string }) {
    if (!data.some(Boolean)) return null;
    return (
-      <div className="mt-3 h-7">
+      <div className="h-6 w-16 shrink-0">
          <ResponsiveContainer width="100%" height="100%">
             <LineChart
                data={data.map((v, i) => ({ i, v }))}
-               margin={{ top: 2, right: 0, left: 0, bottom: 0 }}
+               margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
             >
-               <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} />
+               <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.6} dot={false} />
             </LineChart>
          </ResponsiveContainer>
       </div>
@@ -138,18 +138,22 @@ function StatTile({
 }) {
    const risk = tone?.includes('red');
    return (
-      <div className={`px-5 py-5 ${risk ? 'bg-red-500/[0.045]' : ''}`}>
-         <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <Icon className="size-4" />
-            {label}
+      <div
+         className={`rounded-2xl border bg-card p-5 shadow-sm ${risk ? 'bg-red-500/[0.045]' : ''}`}
+      >
+         <div className="flex items-start justify-between gap-2">
+            <span className="text-[13px] text-muted-foreground">{label}</span>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+               <Icon className="size-4" />
+            </span>
          </div>
-         <p className={`mt-3 text-[32px] font-semibold leading-none ${tone ?? ''}`}>
+         <p className={`mt-3 text-[30px] font-semibold leading-none ${tone ?? ''}`}>
             <CountUp value={value} />
          </p>
-         <div className="mt-2 text-xs">{delta}</div>
-         {spark && (
-            <Spark data={spark} color={risk ? 'var(--chart-4)' : 'var(--muted-foreground)'} />
-         )}
+         <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+            <span>{delta}</span>
+            {spark && <Spark data={spark} color={risk ? 'var(--chart-4)' : 'var(--primary)'} />}
+         </div>
       </div>
    );
 }
@@ -537,9 +541,9 @@ export function OpsDashboard() {
          {!hydrated ? (
             /* First-paint skeleton (mirrors final layout) */
             <div className="space-y-6">
-               <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-2xl border bg-card sm:grid-cols-4 sm:divide-y-0">
+               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   {Array.from({ length: 4 }).map((_, i) => (
-                     <div key={i} className="space-y-3 px-5 py-5">
+                     <div key={i} className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
                         <Skeleton className="h-4 w-24" />
                         <Skeleton className="h-8 w-16" />
                         <Skeleton className="h-3 w-20" />
@@ -564,7 +568,7 @@ export function OpsDashboard() {
          ) : (
             <>
                {/* Stat strip */}
-               <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-2xl border bg-card sm:grid-cols-4 sm:divide-y-0">
+               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <StatTile
                      icon={Layers}
                      label="Total tasks"

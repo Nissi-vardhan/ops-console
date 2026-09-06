@@ -45,7 +45,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-   themeColor: '#0a0a0a',
+   themeColor: '#eef2f8',
 };
 
 import { ThemeProvider } from '@/components/layout/theme-provider';
@@ -68,7 +68,7 @@ export default function RootLayout({
             suppressHydrationWarning
          >
             <NuqsAdapter>
-               <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+               <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
                   <ConfirmProvider>{children}</ConfirmProvider>
                   <Toaster />
                   <PwaRegister />
