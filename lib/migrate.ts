@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS ops_docs (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Full-text search GIN indexes for cross-session "recall" (lib/ops-recall.ts).
+-- The to_tsvector expression here MUST match the query's expression verbatim
+-- (same regconfig, same column order, same coalesce) or Postgres won't use the
+-- index — it then plans an index scan instead of a per-row seq-scan recompute.
+CREATE INDEX IF NOT EXISTS idx_ops_docs_fts ON ops_docs
+  USING gin (to_tsvector('english', title || ' ' || coalesce(body,'') || ' ' || coalesce(category,'')));
+CREATE INDEX IF NOT EXISTS idx_ops_issues_fts ON ops_issues
+  USING gin (to_tsvector('english', coalesce(identifier,'') || ' ' || title || ' ' || coalesce(description,'') || ' ' || coalesce(progress,'')));
+
 CREATE TABLE IF NOT EXISTS ops_cadences (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name        text NOT NULL,

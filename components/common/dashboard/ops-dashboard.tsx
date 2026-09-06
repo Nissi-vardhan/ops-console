@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import {
    AlertTriangle,
    CheckCircle2,
@@ -12,20 +13,6 @@ import {
    TrendingDown,
    TrendingUp,
 } from 'lucide-react';
-import {
-   Bar as RBar,
-   CartesianGrid,
-   Cell,
-   ComposedChart,
-   Line,
-   LineChart,
-   Pie,
-   PieChart,
-   ResponsiveContainer,
-   Tooltip,
-   XAxis,
-   YAxis,
-} from 'recharts';
 import { useReducedMotion } from 'motion/react';
 import { Stagger, Item, CountUp, Bar } from '@/components/motion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,14 +27,18 @@ import { status as STATUSES } from '@/mock-data/status';
 import { priorities as PRIORITIES } from '@/mock-data/priorities';
 import type { Issue } from '@/mock-data/issues';
 
-const RTIP = {
-   background: 'var(--popover)',
-   border: '1px solid var(--border)',
-   borderRadius: 8,
-   fontSize: 12,
-   color: 'var(--popover-foreground)',
-   padding: '6px 10px',
-} as const;
+// Charts live in a separate chunk (recharts + d3, ~300-400KB) loaded on demand
+// via next/dynamic({ ssr:false }) so they stay OUT of the dashboard's first-paint
+// bundle. KPI tiles render eagerly; charts fill in behind a skeleton.
+const Spark = dynamic(() => import('./charts').then((m) => m.Spark), { ssr: false });
+const ActivityChart = dynamic(() => import('./charts').then((m) => m.ActivityChart), {
+   ssr: false,
+   loading: () => <Skeleton className="h-full w-full rounded-lg" />,
+});
+const StatusDonut = dynamic(() => import('./charts').then((m) => m.StatusDonut), {
+   ssr: false,
+   loading: () => <Skeleton className="h-full w-full rounded-full" />,
+});
 
 const COMPLETED = new Set(['completed', 'canceled']);
 const WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -101,23 +92,6 @@ function Delta({ tone, children }: { tone: Tone; children: ReactNode }) {
       >
          {children}
       </span>
-   );
-}
-
-/** Compact mini trend shown inline beside the delta on a KPI tile. */
-function Spark({ data, color = 'var(--primary)' }: { data: number[]; color?: string }) {
-   if (!data.some(Boolean)) return null;
-   return (
-      <div className="h-6 w-16 shrink-0">
-         <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-               data={data.map((v, i) => ({ i, v }))}
-               margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
-            >
-               <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.6} dot={false} />
-            </LineChart>
-         </ResponsiveContainer>
-      </div>
    );
 }
 
@@ -323,28 +297,6 @@ function PendingPanel({ className = '' }: { className?: string }) {
          )}
          {p?.as_of && <p className="mt-3 text-[11px] text-muted-foreground">as of {p.as_of}</p>}
       </Card>
-   );
-}
-
-/* ------------------------------ activity tip ------------------------------ */
-
-interface TipProps {
-   active?: boolean;
-   label?: string;
-   weekly?: boolean;
-   payload?: { dataKey?: string; value?: number }[];
-}
-function ActivityTip({ active, payload, label, weekly }: TipProps) {
-   if (!active || !payload?.length) return null;
-   const created = payload.find((p) => p.dataKey === 'count')?.value ?? 0;
-   return (
-      <div style={RTIP}>
-         <div className="text-muted-foreground">
-            {weekly ? 'Week of ' : ''}
-            {label}
-         </div>
-         <div className="font-medium tabular-nums text-foreground">{created} created</div>
-      </div>
    );
 }
 
@@ -690,66 +642,11 @@ export function OpsDashboard() {
                                  No tasks created in this range.
                               </div>
                            ) : (
-                              <ResponsiveContainer width="100%" height="100%">
-                                 <ComposedChart
-                                    data={activity.days}
-                                    margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
-                                 >
-                                    <defs>
-                                       <linearGradient id="createdFill" x1="0" y1="0" x2="0" y2="1">
-                                          <stop
-                                             offset="0%"
-                                             stopColor="var(--primary)"
-                                             stopOpacity={0.85}
-                                          />
-                                          <stop
-                                             offset="100%"
-                                             stopColor="var(--primary)"
-                                             stopOpacity={0.28}
-                                          />
-                                       </linearGradient>
-                                    </defs>
-                                    <CartesianGrid
-                                       vertical={false}
-                                       stroke="var(--border)"
-                                       strokeOpacity={0.5}
-                                    />
-                                    <XAxis
-                                       dataKey="day"
-                                       tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                                       tickLine={false}
-                                       axisLine={false}
-                                       interval="preserveStartEnd"
-                                       minTickGap={24}
-                                    />
-                                    <YAxis
-                                       width={26}
-                                       allowDecimals={false}
-                                       tickLine={false}
-                                       axisLine={false}
-                                       tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                                    />
-                                    <Tooltip
-                                       cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-                                       content={<ActivityTip weekly={activity.weekly} />}
-                                    />
-                                    <RBar
-                                       dataKey="count"
-                                       fill="url(#createdFill)"
-                                       radius={[3, 3, 0, 0]}
-                                       maxBarSize={26}
-                                       isAnimationActive={!reduce}
-                                    />
-                                    <Line
-                                       type="monotone"
-                                       dataKey="avg"
-                                       stroke="var(--chart-2)"
-                                       strokeWidth={2}
-                                       dot={false}
-                                       isAnimationActive={!reduce}
-                                    />
-                                 </ComposedChart>
-                              </ResponsiveContainer>
+                              <ActivityChart
+                                 data={activity.days}
+                                 weekly={activity.weekly}
+                                 reduce={!!reduce}
+                              />
                            )}
                         </div>
                      </Card>
@@ -760,32 +657,7 @@ export function OpsDashboard() {
                         <div className="grid items-center gap-2 sm:grid-cols-[180px_1fr]">
                            <div className="relative h-[180px]">
                               {statusData.length > 0 ? (
-                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                       <Tooltip
-                                          contentStyle={RTIP}
-                                          itemStyle={{ color: 'var(--popover-foreground)' }}
-                                          labelStyle={{ color: 'var(--popover-foreground)' }}
-                                       />
-                                       <Pie
-                                          data={statusData}
-                                          dataKey="value"
-                                          nameKey="name"
-                                          cx="50%"
-                                          cy="50%"
-                                          innerRadius={58}
-                                          outerRadius={80}
-                                          paddingAngle={2}
-                                          stroke="none"
-                                          cornerRadius={6}
-                                          isAnimationActive={!reduce}
-                                       >
-                                          {statusData.map((d, i) => (
-                                             <Cell key={i} fill={d.color} />
-                                          ))}
-                                       </Pie>
-                                    </PieChart>
-                                 </ResponsiveContainer>
+                                 <StatusDonut data={statusData} reduce={!!reduce} />
                               ) : (
                                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                                     No tasks yet.
