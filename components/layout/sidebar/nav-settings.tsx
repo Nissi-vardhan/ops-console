@@ -52,7 +52,7 @@ export function NavSettings() {
    return (
       <>
          {settingsNav.map((group) => (
-            <SidebarGroup key={group.label} className="group-data-[collapsible=icon]:hidden">
+            <SidebarGroup key={group.label}>
                <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
                <SidebarMenu>
                   {group.items.map((item) => {
@@ -60,7 +60,7 @@ export function NavSettings() {
                      const isActive = pathname === href;
                      return (
                         <SidebarMenuItem key={`${group.label}-${item.name}`}>
-                           <SidebarMenuButton asChild isActive={isActive}>
+                           <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
                               <Link href={href}>
                                  <item.icon className="size-4" />
                                  <span>{item.name}</span>

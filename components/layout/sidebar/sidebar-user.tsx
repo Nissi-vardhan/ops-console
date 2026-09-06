@@ -32,24 +32,24 @@ export function SidebarUser() {
    const accountHref = `/${orgId || 'shortcastle'}/settings/profile`;
 
    return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-2">
+      <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
          {/* click name/avatar → Account settings */}
          <Link
             href={accountHref}
             title="Account settings"
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg -m-1 p-1 transition-colors hover:bg-sidebar-accent"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg -m-1 p-1 transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:m-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0"
          >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
                {initials}
             </span>
-            <div className="min-w-0 flex-1 leading-tight">
+            <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
                <p className="truncate text-sm font-medium">{name}</p>
                <p className="truncate text-[11px] text-muted-foreground">
                   {me?.email || 'signed in'}
                </p>
             </div>
          </Link>
-         <div className="flex shrink-0 items-center gap-0.5">
+         <div className="flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">
             <ThemeToggleButton />
             <button
                onClick={signOut}

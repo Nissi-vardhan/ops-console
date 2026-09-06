@@ -16,26 +16,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
    const { orgId } = useParams<{ orgId: string }>();
    const isSettings = pathname.includes('/settings');
    return (
-      <Sidebar collapsible="offcanvas" {...props}>
+      <Sidebar collapsible="icon" {...props}>
          <SidebarHeader>
             {isSettings ? (
                <BackToApp />
             ) : (
-               <div className="px-1 pt-1.5">
+               <div className="px-1 pt-1.5 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:pt-0">
                   <Link
                      href={`/${orgId || 'shortcastle'}/workspaces`}
-                     className="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-sidebar-accent/50"
+                     className="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-sidebar-accent/50 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                      title="All workspaces"
                   >
-                     <CastleMark className="size-7 rounded-md" />
-                     <div className="flex flex-col leading-none">
+                     <CastleMark className="size-7 shrink-0 rounded-md" />
+                     <div className="flex flex-col leading-none group-data-[collapsible=icon]:hidden">
                         <span className="text-sm font-semibold">Shortcastle Ops</span>
                         <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
                            Operations console
                         </span>
                      </div>
                   </Link>
-                  <Crenellation className="mt-2" />
+                  <Crenellation className="mt-2 group-data-[collapsible=icon]:hidden" />
                </div>
             )}
          </SidebarHeader>

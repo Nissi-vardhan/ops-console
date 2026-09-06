@@ -154,7 +154,7 @@ export function NavOps() {
                   return (
                      <SidebarMenuItem className="relative">
                         {isActive && activeMark(url)}
-                        <SidebarMenuButton asChild isActive={isActive}>
+                        <SidebarMenuButton asChild isActive={isActive} tooltip="Dashboard">
                            <Link href={url}>
                               <LayoutDashboard className="size-4" />
                               <span>Dashboard</span>
@@ -171,7 +171,12 @@ export function NavOps() {
                      <SidebarMenuItem>
                         <div className="relative">
                            {isActive && activeMark(allTasksUrl)}
-                           <SidebarMenuButton asChild isActive={isActive} className="pr-8">
+                           <SidebarMenuButton
+                              asChild
+                              isActive={isActive}
+                              tooltip="All tasks"
+                              className="pr-8 group-data-[collapsible=icon]:pr-2!"
+                           >
                               <Link href={allTasksUrl} onClick={() => setTasksOpen((v) => !v)}>
                                  <CircleDot className="size-4" />
                                  <span>All tasks</span>
@@ -180,7 +185,7 @@ export function NavOps() {
                            <button
                               onClick={() => setTasksOpen((v) => !v)}
                               aria-label={tasksOpen ? 'Collapse tasks' : 'Expand tasks'}
-                              className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground group-data-[collapsible=icon]:hidden"
                            >
                               <ChevronRight
                                  className={`size-3.5 transition-transform ${tasksOpen ? 'rotate-90' : ''}`}
@@ -218,7 +223,12 @@ export function NavOps() {
                      <SidebarMenuItem>
                         <div className="relative">
                            {isActive && activeMark(myTasksUrl)}
-                           <SidebarMenuButton asChild isActive={isActive} className="pr-8">
+                           <SidebarMenuButton
+                              asChild
+                              isActive={isActive}
+                              tooltip="My Tasks"
+                              className="pr-8 group-data-[collapsible=icon]:pr-2!"
+                           >
                               <Link href={myTasksUrl} onClick={() => setMyTasksOpen((v) => !v)}>
                                  <UserRound className="size-4" />
                                  <span>My Tasks</span>
@@ -227,7 +237,7 @@ export function NavOps() {
                            <button
                               onClick={() => setMyTasksOpen((v) => !v)}
                               aria-label={myTasksOpen ? 'Collapse my tasks' : 'Expand my tasks'}
-                              className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground group-data-[collapsible=icon]:hidden"
                            >
                               <ChevronRight
                                  className={`size-3.5 transition-transform ${myTasksOpen ? 'rotate-90' : ''}`}
@@ -266,7 +276,7 @@ export function NavOps() {
                      return (
                         <SidebarMenuItem key={item.name} className="relative">
                            {isActive && activeMark(item.url)}
-                           <SidebarMenuButton asChild isActive={isActive}>
+                           <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
                               <Link href={item.url}>
                                  <item.icon className="size-4" />
                                  <span>{item.name}</span>
@@ -288,7 +298,7 @@ export function NavOps() {
                   const url = `${base}/views/${v.key}`;
                   return (
                      <SidebarMenuItem key={v.key}>
-                        <SidebarMenuButton asChild isActive={pathname === url}>
+                        <SidebarMenuButton asChild isActive={pathname === url} tooltip={v.name}>
                            <Link href={url}>
                               <v.icon className="size-4" />
                               <span>{v.name}</span>
