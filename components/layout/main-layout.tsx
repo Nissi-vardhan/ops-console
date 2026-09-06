@@ -5,6 +5,7 @@ import { CreateIssueModalProvider } from '@/components/common/issues/create-issu
 import { CommandPalette } from '@/components/layout/command-palette';
 import { OpsBootstrap } from '@/components/ops-bootstrap';
 import { PageTransition } from '@/components/layout/page-transition';
+import { WorkspaceBar } from '@/components/layout/workspace-bar';
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
@@ -49,6 +50,7 @@ export default function MainLayout({ children, header, headersNumber = 2 }: Main
                      isEmptyHeader(header) ? 'h-full' : height[headersNumber as keyof typeof height]
                   )}
                >
+                  <WorkspaceBar />
                   <PageTransition>{children}</PageTransition>
                </div>
             </div>
