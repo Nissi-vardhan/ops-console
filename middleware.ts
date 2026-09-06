@@ -5,7 +5,12 @@ import { jwtVerify } from 'jose';
 // stay open so a user can actually sign in.
 const OPS_COOKIE = 'ops_session';
 // /share/* is a public, Google-gated doc viewer (it does its own auth).
-const OPEN = ['/login', '/api/auth', '/share'];
+// /manifest.webmanifest + /sw.js MUST stay open: the browser fetches the PWA
+// manifest WITHOUT credentials (no session cookie), so gating it behind auth
+// redirects it to /login and Chrome never sees a valid manifest — which is why
+// "Install app" never appeared. The service worker script is likewise fetched
+// for installability; keep it reachable too.
+const OPEN = ['/login', '/api/auth', '/share', '/manifest.webmanifest', '/sw.js'];
 
 async function hasValidSession(token: string | undefined): Promise<boolean> {
    if (!token) return false;
