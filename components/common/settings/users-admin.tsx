@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, UserRound } from 'lucide-react';
+import { ShieldCheck, UserRound, Pencil } from 'lucide-react';
 import {
    Select,
    SelectContent,
@@ -14,20 +14,8 @@ import { Input } from '@/components/ui/input';
 import { SettingsCard, SettingsSection, SettingsShell } from './shared';
 import { ROLES, ROLE_LABEL, type Role } from '@/lib/rbac';
 import { WORKSPACES } from '@/lib/workspaces';
+import UserAccessDialog, { type AdminUser, type Membership } from './user-access-dialog';
 
-interface AdminUser {
-   id: string;
-   email: string;
-   username: string;
-   role: string;
-   ops_access: boolean;
-   active: boolean;
-}
-interface Membership {
-   user_id: string;
-   workspace: string;
-   role: string;
-}
 interface Me {
    id: string;
    role: string;
@@ -35,9 +23,9 @@ interface Me {
 
 /**
  * Global user administration, shown on the "All workspaces" settings view.
- * Owner/admin can change a user's global role, toggle ops access / active, and
- * add or remove them from any workspace. Creating brand-new accounts is a
- * separate (auth-sensitive) flow.
+ * Clicking a user opens UserAccessDialog, where an owner/admin manages the
+ * global role, console access, active flag, workspace membership and password
+ * in one place. Creating brand-new accounts is the form below.
  */
 export default function UsersAdmin() {
    const [me, setMe] = useState<Me | null>(null);
@@ -45,7 +33,7 @@ export default function UsersAdmin() {
    const [memberships, setMemberships] = useState<Membership[]>([]);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
-   const [busy, setBusy] = useState<string | null>(null);
+   const [editing, setEditing] = useState<AdminUser | null>(null);
 
    // Add-a-user form state.
    const [nu, setNu] = useState<{
@@ -88,48 +76,6 @@ export default function UsersAdmin() {
       for (const x of memberships) (m[x.user_id] ??= new Set()).add(x.workspace);
       return m;
    }, [memberships]);
-
-   const patchUser = async (id: string, body: Record<string, unknown>) => {
-      setBusy(id);
-      setError(null);
-      try {
-         const r = await fetch(`/api/ops/users/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-         });
-         const d = await r.json().catch(() => ({}));
-         if (!r.ok) throw new Error(d?.error || 'Update failed.');
-         await load();
-      } catch (e) {
-         setError((e as Error).message);
-      } finally {
-         setBusy(null);
-      }
-   };
-
-   const toggleWorkspace = async (user: AdminUser, slug: string, isMember: boolean) => {
-      setBusy(user.id);
-      setError(null);
-      try {
-         const r = isMember
-            ? await fetch(
-                 `/api/ops/workspaces/${slug}/members?user_id=${encodeURIComponent(user.id)}`,
-                 { method: 'DELETE' }
-              )
-            : await fetch(`/api/ops/workspaces/${slug}/members`, {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ user_id: user.id, role: 'member' }),
-              });
-         if (!r.ok) throw new Error('Could not update workspace access.');
-         await load();
-      } catch (e) {
-         setError((e as Error).message);
-      } finally {
-         setBusy(null);
-      }
-   };
 
    const createUser = async () => {
       setCreating(true);
@@ -176,7 +122,7 @@ export default function UsersAdmin() {
             title={`All users${users.length ? ` · ${users.length}` : ''}`}
             description={
                canManage
-                  ? 'Change a role, toggle access, or add someone to workspaces.'
+                  ? 'Click a user to manage their role, console access, workspaces and password.'
                   : 'Read-only — ask an owner/admin to change access.'
             }
          >
@@ -189,9 +135,14 @@ export default function UsersAdmin() {
                   <div className="divide-y">
                      {users.map((u) => {
                         const mine = wsByUser[u.id] ?? new Set<string>();
-                        const disabled = busy === u.id || !canManage;
+                        const role = ROLES.includes(u.role as Role) ? (u.role as Role) : 'viewer';
+                        const rowBtn = canManage ? () => setEditing(u) : undefined;
                         return (
-                           <div key={u.id} className="flex flex-col gap-3 p-4">
+                           <div
+                              key={u.id}
+                              className={`flex flex-col gap-2 p-4 ${canManage ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                              onClick={rowBtn}
+                           >
                               <div className="flex flex-wrap items-center justify-between gap-3">
                                  <div className="flex min-w-0 items-center gap-2">
                                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -199,9 +150,22 @@ export default function UsersAdmin() {
                                     </span>
                                     <div className="min-w-0">
                                        <div className="flex items-center gap-2">
-                                          <span className="truncate text-sm font-medium">
+                                          <button
+                                             type="button"
+                                             disabled={!canManage}
+                                             onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditing(u);
+                                             }}
+                                             className="truncate text-sm font-medium hover:underline disabled:cursor-default disabled:no-underline"
+                                          >
                                              {u.username}
-                                          </span>
+                                          </button>
+                                          {me?.id === u.id && (
+                                             <span className="text-[10px] text-muted-foreground">
+                                                you
+                                             </span>
+                                          )}
                                           {!u.active && (
                                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                                                 inactive
@@ -213,66 +177,54 @@ export default function UsersAdmin() {
                                        </span>
                                     </div>
                                  </div>
-                                 <div className="flex flex-wrap items-center gap-2">
-                                    <Select
-                                       value={ROLES.includes(u.role as Role) ? u.role : 'member'}
-                                       onValueChange={(v) => patchUser(u.id, { role: v })}
-                                       disabled={disabled}
+                                 <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
+                                       {ROLE_LABEL[role]}
+                                    </span>
+                                    <span
+                                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                                          u.ops_access
+                                             ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300'
+                                             : 'bg-muted text-muted-foreground'
+                                       }`}
                                     >
-                                       <SelectTrigger className="h-8 w-28 text-xs">
-                                          <SelectValue />
-                                       </SelectTrigger>
-                                       <SelectContent>
-                                          {ROLES.map((r) => (
-                                             <SelectItem key={r} value={r}>
-                                                {ROLE_LABEL[r]}
-                                             </SelectItem>
-                                          ))}
-                                       </SelectContent>
-                                    </Select>
-                                    <Button
-                                       size="sm"
-                                       variant={u.ops_access ? 'secondary' : 'outline'}
-                                       disabled={disabled}
-                                       onClick={() =>
-                                          patchUser(u.id, { ops_access: !u.ops_access })
-                                       }
-                                       title="Ops console access"
-                                    >
-                                       {u.ops_access ? 'Ops ✓' : 'No ops'}
-                                    </Button>
-                                    <Button
-                                       size="sm"
-                                       variant="outline"
-                                       disabled={disabled}
-                                       onClick={() => patchUser(u.id, { active: !u.active })}
-                                    >
-                                       {u.active ? 'Deactivate' : 'Reactivate'}
-                                    </Button>
+                                       {u.ops_access ? 'console' : 'no console'}
+                                    </span>
+                                    {canManage && (
+                                       <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 px-2 text-xs"
+                                          onClick={(e) => {
+                                             e.stopPropagation();
+                                             setEditing(u);
+                                          }}
+                                       >
+                                          <Pencil className="size-3.5" /> Manage
+                                       </Button>
+                                    )}
                                  </div>
                               </div>
-                              {/* workspace membership chips */}
+                              {/* workspace membership (read-only summary) */}
                               <div className="flex flex-wrap gap-1.5 pl-10">
-                                 {WORKSPACES.map((w) => {
-                                    const isMember = mine.has(w.slug);
-                                    return (
-                                       <button
+                                 {role === 'owner' || role === 'admin' ? (
+                                    <span className="text-[11px] text-muted-foreground">
+                                       All workspaces
+                                    </span>
+                                 ) : mine.size === 0 ? (
+                                    <span className="text-[11px] text-muted-foreground">
+                                       No workspaces
+                                    </span>
+                                 ) : (
+                                    WORKSPACES.filter((w) => mine.has(w.slug)).map((w) => (
+                                       <span
                                           key={w.slug}
-                                          disabled={disabled}
-                                          onClick={() => toggleWorkspace(u, w.slug, isMember)}
-                                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-60 ${
-                                             isMember
-                                                ? 'border-primary/40 bg-primary/12 text-primary'
-                                                : 'border-border bg-transparent text-muted-foreground hover:bg-muted'
-                                          }`}
-                                          title={
-                                             isMember ? `Remove from ${w.name}` : `Add to ${w.name}`
-                                          }
+                                          className="rounded-full border border-primary/40 bg-primary/12 px-2.5 py-0.5 text-[11px] font-medium text-primary"
                                        >
                                           {w.name}
-                                       </button>
-                                    );
-                                 })}
+                                       </span>
+                                    ))
+                                 )}
                               </div>
                            </div>
                         );
@@ -382,12 +334,23 @@ export default function UsersAdmin() {
                         </Button>
                      </div>
                      <p className="text-xs text-muted-foreground">
-                        New users get ops access and no workspaces — add them to workspaces with the
-                        chips above once created.
+                        New users get console access and no workspaces — click their name above to
+                        add workspaces once created.
                      </p>
                   </div>
                </SettingsCard>
             </SettingsSection>
+         )}
+
+         {editing && me && (
+            <UserAccessDialog
+               user={editing}
+               memberships={memberships}
+               me={me}
+               onClose={() => setEditing(null)}
+               onSaved={load}
+               onPassword={(t) => setCreated({ email: t.email, password: t.password })}
+            />
          )}
       </SettingsShell>
    );

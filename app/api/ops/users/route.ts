@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server';
-import { randomInt, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { getOpsUser } from '@/lib/ops-session';
 import { opsAuthorized } from '@/lib/ops-guard';
 import { query } from '@/lib/db';
 import { normalizeRole } from '@/lib/rbac';
-
-// A readable, reasonably strong one-time password for provisioned accounts.
-function generatePassword(): string {
-   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-   let out = '';
-   for (let i = 0; i < 16; i++) out += alphabet[randomInt(alphabet.length)];
-   return out;
-}
+import { generatePassword } from '@/lib/ops-users';
 
 // Global user administration (All-workspaces settings). GET lists every user with
 // their global role, ops access, active flag, and workspace memberships. Only a

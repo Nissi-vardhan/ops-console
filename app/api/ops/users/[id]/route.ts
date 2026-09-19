@@ -3,6 +3,7 @@ import { getOpsUser } from '@/lib/ops-session';
 import { opsAuthorized } from '@/lib/ops-guard';
 import { query } from '@/lib/db';
 import { normalizeRole } from '@/lib/rbac';
+import { resetUserPassword } from '@/lib/ops-users';
 
 // Update a user's global role / ops access / active flag. Owner/admin only, with
 // guards so an admin can't grant owner and nobody can lock the console out of
@@ -79,4 +80,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
    vals.push(id);
    await query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i}`, vals);
    return NextResponse.json({ ok: true });
+}
+
+// POST { action: 'reset_password' } → new one-time password (returned once).
+// Owner/admin only; only an owner may reset another owner.
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+   if (!(await opsAuthorized(request)))
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const me = await getOpsUser();
+   const admin = !me || me.role === 'owner' || me.role === 'admin';
+   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+   const { id } = await params;
+   const body = (await request.json().catch(() => ({}))) as { action?: string };
+   if (body.action !== 'reset_password')
+      return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
+   const target = (
+      await query<{ id: string; role: string }>('SELECT id, role FROM users WHERE id = $1', [id])
+   )[0];
+   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+   if (target.role === 'owner' && me && me.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can reset an owner.' }, { status: 403 });
+   }
+   const generated = await resetUserPassword(id);
+   if (!generated) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+   return NextResponse.json({ ok: true, generated_password: generated });
 }

@@ -296,6 +296,20 @@ FROM (VALUES
 CROSS JOIN users u
 WHERE u.ops_access = true
 ON CONFLICT (workspace, user_id) DO NOTHING;
+
+-- Legacy 'tester' account is gone for good; stray role values fall back to
+-- viewer and the CHECKs keep it that way.
+DELETE FROM users WHERE lower(username) = 'tester' OR lower(email) LIKE 'tester@%';
+UPDATE users SET role = 'viewer' WHERE role NOT IN ('owner', 'admin', 'member', 'viewer');
+UPDATE ops_workspace_members SET role = 'viewer' WHERE role NOT IN ('owner', 'admin', 'member', 'viewer');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check') THEN
+    ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('owner', 'admin', 'member', 'viewer'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ops_ws_role_check') THEN
+    ALTER TABLE ops_workspace_members ADD CONSTRAINT ops_ws_role_check CHECK (role IN ('owner', 'admin', 'member', 'viewer'));
+  END IF;
+END $$;
 `;
 
 let migrated = false;
