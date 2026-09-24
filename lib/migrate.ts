@@ -274,8 +274,8 @@ CREATE TABLE IF NOT EXISTS ops_workflow_workspace (
 
 -- Per-workspace membership + RBAC. A user is a member of a workspace (can access
 -- it) with a per-workspace role. Owner always has access to everything and is
--- not gated by this table. Backfill below seeds every current ops user into all
--- six workspaces so nobody is locked out; access is tightened later via the UI.
+-- not gated by this table. The one-time seed below gives a fresh database's users
+-- all six original workspaces; after that, access is managed only via the UI.
 CREATE TABLE IF NOT EXISTS ops_workspace_members (
   workspace  text NOT NULL,
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -285,18 +285,28 @@ CREATE TABLE IF NOT EXISTS ops_workspace_members (
 );
 CREATE INDEX IF NOT EXISTS idx_ops_workspace_members_user ON ops_workspace_members(user_id);
 
--- Idempotent, non-breaking backfill: every user with ops_access becomes a member
--- of all six workspaces, carrying their global users.role as the workspace role.
--- Set-based over a VALUES list of the six slugs; user ids are never hardcoded.
-INSERT INTO ops_workspace_members (workspace, user_id, role)
-SELECT w.slug, u.id, u.role
-FROM (VALUES
-  ('chesslang'), ('prolearnr'), ('bytechess'),
-  ('chessmethod'), ('trainerdb'), ('shortcastle')
-) AS w(slug)
-CROSS JOIN users u
-WHERE u.ops_access = true
-ON CONFLICT (workspace, user_id) DO NOTHING;
+-- One-time seed: on a FRESH database, every user with ops_access becomes a member
+-- of all six original workspaces, carrying their global users.role as the
+-- workspace role. It used to run on every boot, which re-granted access removed
+-- in the UI after each deploy; now it runs only while the membership table is
+-- empty and leaves a marker, so later boots never touch memberships. New users
+-- get their workspaces from the Users → Manage dialog.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app_json WHERE key = 'migr:workspace-members-seeded') THEN
+    IF NOT EXISTS (SELECT 1 FROM ops_workspace_members) THEN
+      INSERT INTO ops_workspace_members (workspace, user_id, role)
+      SELECT w.slug, u.id, u.role
+      FROM (VALUES
+        ('chesslang'), ('prolearnr'), ('bytechess'),
+        ('chessmethod'), ('trainerdb'), ('shortcastle')
+      ) AS w(slug)
+      CROSS JOIN users u
+      WHERE u.ops_access = true
+      ON CONFLICT (workspace, user_id) DO NOTHING;
+    END IF;
+    INSERT INTO app_json (key, value) VALUES ('migr:workspace-members-seeded', 'true');
+  END IF;
+END $$;
 
 -- Legacy 'tester' account is gone for good; stray role values fall back to
 -- viewer and the CHECKs keep it that way.
