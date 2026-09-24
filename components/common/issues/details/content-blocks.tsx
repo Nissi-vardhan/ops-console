@@ -7,6 +7,7 @@ import { Check, ImageIcon, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Fragment } from 'react';
+import { isIssueRef } from '@/mock-data/issues';
 
 /**
  * Lightweight inline formatting: `code` spans and **bold** runs.
@@ -88,7 +89,7 @@ function VideoPlaceholder({ title, duration }: { title: string; duration?: strin
 function IssueRef({ identifier, note }: { identifier: string; note?: string }) {
    const { orgId } = useParams<{ orgId: string }>();
    const { issues } = useIssuesStore();
-   const issue = issues.find((candidate) => candidate.identifier === identifier);
+   const issue = issues.find((candidate) => isIssueRef(candidate, identifier));
 
    return (
       <div className="my-2 flex items-start gap-2 text-sm">
@@ -240,7 +241,7 @@ export { ImagePlaceholder, VideoPlaceholder };
 export function IssueRefRow({ identifier }: { identifier: string }) {
    const { orgId } = useParams<{ orgId: string }>();
    const { issues } = useIssuesStore();
-   const issue = issues.find((candidate) => candidate.identifier === identifier);
+   const issue = issues.find((candidate) => isIssueRef(candidate, identifier));
    if (!issue) return null;
 
    return (

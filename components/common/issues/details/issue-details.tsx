@@ -12,6 +12,7 @@ import { JourneyPanel } from './journey-panel';
 import { TaskSessions } from './task-sessions';
 import { TaskLinkedDocs } from '@/components/common/docs/doc-links';
 import { Comments } from '@/components/common/comments';
+import { isIssueRef } from '@/mock-data/issues';
 
 /**
  * Issue detail page: rich description, sub-issues, activity feed and a
@@ -38,7 +39,7 @@ export default function IssueDetails() {
    }, [router]);
 
    const issue = useMemo(
-      () => issues.find((candidate) => candidate.identifier === issueId),
+      () => issues.find((candidate) => isIssueRef(candidate, issueId)),
       [issues, issueId]
    );
 

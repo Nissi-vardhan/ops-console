@@ -92,13 +92,16 @@ export async function recordSession(input: {
 }
 
 export async function listSessions(
-   opts: { issue?: string; limit?: number } = {}
+   opts: { issue?: string | string[]; limit?: number } = {}
 ): Promise<SessionRec[]> {
    const store = await read();
    let arr = Object.values(store)
       .filter((r) => !isExcluded(r))
       .sort((a, b) => (a.last_seen < b.last_seen ? 1 : -1));
-   const iss = (opts.issue ?? '').trim().toUpperCase();
-   if (iss) arr = arr.filter((s) => s.issues.includes(iss));
+   // A task can be recorded under its current id or its legacy OPS-<n> id.
+   const want = (Array.isArray(opts.issue) ? opts.issue : [opts.issue ?? ''])
+      .map((x) => x.trim().toUpperCase())
+      .filter(Boolean);
+   if (want.length) arr = arr.filter((s) => s.issues.some((x) => want.includes(x)));
    return arr.slice(0, opts.limit ?? 50);
 }

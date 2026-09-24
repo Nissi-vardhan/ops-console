@@ -15,6 +15,7 @@ import { ArrowUpRight, Check, Paperclip, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { NotificationBox } from './icons/motification-box';
+import { isIssueRef } from '@/mock-data/issues';
 
 interface IssuePreviewProps {
    notification?: InboxItem;
@@ -48,7 +49,7 @@ export default function IssuePreview({ notification, onMarkAsRead }: IssuePrevie
    }
 
    // Live issue from the store (falls back to the notification snapshot).
-   const issue = issues.find((candidate) => candidate.identifier === notification.identifier);
+   const issue = issues.find((candidate) => isIssueRef(candidate, notification.identifier));
    const displayIssue = issue ?? notification;
    const detail = getIssueDetail(displayIssue);
 

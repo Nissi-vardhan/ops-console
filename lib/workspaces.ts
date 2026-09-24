@@ -1,4 +1,4 @@
-// Single source of truth for the six fixed Shortcastle workspaces (products).
+// Single source of truth for the fixed Shortcastle workspaces (products).
 // A project is tagged to a workspace via its `workspace` slug; a workspace view
 // then rolls up its tagged projects and their issues.
 
@@ -11,15 +11,26 @@ export interface Workspace {
    blurb: string;
    status: WorkspaceStatus;
    docTitle: string;
+   /** Task-id prefix: tasks in this workspace are <prefix>-<n> (e.g. CL-104). */
+   prefix: string;
 }
 
 export const WORKSPACES: Workspace[] = [
    {
       slug: 'chesslang',
       name: 'Chesslang',
-      blurb: 'Chess-learning platform — webinars → Chesslang One $9 funnel, WhatsApp, CIE/FIDE, ads.',
+      blurb: 'Chess-learning platform — webinars, WhatsApp, CIE/FIDE, ads, Chess-Olympiad.',
       status: 'active',
       docTitle: 'Chesslang — Knowledge Base',
+      prefix: 'CL',
+   },
+   {
+      slug: 'chesslang-one',
+      name: 'Chesslang One',
+      blurb: 'The $9/mo subscription — offer site, promo codes, outreach cadences, follow-ups.',
+      status: 'active',
+      docTitle: 'Chesslang One — Knowledge Base',
+      prefix: 'CLO',
    },
    {
       slug: 'prolearnr',
@@ -27,6 +38,7 @@ export const WORKSPACES: Workspace[] = [
       blurb: 'Coach marketplace + coach-onboarding + WhatsApp AI (AI paused pending Tier-0).',
       status: 'needs-review',
       docTitle: 'ProLearnr — Knowledge Base',
+      prefix: 'PL',
    },
    {
       slug: 'bytechess',
@@ -34,6 +46,7 @@ export const WORKSPACES: Workspace[] = [
       blurb: 'Projector-ready chess mini-tools brand (pre-launch).',
       status: 'experimental',
       docTitle: 'ByteChess — Knowledge Base',
+      prefix: 'BC',
    },
    {
       slug: 'chessmethod',
@@ -41,6 +54,7 @@ export const WORKSPACES: Workspace[] = [
       blurb: 'Curriculum + proctored certification (chessmethod.io); earliest stage.',
       status: 'experimental',
       docTitle: 'ChessMethod — Knowledge Base',
+      prefix: 'CM',
    },
    {
       slug: 'trainerdb',
@@ -48,6 +62,7 @@ export const WORKSPACES: Workspace[] = [
       blurb: 'Chess-coach database / admin registry (staging live on Hetzner).',
       status: 'active',
       docTitle: 'TrainerDB — Knowledge Base',
+      prefix: 'TDB',
    },
    {
       slug: 'shortcastle',
@@ -55,6 +70,7 @@ export const WORKSPACES: Workspace[] = [
       blurb: 'Parent org + shared infra: dashboards, n8n, Periskope, Zoho, servers.',
       status: 'active',
       docTitle: 'Shortcastle — Knowledge Base',
+      prefix: 'SC',
    },
 ];
 
@@ -70,4 +86,12 @@ export const WORKSPACE_STATUS: Record<WorkspaceStatus, string> = {
 export function workspaceBySlug(slug: string | null | undefined): Workspace | undefined {
    if (!slug) return undefined;
    return WORKSPACES.find((w) => w.slug === slug);
+}
+
+/** Prefix for tasks with no workspace (and the legacy prefix of every pre-rename task). */
+export const FALLBACK_PREFIX = 'OPS';
+
+/** Task-id prefix for a workspace slug; OPS for untagged/unknown. */
+export function workspacePrefix(slug: string | null | undefined): string {
+   return workspaceBySlug(slug)?.prefix ?? FALLBACK_PREFIX;
 }

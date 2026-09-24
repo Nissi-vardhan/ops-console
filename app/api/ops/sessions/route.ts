@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { opsAuthorized, safeEqual } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { recordSession, listSessions } from '@/lib/ops-sessions';
+import { getOpsIssue, resolveOpsIssueId } from '@/lib/ops-data';
 
 // Session tracking is Nissi-only and PIN-locked. The CLI (bearer) records and
 // reads freely; the browser requires the owner role AND the correct PIN.
@@ -32,8 +33,15 @@ export async function GET(request: Request) {
       }
    }
    const url = new URL(request.url);
-   const issue = url.searchParams.get('issue') ?? undefined;
+   const ref = url.searchParams.get('issue') ?? undefined;
    const limit = Math.min(200, Number(url.searchParams.get('limit')) || 50);
+   // Match sessions logged under either the task's current id or its legacy id.
+   let issue: string | string[] | undefined = ref;
+   if (ref) {
+      const id = await resolveOpsIssueId(ref);
+      const row = id ? await getOpsIssue(id) : null;
+      if (row) issue = [ref, row.identifier, row.legacy_identifier].filter((x): x is string => !!x);
+   }
    return NextResponse.json({ sessions: await listSessions({ issue, limit }) });
 }
 

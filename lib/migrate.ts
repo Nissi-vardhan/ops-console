@@ -1,4 +1,5 @@
 import { getPool } from '@/lib/db';
+import { WORKSPACES } from '@/lib/workspaces';
 
 // Idempotent schema for the standalone ops-console DB (opsdb). Runs on server
 // boot via instrumentation.ts. This is the OPS half only — split out of the
@@ -312,12 +313,41 @@ DO $$ BEGIN
 END $$;
 `;
 
+// Per-workspace task ids: OPS-<n> → <prefix>-<n> (same number, product prefix,
+// e.g. OPS-15 → CLO-15). The original id is kept in legacy_identifier so old
+// links, notes and session records that say OPS-<n> still resolve. Only rows
+// still named OPS-<n> with a known workspace are touched, so this is a no-op
+// after the first boot; later workspace moves re-key in updateOpsIssue.
+const prefixCase = WORKSPACES.map((w) => `WHEN '${w.slug}' THEN '${w.prefix}'`).join(' ');
+const IDENTIFIER_SQL = `
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS legacy_identifier text;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_issues_legacy_identifier
+  ON ops_issues (upper(legacy_identifier)) WHERE legacy_identifier IS NOT NULL;
+UPDATE ops_issues
+   SET legacy_identifier = identifier,
+       identifier = (CASE workspace ${prefixCase} END) || '-' || substring(identifier FROM 5)
+ WHERE identifier ~ '^OPS-[0-9]+$'
+   AND workspace IN (${WORKSPACES.map((w) => `'${w.slug}'`).join(', ')});
+
+-- Chesslang One (added 2026-09-24) starts with Chesslang's members — once, via a
+-- marker, so access removed later in the UI isn't re-granted on every boot.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app_json WHERE key = 'migr:chesslang-one-members') THEN
+    INSERT INTO ops_workspace_members (workspace, user_id, role)
+    SELECT 'chesslang-one', user_id, role FROM ops_workspace_members WHERE workspace = 'chesslang'
+    ON CONFLICT (workspace, user_id) DO NOTHING;
+    INSERT INTO app_json (key, value) VALUES ('migr:chesslang-one-members', 'true');
+  END IF;
+END $$;
+`;
+
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
    if (migrated) return;
    const pool = getPool();
    await pool.query(SCHEMA_SQL);
+   await pool.query(IDENTIFIER_SQL);
    migrated = true;
    console.log('[migrate] ops schema ensured');
 }

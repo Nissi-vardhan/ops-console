@@ -9,6 +9,7 @@ import { useIssuesStore } from '@/store/issues-store';
 import { ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { isIssueRef } from '@/mock-data/issues';
 
 /**
  * Issue page header: breadcrumb (team › cycle › identifier + title) and
@@ -19,7 +20,7 @@ export default function HeaderNav() {
    const { issues } = useIssuesStore();
 
    const team = teams[0];
-   const index = issues.findIndex((candidate) => candidate.identifier === issueId);
+   const index = issues.findIndex((candidate) => isIssueRef(candidate, issueId));
    const issue = index >= 0 ? issues[index] : undefined;
    const cycle = issue?.cycleId ? getCycleById(issue.cycleId) : undefined;
 

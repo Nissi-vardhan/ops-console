@@ -18,6 +18,7 @@ export interface RawIssue {
    id: string;
    seq: number;
    identifier: string | null;
+   legacy_identifier?: string | null;
    title: string;
    description: string;
    status_id: string;
@@ -106,6 +107,7 @@ export function hydrateIssue(row: RawIssue, users: User[], projects: Project[] =
    return {
       id: row.id,
       identifier: row.identifier || `OPS-${row.seq}`,
+      legacyIdentifier: row.legacy_identifier ?? undefined,
       title: row.title,
       description: row.description || '',
       status: st,

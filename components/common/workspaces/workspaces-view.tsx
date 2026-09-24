@@ -37,7 +37,8 @@ export function WorkspacesView() {
             const tagged = projects
                .filter((p) => p.workspace === ws.slug)
                .sort((a, b) => a.name.localeCompare(b.name));
-            const mine = issues.filter((i) => i.project?.workspace === ws.slug);
+            // A task's own workspace wins; untagged tasks fall back to their project's.
+            const mine = issues.filter((i) => (i.workspace ?? i.project?.workspace) === ws.slug);
             return {
                ws,
                tagged,
@@ -53,7 +54,7 @@ export function WorkspacesView() {
          <PageHeader
             icon={Boxes}
             title="Workspaces"
-            subtitle="The six Shortcastle products — each rolls up its tagged projects and their issues."
+            subtitle="The Shortcastle products — each rolls up its tagged projects and their issues."
          />
 
          <Stagger className="grid grid-cols-1 gap-4 md:grid-cols-2">

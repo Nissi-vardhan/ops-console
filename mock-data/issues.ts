@@ -5,9 +5,20 @@ import { Project, projects } from './projects';
 import { Status, status, StatusCategory } from './status';
 import { User, users } from './users';
 
+/** True if `ref` names this issue by its current id (CL-104) or legacy id (OPS-104). */
+export function isIssueRef(
+   issue: Pick<Issue, 'identifier' | 'legacyIdentifier'>,
+   ref: string
+): boolean {
+   const r = ref.toUpperCase();
+   return issue.identifier.toUpperCase() === r || issue.legacyIdentifier?.toUpperCase() === r;
+}
+
 export interface Issue {
    id: string;
    identifier: string;
+   /** Pre-rename id (OPS-<n>) — old links and notes still point at it. */
+   legacyIdentifier?: string;
    title: string;
    description: string;
    status: Status;

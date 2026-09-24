@@ -143,7 +143,28 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
          return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
       });
       const raw = issuePatchToRaw(updatedIssue);
-      if (Object.keys(raw).length > 0) persist(`issues/${id}`, 'PATCH', raw);
+      if (Object.keys(raw).length === 0) return;
+      const req = persist(`issues/${id}`, 'PATCH', raw);
+      // A workspace move re-keys the id on the server (CL-15 → CLO-15); pick it up.
+      if ('workspace' in raw)
+         req.then((r) => (r && 'json' in r ? (r as Response).json() : null)).then(
+            (d: { issue?: RawIssue } | null) => {
+               const next = d?.issue;
+               if (!next?.identifier) return;
+               set((state) => {
+                  const newIssues = state.issues.map((i) =>
+                     i.id === id
+                        ? {
+                             ...i,
+                             identifier: next.identifier!,
+                             legacyIdentifier: next.legacy_identifier ?? i.legacyIdentifier,
+                          }
+                        : i
+                  );
+                  return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
+               });
+            }
+         );
    },
 
    deleteIssue: (id: string) => {
@@ -187,7 +208,8 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
       return get().issues.filter(
          (issue) =>
             issue.title.toLowerCase().includes(lowerCaseQuery) ||
-            issue.identifier.toLowerCase().includes(lowerCaseQuery)
+            issue.identifier.toLowerCase().includes(lowerCaseQuery) ||
+            !!issue.legacyIdentifier?.toLowerCase().includes(lowerCaseQuery)
       );
    },
 

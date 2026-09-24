@@ -120,7 +120,7 @@ export function DocLinkedTasks({ docId, base }: { docId: string; base: string })
                value={input}
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && add()}
-               placeholder="Link a task — OPS-N"
+               placeholder="Link a task — e.g. CL-104"
                className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
             />
             <button

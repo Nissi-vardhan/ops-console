@@ -1,4 +1,5 @@
 import { query, queryOne } from '@/lib/db';
+import { workspacePrefix } from '@/lib/workspaces';
 import { PHASE_INDEX, normPhase, normStepStatus } from '@/lib/journey';
 
 // Backend for the standalone ops-console (Circle) app. Rows store string ids for
@@ -16,6 +17,8 @@ export interface OpsIssue {
    id: string;
    seq: number;
    identifier: string | null;
+   /** Pre-rename id (OPS-<n>), still accepted wherever a task id is. */
+   legacy_identifier?: string | null;
    title: string;
    description: string;
    status_id: string;
@@ -154,7 +157,7 @@ export async function updateOpsProject(
 // Columns for a single issue row, including the journey summary (current phase +
 // step counts) so board cards can render "Execute 3/5" without a second call.
 const ISSUE_SELECT = `
-  i.id, i.seq, i.identifier, i.title, i.description, i.status_id, i.priority_id,
+  i.id, i.seq, i.identifier, i.legacy_identifier, i.title, i.description, i.status_id, i.priority_id,
   i.assignee_id, i.project_id, i.label_ids, i.rank, i.due_date, i.progress, i.workspace, i.current_phase,
   i.created_by, i.created_at, i.updated_at,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id) AS step_total,
@@ -200,15 +203,47 @@ export async function createOpsIssue(input: {
          await validUserId(input.created_by),
       ]
    );
-   const { id, seq } = rows[0];
-   const done = await query<OpsIssue>(
-      `UPDATE ops_issues SET identifier = 'OPS-' || $1 WHERE id = $2
-     RETURNING id, seq, identifier, title, description, status_id, priority_id,
-               assignee_id, project_id, label_ids, rank, due_date, progress, workspace, created_by, created_at, updated_at`,
-      [seq, id]
-   );
-   return done[0];
+   const { id } = rows[0];
+   await assignIdentifier(id, workspacePrefix(input.workspace));
+   return (await queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [
+      id,
+   ]))!;
 }
+
+// Task ids are <workspace prefix>-<n> (CL-104, PL-27; OPS-<n> when untagged).
+// A new id takes the next number for its prefix — past every current and legacy
+// id with that prefix, so it never collides with an old alias. `keep` asks for a
+// specific number (a workspace move keeps the number: CL-15 → CLO-15) and falls
+// back to the next free one if it's taken. Retries on a concurrent-create clash.
+async function assignIdentifier(id: string, prefix: string, keep?: number): Promise<void> {
+   for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+         await query(
+            `WITH used AS (
+               SELECT substring(identifier FROM '^[A-Za-z]+-([0-9]+)$')::int AS n
+                 FROM ops_issues WHERE upper(split_part(identifier, '-', 1)) = $1 AND id <> $2
+               UNION ALL
+               SELECT substring(legacy_identifier FROM '^[A-Za-z]+-([0-9]+)$')::int
+                 FROM ops_issues WHERE upper(split_part(legacy_identifier, '-', 1)) = $1 AND id <> $2
+             )
+             UPDATE ops_issues SET identifier = $1 || '-' || (
+               CASE WHEN $3::int IS NOT NULL AND NOT EXISTS (SELECT 1 FROM used WHERE n = $3::int)
+                    THEN $3::int
+                    ELSE (SELECT COALESCE(MAX(n), 0) + 1 FROM used) END
+             ) WHERE id = $2`,
+            [prefix.toUpperCase(), id, keep ?? null]
+         );
+         return;
+      } catch (e) {
+         if ((e as { code?: string }).code !== '23505' || attempt === 4) throw e;
+      }
+   }
+}
+
+const idNumber = (identifier: string | null): number | undefined => {
+   const m = identifier?.match(/^[A-Za-z]+-(\d+)$/);
+   return m ? Number(m[1]) : undefined;
+};
 
 const ISSUE_FIELDS = new Set([
    'title',
@@ -244,13 +279,33 @@ export async function updateOpsIssue(
       return queryOne<OpsIssue>('SELECT * FROM ops_issues WHERE id = $1', [id]);
    }
    vals.push(id);
+   const before =
+      'workspace' in patch
+         ? await queryOne<{ identifier: string | null; workspace: string | null }>(
+              'SELECT identifier, workspace FROM ops_issues WHERE id = $1',
+              [id]
+           )
+         : null;
    const rows = await query<OpsIssue>(
       `UPDATE ops_issues SET ${sets.join(', ')}, updated_at = now() WHERE id = $${i}
-     RETURNING id, seq, identifier, title, description, status_id, priority_id,
+     RETURNING id, seq, identifier, legacy_identifier, title, description, status_id, priority_id,
                assignee_id, project_id, label_ids, rank, due_date, progress, workspace, created_by, created_at, updated_at`,
       vals
    );
-   return rows[0] ?? null;
+   const row = rows[0];
+   if (!row) return null;
+   // Moved to another workspace → re-key to its prefix, keeping the number, and
+   // remember the first-ever id as the alias (usually the original OPS-<n>).
+   const prefix = workspacePrefix(row.workspace);
+   if (before && before.workspace !== row.workspace && !row.identifier?.startsWith(`${prefix}-`)) {
+      await query(
+         'UPDATE ops_issues SET legacy_identifier = COALESCE(legacy_identifier, identifier) WHERE id = $1',
+         [id]
+      );
+      await assignIdentifier(id, prefix, idNumber(before.identifier));
+      return queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [id]);
+   }
+   return row;
 }
 
 export async function deleteOpsIssue(id: string): Promise<boolean> {
@@ -260,11 +315,13 @@ export async function deleteOpsIssue(id: string): Promise<boolean> {
    return rows.length > 0;
 }
 
-// Resolve an issue by its uuid OR its OPS-<n> identifier (CLI ergonomics).
+// Resolve an issue by its uuid, its id (CL-104) or its legacy id (OPS-104).
 export async function resolveOpsIssueId(idOrIdentifier: string): Promise<string | null> {
    if (UUID_RE.test(idOrIdentifier)) return idOrIdentifier;
    const r = await queryOne<{ id: string }>(
-      'SELECT id FROM ops_issues WHERE upper(identifier) = upper($1)',
+      `SELECT id FROM ops_issues
+        WHERE upper(identifier) = upper($1) OR upper(legacy_identifier) = upper($1)
+        ORDER BY (upper(identifier) = upper($1)) DESC LIMIT 1`,
       [idOrIdentifier]
    );
    return r?.id ?? null;

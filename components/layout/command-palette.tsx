@@ -10,7 +10,7 @@ import {
    CommandList,
 } from '@/components/ui/command';
 import { cycles, formatCycleDateRange } from '@/mock-data/cycles';
-import { Issue } from '@/mock-data/issues';
+import { Issue, isIssueRef } from '@/mock-data/issues';
 import { labels as allLabels } from '@/mock-data/labels';
 import { priorities } from '@/mock-data/priorities';
 import { projects as allProjects } from '@/mock-data/projects';
@@ -95,7 +95,7 @@ export function CommandPalette() {
    const contextIssue = useMemo<Issue | undefined>(() => {
       const match = pathname.match(/^\/[^/]+\/issue\/([^/]+)/);
       if (!match) return undefined;
-      return issues.find((issue) => issue.identifier === match[1]);
+      return issues.find((issue) => isIssueRef(issue, match[1]));
    }, [pathname, issues]);
 
    const issue = contextCleared ? undefined : contextIssue;
