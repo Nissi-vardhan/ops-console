@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // ops — tiny CLI for Claude sessions to log their work into the ops console.
 //
-// A session opens a task in its workspace, tracks stages on the task's Journey
+// Each task is filed under the workspace (product) it is about — chosen per task
+// with --ws, so one session can log Chesslang and ProLearnr work side by side.
+// A session opens a task, tracks stages on the task's Journey
 // (plan → prepare → execute → verify → done), adds progress notes, and on
 // completion closes the task and files a KB doc tagged with the same workspace.
 // The "main KB" is simply every workspace's KB docs together (Docs → All workspaces).
@@ -37,32 +39,19 @@ const STATUSES = [
    'canceled',
 ];
 
-// cwd → workspace. First match wins; checked against the lower-cased cwd.
-// DRAFT — pending Nissi's confirmation.
-const WORKSPACE_MAP = [
-   [/\/prolearnr/, 'prolearnr'],
-   [/chessmethod/, 'chessmethod'],
-   [/bytechess/, 'bytechess'],
-   [/trainerdb/, 'trainerdb'],
-   [/fb_ads|demo_bookings|federation|gtm|whatsapp_campaign|zoho|\/fedchess/, 'chesslang'],
-   [/\/jarvis|opensource-tools|servers|services/, 'shortcastle'],
-];
-const DEFAULT_WORKSPACE = 'shortcastle';
-
 const USAGE = `ops — log Claude session work into the ops console
 
 Usage:
-  ops task new "<title>" [--ws <slug>] [--desc <text>]   create a task (in-progress); prints OPS-n
+  ops task new "<title>" --ws <slug> [--desc <text>]     create a task (in-progress); prints OPS-n
   ops stage <OPS-n> <phase> "<title>"                     add a Journey step; prints the step id
   ops stage-done <step-id>                                mark a Journey step done
   ops note <OPS-n> "<text>"                               append a progress note
   ops status <OPS-n> <status>                             set the task status
   ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
-  ops ws                                                  print the workspace inferred from the cwd
 
   phases:     ${PHASES.join(' | ')}
   statuses:   ${STATUSES.join(' | ')}
-  workspaces: ${WORKSPACES.join(' | ')}  (default: inferred from the cwd)
+  workspaces: ${WORKSPACES.join(' | ')}  (--ws is required: the product the task is about)
 
 Env: OPS_URL (default https://ops.shortcastle.com), OPS_TOKEN (else ~/.config/ops/token)`;
 
@@ -78,12 +67,6 @@ function token() {
       if (t) return t;
    } catch {}
    die(`no token — put the ops bearer token in ${TOKEN_FILE} (chmod 600) or set OPS_TOKEN`);
-}
-
-function inferWorkspace(cwd = process.cwd()) {
-   const p = cwd.toLowerCase();
-   for (const [re, ws] of WORKSPACE_MAP) if (re.test(p)) return ws;
-   return DEFAULT_WORKSPACE;
 }
 
 async function api(method, route, body) {
@@ -145,9 +128,13 @@ async function main() {
 
    switch (cmd) {
       case 'task': {
-         if (pos[0] !== 'new') die(`usage: ops task new "<title>" [--ws <slug>] [--desc <text>]`);
+         if (pos[0] !== 'new') die(`usage: ops task new "<title>" --ws <slug> [--desc <text>]`);
          const title = need(pos[1], 'task title');
-         const workspace = oneOf(flags.ws || inferWorkspace(), WORKSPACES, 'workspace');
+         const workspace = oneOf(
+            need(flags.ws, `--ws <slug> (${WORKSPACES.join(', ')})`),
+            WORKSPACES,
+            'workspace'
+         );
          const { issue } = await api('POST', '/issues', {
             title,
             description: flags.desc || '',
@@ -198,7 +185,9 @@ async function main() {
          const body = readBody(need(flags['kb-body'], '--kb-body <file|->')).trim();
          if (!body) die('KB body is empty');
          const { issue } = await api('GET', `/issues/${encodeURIComponent(id)}`);
-         const workspace = issue?.workspace || inferWorkspace();
+         const workspace = issue?.workspace;
+         if (!workspace)
+            die(`${id} has no workspace — set one in the console before filing its KB doc`);
          await api('PATCH', `/issues/${encodeURIComponent(id)}`, { status_id: 'done' });
          const { doc } = await api('POST', '/docs', {
             title: kbTitle,
@@ -210,9 +199,6 @@ async function main() {
          console.log(`${issue?.identifier || id} done · KB doc ${doc.id} (${workspace})`);
          return;
       }
-      case 'ws':
-         console.log(inferWorkspace());
-         return;
       case undefined:
       case 'help':
       case '-h':
