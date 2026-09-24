@@ -199,7 +199,7 @@ export function InfraView() {
                                  {d.text}
                               </span>
                            )}
-                           <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                           <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                               {s.kind === 'token' && (
                                  <button
                                     title="Mark rotated (+90d)"

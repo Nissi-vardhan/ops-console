@@ -137,14 +137,14 @@ export function ProjectsView() {
             </div>
          )}
 
-         <Stagger className="grid gap-4 md:grid-cols-2">
+         <Stagger className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {rows.map(({ p, mine, inProgress, todo, done, pct, owners }) => {
                const st = STATUSES.find((s) => s.id === p.status.id) ?? p.status;
                return (
                   <Item
                      key={p.id}
                      hover
-                     className="paper-card rounded-xl border bg-container p-4 transition-colors hover:border-primary/50"
+                     className="paper-card min-w-0 rounded-xl border bg-container p-4 transition-colors hover:border-primary/50"
                   >
                      <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
@@ -153,7 +153,7 @@ export function ProjectsView() {
                            </span>
                            <span className="truncate font-medium">{p.name}</span>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
                            <span
                               className="size-2 rounded-full"
                               style={{ backgroundColor: st.color }}

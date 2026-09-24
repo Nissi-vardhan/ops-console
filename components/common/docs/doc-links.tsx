@@ -107,7 +107,7 @@ export function DocLinkedTasks({ docId, base }: { docId: string; base: string })
                         onClick={() => remove(i.identifier, i.id)}
                         disabled={busy}
                         aria-label="Unlink"
-                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
                      >
                         <X className="size-3.5" />
                      </button>
@@ -202,7 +202,7 @@ export function TaskLinkedDocs({ issueRef, base }: { issueRef: string; base: str
                         onClick={() => remove(d.id)}
                         disabled={busy}
                         aria-label="Unlink"
-                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
                      >
                         <X className="size-3.5" />
                      </button>

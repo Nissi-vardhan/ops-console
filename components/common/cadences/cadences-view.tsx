@@ -137,7 +137,7 @@ function StepTimeline({ steps, closedNote }: { steps: UStep[]; closedNote?: stri
          {steps.map((t, i) => (
             <div
                key={i}
-               className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${t.done ? 'border-emerald-500/40 bg-emerald-500/5' : ''} ${t.skipped ? 'opacity-50' : ''}`}
+               className={`flex min-w-0 max-w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 ${t.done ? 'border-emerald-500/40 bg-emerald-500/5' : ''} ${t.skipped ? 'opacity-50' : ''}`}
             >
                <span
                   className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${t.done ? 'bg-emerald-500/20 text-emerald-500' : 'border text-muted-foreground'}`}
@@ -148,8 +148,10 @@ function StepTimeline({ steps, closedNote }: { steps: UStep[]; closedNote?: stri
                   channel={t.channel}
                   className={`size-3.5 shrink-0 ${t.done ? 'text-emerald-500' : 'text-muted-foreground'}`}
                />
-               <div className="leading-tight">
-                  <div className={`text-xs ${t.skipped ? 'line-through' : ''}`}>
+               <div className="min-w-0 leading-tight">
+                  <div
+                     className={`text-xs [overflow-wrap:anywhere] ${t.skipped ? 'line-through' : ''}`}
+                  >
                      {t.label || '(step)'}
                   </div>
                   {(t.timing || t.done) && (
@@ -309,14 +311,18 @@ export function CadencesView() {
                return (
                   <Item key={c.key} className="rounded-xl border bg-container p-4 sm:p-5">
                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                           <Radio className="size-4 text-primary" />
-                           <span className="font-medium">{c.name}</span>
-                           <span className={`rounded-full px-2 py-0.5 text-[11px] ${st.cls}`}>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                           <Radio className="size-4 shrink-0 text-primary" />
+                           <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+                              {c.name}
+                           </span>
+                           <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${st.cls}`}
+                           >
                               {st.label}
                            </span>
                            {c.audienceText && (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="min-w-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">
                                  · {c.audienceText}
                               </span>
                            )}
@@ -331,7 +337,7 @@ export function CadencesView() {
                            {c.linkIdentifier && (
                               <Link
                                  href={`/${orgId || 'shortcastle'}/issue/${c.linkIdentifier}`}
-                                 className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                                 className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline max-sm:min-h-8"
                               >
                                  <Link2 className="size-3" /> {c.linkIdentifier}
                               </Link>
@@ -343,10 +349,12 @@ export function CadencesView() {
                            )}
                         </div>
                         {c.source === 'db' && c.editId && (
-                           <div className="flex shrink-0 items-center gap-1">
+                           <div className="-mr-2 -mt-2 flex shrink-0 items-center sm:m-0 sm:gap-1">
                               <Button
                                  size="xs"
                                  variant="ghost"
+                                 className="max-sm:size-10"
+                                 aria-label="Edit cadence"
                                  onClick={() => setEditing(c.editId!)}
                               >
                                  <Pencil className="size-3.5" />
@@ -354,6 +362,8 @@ export function CadencesView() {
                               <Button
                                  size="xs"
                                  variant="ghost"
+                                 className="max-sm:size-10"
+                                 aria-label="Delete cadence"
                                  onClick={async () => {
                                     if (
                                        await confirm({
@@ -394,14 +404,16 @@ export function CadencesView() {
                            </div>
                            <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground/80">
                               {c.blockers.map((b, i) => (
-                                 <li key={i}>{b}</li>
+                                 <li key={i} className="[overflow-wrap:anywhere]">
+                                    {b}
+                                 </li>
                               ))}
                            </ul>
                         </div>
                      )}
 
                      {c.notes && (
-                        <p className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                        <p className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
                            {c.notes}
                         </p>
                      )}
@@ -533,7 +545,7 @@ function CadenceEditor({
          onClick={onClose}
       >
          <div
-            className="my-6 w-full max-w-lg rounded-xl border bg-container p-5"
+            className="my-2 w-full min-w-0 max-w-lg rounded-xl border bg-container p-4 sm:my-6 sm:p-5"
             onClick={(e) => e.stopPropagation()}
          >
             <p className="mb-3 text-sm font-semibold">{initial ? 'Edit cadence' : 'New cadence'}</p>
@@ -560,14 +572,14 @@ function CadenceEditor({
                            key={c}
                            type="button"
                            onClick={() => toggleChan(c)}
-                           className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${channelList().includes(c) ? 'border-primary bg-primary/10 text-foreground' : 'text-muted-foreground'}`}
+                           className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs max-sm:h-9 ${channelList().includes(c) ? 'border-primary bg-primary/10 text-foreground' : 'text-muted-foreground'}`}
                         >
                            <ChannelIcon channel={c} className="size-3" /> {c}
                         </button>
                      ))}
                   </div>
                   <Select value={d.status} onValueChange={(v) => setD({ ...d, status: v })}>
-                     <SelectTrigger className="h-8 w-[130px]">
+                     <SelectTrigger className="h-8 w-[130px] max-sm:h-9">
                         <SelectValue />
                      </SelectTrigger>
                      <SelectContent>
@@ -584,7 +596,7 @@ function CadenceEditor({
                   value={d.issue_id || '__none'}
                   onValueChange={(v) => setD({ ...d, issue_id: v === '__none' ? '' : v })}
                >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
                      <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -601,13 +613,16 @@ function CadenceEditor({
                <div>
                   <div className="mb-1.5 flex items-center justify-between">
                      <span className="text-xs font-medium text-muted-foreground">Touches</span>
-                     <Button size="xs" variant="ghost" onClick={addTouch}>
+                     <Button size="xs" variant="ghost" className="max-sm:h-9" onClick={addTouch}>
                         <Plus className="mr-0.5 size-3.5" /> Add touch
                      </Button>
                   </div>
                   <div className="space-y-1.5">
                      {d.touches.map((t, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
+                        <div
+                           key={i}
+                           className="flex flex-wrap items-center gap-1.5 max-sm:gap-1 max-sm:rounded-md max-sm:border max-sm:p-1.5 sm:flex-nowrap"
+                        >
                            <span className="w-4 text-center text-[11px] text-muted-foreground">
                               {t.n}
                            </span>
@@ -615,7 +630,7 @@ function CadenceEditor({
                               value={t.channel}
                               onValueChange={(v) => setTouch(i, { channel: v })}
                            >
-                              <SelectTrigger className="h-7 w-[104px] px-2 text-xs">
+                              <SelectTrigger className="h-7 w-[104px] px-2 text-xs max-sm:h-9 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1 max-sm:basis-0 max-sm:px-1.5">
                                  <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -627,19 +642,19 @@ function CadenceEditor({
                               value={t.label}
                               onChange={(e) => setTouch(i, { label: e.target.value })}
                               placeholder="what it says"
-                              className="min-w-0 flex-1 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
+                              className="min-w-0 flex-1 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary max-sm:order-last max-sm:h-9 max-sm:basis-full max-sm:text-sm"
                            />
                            <input
                               value={t.timing}
                               onChange={(e) => setTouch(i, { timing: e.target.value })}
                               placeholder="Day 0"
-                              className="w-16 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
+                              className="w-16 rounded border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary max-sm:h-9 max-sm:w-12"
                            />
                            <Select
                               value={t.status}
                               onValueChange={(v) => setTouch(i, { status: v })}
                            >
-                              <SelectTrigger className="h-7 w-[96px] px-2 text-xs">
+                              <SelectTrigger className="h-7 w-[96px] px-2 text-xs max-sm:h-9 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1 max-sm:basis-0 max-sm:px-1.5">
                                  <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -651,7 +666,8 @@ function CadenceEditor({
                            <button
                               type="button"
                               onClick={() => rmTouch(i)}
-                              className="text-muted-foreground hover:text-red-500"
+                              aria-label="Remove touch"
+                              className="text-muted-foreground hover:text-red-500 max-sm:flex max-sm:size-9 max-sm:items-center max-sm:justify-center"
                            >
                               <Trash2 className="size-3.5" />
                            </button>
@@ -686,10 +702,20 @@ function CadenceEditor({
                </label>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-               <Button size="sm" variant="ghost" onClick={onClose}>
+               <Button
+                  size="sm"
+                  variant="ghost"
+                  className="max-sm:h-10 max-sm:flex-1"
+                  onClick={onClose}
+               >
                   Cancel
                </Button>
-               <Button size="sm" disabled={busy || !d.name.trim()} onClick={save}>
+               <Button
+                  size="sm"
+                  className="max-sm:h-10 max-sm:flex-1"
+                  disabled={busy || !d.name.trim()}
+                  onClick={save}
+               >
                   {initial ? 'Save' : 'Create'}
                </Button>
             </div>

@@ -74,7 +74,7 @@ export function NotificationsBell() {
       <Popover>
          <PopoverTrigger asChild>
             <button
-               className="relative flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+               className="relative flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-8"
                aria-label="Notifications"
             >
                <Bell className="size-4" />
@@ -85,7 +85,7 @@ export function NotificationsBell() {
                )}
             </button>
          </PopoverTrigger>
-         <PopoverContent align="end" className="w-80 p-0">
+         <PopoverContent align="end" className="w-[min(20rem,calc(100vw-1rem))] p-0">
             <div className="flex items-center justify-between border-b px-3 py-2">
                <span className="text-sm font-semibold">Notifications</span>
                <button

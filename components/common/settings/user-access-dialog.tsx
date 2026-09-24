@@ -199,10 +199,12 @@ export default function UserAccessDialog({
 
    return (
       <Dialog open onOpenChange={(o) => !o && onClose()}>
-         <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
-            <DialogHeader>
-               <DialogTitle>Access for {user.username || user.email}</DialogTitle>
-               <DialogDescription>
+         <DialogContent className="sm:max-w-xl">
+            <DialogHeader className="min-w-0 pr-8 sm:pr-0">
+               <DialogTitle className="break-words leading-tight">
+                  Access for {user.username || user.email}
+               </DialogTitle>
+               <DialogDescription className="break-all">
                   {user.email}
                   {isSelf ? ' · this is you' : ''}
                </DialogDescription>
@@ -293,9 +295,9 @@ export default function UserAccessDialog({
                         return (
                            <div
                               key={w.slug}
-                              className="flex items-center justify-between gap-3 px-3 py-2"
+                              className="flex items-center justify-between gap-3 px-3 py-1 sm:py-2"
                            >
-                              <label className="flex items-center gap-2 text-sm">
+                              <label className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-sm sm:min-h-0">
                                  <Checkbox
                                     checked={row.member}
                                     onCheckedChange={(v) =>
@@ -320,7 +322,7 @@ export default function UserAccessDialog({
                                     })
                                  }
                               >
-                                 <SelectTrigger className="h-8 w-28 text-xs">
+                                 <SelectTrigger className="h-10 w-28 shrink-0 text-xs sm:h-8">
                                     <SelectValue />
                                  </SelectTrigger>
                                  <SelectContent>
@@ -353,17 +355,26 @@ export default function UserAccessDialog({
                {error && <p className="text-sm text-red-500">{error}</p>}
             </div>
 
-            <DialogFooter className="items-center sm:justify-between">
+            <DialogFooter className="sticky -bottom-6 -mx-6 -mb-6 items-center border-t bg-background px-6 py-3 sm:static sm:m-0 sm:justify-between sm:border-0 sm:p-0">
                <span className="text-xs text-muted-foreground">
                   {dirty
                      ? `${diff.length} change${diff.length > 1 ? 's' : ''} pending`
                      : 'No changes'}
                </span>
-               <div className="flex gap-2">
-                  <Button variant="ghost" onClick={onClose} disabled={busy}>
+               <div className="flex w-full gap-2 sm:w-auto">
+                  <Button
+                     variant="ghost"
+                     className="flex-1 sm:flex-none"
+                     onClick={onClose}
+                     disabled={busy}
+                  >
                      Cancel
                   </Button>
-                  <Button onClick={() => setConfirming(true)} disabled={!dirty || busy}>
+                  <Button
+                     className="flex-1 sm:flex-none"
+                     onClick={() => setConfirming(true)}
+                     disabled={!dirty || busy}
+                  >
                      Save changes
                   </Button>
                </div>

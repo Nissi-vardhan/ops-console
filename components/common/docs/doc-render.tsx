@@ -58,7 +58,7 @@ export function outline(body: string): Heading[] {
 }
 
 export const PROSE = [
-   'text-[15px] leading-7 text-foreground/90',
+   'text-[15px] leading-7 text-foreground/90 [overflow-wrap:anywhere]',
    '[&_h1]:mt-8 [&_h1]:mb-3 [&_h1]:text-[26px] [&_h1]:font-semibold [&_h1]:tracking-tight [&_h1]:scroll-mt-24',
    '[&_h2]:mt-9 [&_h2]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:scroll-mt-24',
    '[&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-[15px] [&_h3]:font-semibold [&_h3]:scroll-mt-24',
@@ -68,7 +68,7 @@ export const PROSE = [
    '[&_strong]:font-semibold [&_strong]:text-foreground',
    '[&_:not(pre)>code]:rounded-md [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13px]',
    '[&_blockquote]:my-4 [&_blockquote]:rounded-r-md [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:bg-muted/30 [&_blockquote]:py-1 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground',
-   '[&_table]:my-4 [&_table]:block [&_table]:overflow-x-auto [&_table]:text-sm [&_thead]:border-b [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_td]:px-3 [&_td]:py-2 [&_tr]:border-b [&_tr]:border-border/60',
+   '[&_table]:my-4 [&_table]:block [&_table]:overflow-x-auto [&_table]:[overflow-wrap:normal] [&_table]:text-sm [&_thead]:border-b [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_td]:px-3 [&_td]:py-2 [&_tr]:border-b [&_tr]:border-border/60',
    '[&_hr]:my-8 [&_hr]:border-border',
    '[&_img]:my-4 [&_img]:rounded-lg [&_img]:border',
 ].join(' ');
@@ -252,7 +252,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
             type="button"
             onClick={copy}
             aria-label="Copy code"
-            className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-md border bg-background/80 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100"
+            className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-md border bg-background/80 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
          >
             {copied ? (
                <Check className="size-3.5 text-emerald-500" />

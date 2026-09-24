@@ -56,14 +56,14 @@ export default function IssueDetails() {
    }
 
    const prose =
-      'text-sm leading-relaxed text-foreground/90 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-0.5 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/40 [&_pre]:p-3';
+      'text-sm leading-relaxed text-foreground/90 [overflow-wrap:anywhere] [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:[overflow-wrap:normal] [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-0.5 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/40 [&_pre]:p-3';
 
    return (
-      <div className="w-full h-full flex overflow-hidden">
+      <div className="w-full h-full flex flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
          {/* Main column */}
-         <div className="flex-1 min-w-0 h-full overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-6 py-8 sm:px-8 sm:py-10">
-               <h1 className="text-2xl font-semibold leading-tight text-balance sm:text-3xl">
+         <div className="flex-1 min-w-0 lg:h-full lg:overflow-y-auto">
+            <div className="max-w-3xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
+               <h1 className="text-2xl font-semibold leading-tight text-balance [overflow-wrap:anywhere] sm:text-3xl">
                   {issue.title}
                </h1>
 
@@ -110,8 +110,8 @@ export default function IssueDetails() {
             </div>
          </div>
 
-         {/* Properties sidebar */}
-         <aside className="hidden lg:block w-80 shrink-0 border-l h-full overflow-y-auto bg-container px-5 py-6">
+         {/* Properties sidebar (stacks under the content below lg) */}
+         <aside className="w-full shrink-0 border-t bg-container px-4 py-6 sm:px-8 lg:w-80 lg:h-full lg:overflow-y-auto lg:border-t-0 lg:border-l lg:px-5">
             <IssuePropertiesPanel issue={issue} detail={detail} />
          </aside>
       </div>

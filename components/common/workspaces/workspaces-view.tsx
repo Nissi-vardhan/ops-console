@@ -56,12 +56,12 @@ export function WorkspacesView() {
             subtitle="The six Shortcastle products — each rolls up its tagged projects and their issues."
          />
 
-         <Stagger className="grid gap-4 md:grid-cols-2">
+         <Stagger className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {cards.map(({ ws, tagged, openIssues, totalIssues }) => (
                <Item
                   key={ws.slug}
                   hover
-                  className="flex flex-col rounded-xl border bg-card p-4 transition-colors hover:border-primary/50"
+                  className="flex min-w-0 flex-col rounded-xl border bg-card p-4 transition-colors hover:border-primary/50"
                >
                   <div
                      role="button"
@@ -73,17 +73,17 @@ export function WorkspacesView() {
                            enterWorkspace(ws.slug);
                         }
                      }}
-                     className="flex h-full cursor-pointer flex-col outline-none"
+                     className="flex h-full min-w-0 cursor-pointer flex-col outline-none"
                   >
                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                            <span className="flex size-7 items-center justify-center rounded-md bg-primary/15">
                               <Boxes className="size-4 text-primary" />
                            </span>
-                           <span className="font-medium">{ws.name}</span>
+                           <span className="truncate font-medium">{ws.name}</span>
                         </div>
                         <span
-                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${WORKSPACE_STATUS[ws.status]}`}
+                           className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${WORKSPACE_STATUS[ws.status]}`}
                         >
                            {ws.status}
                         </span>
@@ -112,7 +112,7 @@ export function WorkspacesView() {
                                  key={p.id}
                                  href={`${base}/project/${p.id}/overview`}
                                  onClick={(e) => e.stopPropagation()}
-                                 className="flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                 className="flex min-h-10 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground md:min-h-0"
                               >
                                  <Box className="size-3 shrink-0" />
                                  <span className="truncate">{p.name}</span>
@@ -131,14 +131,15 @@ export function WorkspacesView() {
                      )}
 
                      {/* footer: knowledge base */}
-                     <div className="mt-3 flex items-center justify-between border-t pt-3">
-                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                           <BookOpen className="size-3" /> {ws.docTitle}
+                     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t pt-3">
+                        <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                           <BookOpen className="size-3 shrink-0" />{' '}
+                           <span className="truncate">{ws.docTitle}</span>
                         </span>
                         <Link
                            href={`${base}/docs`}
                            onClick={(e) => e.stopPropagation()}
-                           className="inline-flex items-center gap-1 text-[11px] text-primary transition-colors hover:underline"
+                           className="inline-flex min-h-10 items-center gap-1 text-[11px] text-primary transition-colors hover:underline md:min-h-0"
                         >
                            Knowledge base <ArrowRight className="size-3" />
                         </Link>
