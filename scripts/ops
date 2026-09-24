@@ -1,0 +1,227 @@
+#!/usr/bin/env node
+// ops — tiny CLI for Claude sessions to log their work into the ops console.
+//
+// A session opens a task in its workspace, tracks stages on the task's Journey
+// (plan → prepare → execute → verify → done), adds progress notes, and on
+// completion closes the task and files a KB doc tagged with the same workspace.
+// The "main KB" is simply every workspace's KB docs together (Docs → All workspaces).
+//
+// Config:
+//   OPS_URL    base URL (default https://ops.shortcastle.com)
+//   OPS_TOKEN  bearer token override; otherwise read from ~/.config/ops/token
+// The token is never printed.
+
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const BASE = (process.env.OPS_URL || 'https://ops.shortcastle.com').replace(/\/+$/, '');
+const TOKEN_FILE = path.join(os.homedir(), '.config', 'ops', 'token');
+
+const WORKSPACES = [
+   'chesslang',
+   'prolearnr',
+   'bytechess',
+   'chessmethod',
+   'trainerdb',
+   'shortcastle',
+];
+const PHASES = ['plan', 'prepare', 'execute', 'verify', 'done'];
+const STATUSES = [
+   'to-do',
+   'in-progress',
+   'technical-review',
+   'blocked',
+   'paused',
+   'done',
+   'canceled',
+];
+
+// cwd → workspace. First match wins; checked against the lower-cased cwd.
+// DRAFT — pending Nissi's confirmation.
+const WORKSPACE_MAP = [
+   [/\/prolearnr/, 'prolearnr'],
+   [/chessmethod/, 'chessmethod'],
+   [/bytechess/, 'bytechess'],
+   [/trainerdb/, 'trainerdb'],
+   [/fb_ads|demo_bookings|federation|gtm|whatsapp_campaign|zoho|\/fedchess/, 'chesslang'],
+   [/\/jarvis|opensource-tools|servers|services/, 'shortcastle'],
+];
+const DEFAULT_WORKSPACE = 'shortcastle';
+
+const USAGE = `ops — log Claude session work into the ops console
+
+Usage:
+  ops task new "<title>" [--ws <slug>] [--desc <text>]   create a task (in-progress); prints OPS-n
+  ops stage <OPS-n> <phase> "<title>"                     add a Journey step; prints the step id
+  ops stage-done <step-id>                                mark a Journey step done
+  ops note <OPS-n> "<text>"                               append a progress note
+  ops status <OPS-n> <status>                             set the task status
+  ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
+  ops ws                                                  print the workspace inferred from the cwd
+
+  phases:     ${PHASES.join(' | ')}
+  statuses:   ${STATUSES.join(' | ')}
+  workspaces: ${WORKSPACES.join(' | ')}  (default: inferred from the cwd)
+
+Env: OPS_URL (default https://ops.shortcastle.com), OPS_TOKEN (else ~/.config/ops/token)`;
+
+function die(msg, code = 1) {
+   process.stderr.write(`ops: ${msg}\n`);
+   process.exit(code);
+}
+
+function token() {
+   if (process.env.OPS_TOKEN) return process.env.OPS_TOKEN.trim();
+   try {
+      const t = fs.readFileSync(TOKEN_FILE, 'utf8').trim();
+      if (t) return t;
+   } catch {}
+   die(`no token — put the ops bearer token in ${TOKEN_FILE} (chmod 600) or set OPS_TOKEN`);
+}
+
+function inferWorkspace(cwd = process.cwd()) {
+   const p = cwd.toLowerCase();
+   for (const [re, ws] of WORKSPACE_MAP) if (re.test(p)) return ws;
+   return DEFAULT_WORKSPACE;
+}
+
+async function api(method, route, body) {
+   let res;
+   try {
+      res = await fetch(`${BASE}/api/ops${route}`, {
+         method,
+         headers: { 'Authorization': `Bearer ${token()}`, 'Content-Type': 'application/json' },
+         body: body === undefined ? undefined : JSON.stringify(body),
+      });
+   } catch (e) {
+      die(`cannot reach ${BASE} (${e.cause?.code || e.message})`);
+   }
+   const data = await res.json().catch(() => ({}));
+   if (!res.ok) die(`${method} ${route} → ${res.status} ${data.error || res.statusText}`);
+   return data;
+}
+
+// Split argv into positionals and --flags (each flag takes one value).
+function parse(args) {
+   const pos = [];
+   const flags = {};
+   for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a.startsWith('--')) {
+         const v = args[i + 1];
+         if (v === undefined) die(`${a} needs a value`);
+         flags[a.slice(2)] = v;
+         i++;
+      } else pos.push(a);
+   }
+   return { pos, flags };
+}
+
+function need(v, what) {
+   if (!v) die(`missing ${what}\n\n${USAGE}`);
+   return v;
+}
+
+function oneOf(v, list, what) {
+   if (!list.includes(v)) die(`unknown ${what} "${v}" — use one of: ${list.join(', ')}`);
+   return v;
+}
+
+function readBody(src) {
+   if (src === '-') return fs.readFileSync(0, 'utf8');
+   try {
+      return fs.readFileSync(src, 'utf8');
+   } catch {
+      die(`cannot read --kb-body file: ${src}`);
+   }
+}
+
+const session = () => path.basename(process.cwd());
+
+async function main() {
+   const [cmd, ...rest] = process.argv.slice(2);
+   const { pos, flags } = parse(rest);
+
+   switch (cmd) {
+      case 'task': {
+         if (pos[0] !== 'new') die(`usage: ops task new "<title>" [--ws <slug>] [--desc <text>]`);
+         const title = need(pos[1], 'task title');
+         const workspace = oneOf(flags.ws || inferWorkspace(), WORKSPACES, 'workspace');
+         const { issue } = await api('POST', '/issues', {
+            title,
+            description: flags.desc || '',
+            workspace,
+            status_id: 'in-progress',
+         });
+         console.log(issue.identifier || issue.id);
+         return;
+      }
+      case 'stage': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const phase = oneOf(need(pos[1], 'phase'), PHASES, 'phase');
+         const title = need(pos[2], 'step title');
+         const { step } = await api('POST', `/issues/${encodeURIComponent(id)}/steps`, {
+            phase,
+            title,
+            status: 'doing',
+         });
+         console.log(step.id);
+         return;
+      }
+      case 'stage-done': {
+         const stepId = need(pos[0], 'step id');
+         await api('PATCH', `/steps/${encodeURIComponent(stepId)}`, {
+            status: 'done',
+            by: session(),
+         });
+         console.log('ok');
+         return;
+      }
+      case 'note': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const note = need(pos[1], 'note text');
+         await api('POST', `/issues/${encodeURIComponent(id)}`, { note, session: session() });
+         console.log('ok');
+         return;
+      }
+      case 'status': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const status = oneOf(need(pos[1], 'status'), STATUSES, 'status');
+         await api('PATCH', `/issues/${encodeURIComponent(id)}`, { status_id: status });
+         console.log('ok');
+         return;
+      }
+      case 'done': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const kbTitle = need(flags.kb, '--kb "<title>"');
+         const body = readBody(need(flags['kb-body'], '--kb-body <file|->')).trim();
+         if (!body) die('KB body is empty');
+         const { issue } = await api('GET', `/issues/${encodeURIComponent(id)}`);
+         const workspace = issue?.workspace || inferWorkspace();
+         await api('PATCH', `/issues/${encodeURIComponent(id)}`, { status_id: 'done' });
+         const { doc } = await api('POST', '/docs', {
+            title: kbTitle,
+            body,
+            category: 'KB',
+            workspace,
+         });
+         await api('POST', `/docs/${doc.id}/links`, { issue: issue?.identifier || id });
+         console.log(`${issue?.identifier || id} done · KB doc ${doc.id} (${workspace})`);
+         return;
+      }
+      case 'ws':
+         console.log(inferWorkspace());
+         return;
+      case undefined:
+      case 'help':
+      case '-h':
+      case '--help':
+         console.log(USAGE);
+         return;
+      default:
+         die(`unknown command "${cmd}"\n\n${USAGE}`);
+   }
+}
+
+main();
