@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized, safeEqual } from '@/lib/ops-guard';
+import { opsAuthorized, opsBearerOk, safeEqual } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { recordSession, listSessions } from '@/lib/ops-sessions';
 import { getOpsIssue, resolveOpsIssueId } from '@/lib/ops-data';
@@ -7,9 +7,7 @@ import { getOpsIssue, resolveOpsIssueId } from '@/lib/ops-data';
 // Session tracking is Nissi-only and PIN-locked. The CLI (bearer) records and
 // reads freely; the browser requires the owner role AND the correct PIN.
 function bearerOk(request: Request): boolean {
-   const secret = process.env.OPS_AUTH_SECRET;
-   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-   return !!secret && safeEqual(token, secret);
+   return opsBearerOk(request);
 }
 function pinOk(request: Request): boolean {
    // Fail closed if no PIN is configured — no hardcoded default grants access.

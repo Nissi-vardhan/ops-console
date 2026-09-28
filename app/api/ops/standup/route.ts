@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized, safeEqual } from '@/lib/ops-guard';
+import { opsAuthorized, opsBearerOk, safeEqual } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { addStandup, listStandup, deleteStandup } from '@/lib/ops-standup';
 
@@ -18,9 +18,7 @@ function workDayIST(): string {
 // The resume fields (full session id + cwd) are Nissi-only + PIN-locked, exactly
 // like the sessions feature. The CLI (bearer) always gets them.
 function bearerOk(request: Request): boolean {
-   const secret = process.env.OPS_AUTH_SECRET;
-   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-   return !!secret && safeEqual(token, secret);
+   return opsBearerOk(request);
 }
 function pinOk(request: Request): boolean {
    // Fail closed if no PIN is configured — no hardcoded default grants access.

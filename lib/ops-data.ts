@@ -459,6 +459,21 @@ export async function listOpsDocs(): Promise<OpsDoc[]> {
    );
 }
 
+// Read-only KB feed for /api/kb: category 'KB' docs of ONE workspace, optionally
+// approved-only. Version dedupe happens in lib/kb-select.ts.
+export async function listKbDocs(
+   workspace: string,
+   approvedOnly: boolean
+): Promise<Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'>[]> {
+   return query<Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'>>(
+      `SELECT id, title, body, updated_at FROM ops_docs
+        WHERE category = 'KB' AND workspace = $1
+          AND ($2::boolean = false OR review_stage = 'approved')
+        ORDER BY updated_at DESC`,
+      [workspace, approvedOnly]
+   );
+}
+
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
       `SELECT id, title, body, category, pinned, review_stage, workspace, created_by, created_at, updated_at FROM ops_docs WHERE id = $1`,

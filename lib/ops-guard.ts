@@ -17,26 +17,30 @@ export function safeEqual(a: string, b: string): boolean {
 // valid ops session cookie (the browser UI). Async because the session check
 // reads cookies.
 export async function opsAuthorized(request: Request): Promise<boolean> {
-   const secret = process.env.OPS_AUTH_SECRET;
-   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-   if (secret && safeEqual(token, secret)) return true;
+   if (opsBearerOk(request)) return true;
    return (await getOpsUser()) != null;
+}
+
+// The ONE bearer check for /api/ops/*: OPS_AUTH_SECRET only. KB_READ_TOKEN
+// (read-only /api/kb) must never grant anything here — if the two env values
+// were ever set to the same string, the bearer is refused outright.
+export function opsBearerOk(request: Request): boolean {
+   const secret = process.env.OPS_AUTH_SECRET;
+   if (!secret) return false;
+   const kb = process.env.KB_READ_TOKEN;
+   if (kb && safeEqual(kb, secret)) return false;
+   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+   return safeEqual(token, secret);
 }
 
 type Min = 'viewer' | 'member' | 'admin' | 'owner';
 const RANK: Record<string, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
 
-function bearerOk(request: Request): boolean {
-   const secret = process.env.OPS_AUTH_SECRET;
-   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-   return !!secret && safeEqual(token, secret);
-}
-
 // Returns a 401/403 Response to short-circuit, or null if allowed. Bearer/CLI
 // always allowed. Use on MUTATING handlers (POST/PATCH/DELETE); reads stay on
 // opsAuthorized.
 export async function requireRole(request: Request, min: Min): Promise<Response | null> {
-   if (bearerOk(request)) return null;
+   if (opsBearerOk(request)) return null;
    const u = await getOpsUser();
    if (!u) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
    if ((RANK[u.role] ?? 0) < RANK[min])
