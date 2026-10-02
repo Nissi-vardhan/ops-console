@@ -28,6 +28,7 @@ const WORKSPACES = [
    'chessmethod',
    'trainerdb',
    'shortcastle',
+   'mrzerocode',
 ];
 const PHASES = ['plan', 'prepare', 'execute', 'verify', 'done'];
 const STATUSES = [

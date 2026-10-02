@@ -72,6 +72,14 @@ export const WORKSPACES: Workspace[] = [
       docTitle: 'Shortcastle — Knowledge Base',
       prefix: 'SC',
    },
+   {
+      slug: 'mrzerocode',
+      name: 'MrZeroCode',
+      blurb: 'Client sites on the MrZeroCode server — ZenWealth4U, Commonwealth Chess.',
+      status: 'active',
+      docTitle: 'MrZeroCode — Knowledge Base',
+      prefix: 'MZ',
+   },
 ];
 
 // Tailwind chip classes per status, with dark: variants so they read in both themes.
