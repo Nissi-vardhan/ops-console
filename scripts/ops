@@ -51,6 +51,18 @@ Usage:
   ops status <OPS-n> <status>                             set the task status
   ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
 
+Interns (tracked people, no console login, nothing is ever sent to them; owner/admin):
+  ops intern add "<name>" [--ws <slug>]                   add an intern (default workspace trainerdb)
+  ops intern list                                         interns, open task, performance + overall
+  ops intern show <name>                                  one intern's tasks, events (IST) and numbers
+  ops intern assign <OPS-n> <name> [--code CLN-01] [--priority P0]   assign (one open task per intern)
+  ops intern sent <OPS-n> [--file <name>]                 the task message/PDF was sent to him
+  ops intern start <OPS-n>                                he reported starting the task
+  ops eod <OPS-n> --body <file|->                         his EOD summary (also filed as a KB doc)
+  ops review <OPS-n> --rating <1-5> --outcome <continue|changes|approve> [--notes <text>]
+                                                          review it; approve closes the task
+  Every intern command takes --at "YYYY-MM-DD HH:MM" (IST) to backfill when it happened; default now.
+
   phases:     ${PHASES.join(' | ')}
   statuses:   ${STATUSES.join(' | ')}
   workspaces: ${WORKSPACES.join(' | ')}  (--ws is required: the product the task is about)
@@ -78,12 +90,21 @@ async function api(method, route, body) {
          method,
          headers: { 'Authorization': `Bearer ${token()}`, 'Content-Type': 'application/json' },
          body: body === undefined ? undefined : JSON.stringify(body),
+         // Don't follow redirects: an unknown route is bounced to /login (HTML).
+         redirect: 'manual',
       });
    } catch (e) {
       die(`cannot reach ${BASE} (${e.cause?.code || e.message})`);
    }
-   const data = await res.json().catch(() => ({}));
-   if (!res.ok) die(`${method} ${route} → ${res.status} ${data.error || res.statusText}`);
+   // Anything that isn't JSON (a login redirect, an HTML error page) means the
+   // route isn't there — e.g. the server hasn't been deployed with this feature.
+   if (!(res.headers.get('content-type') || '').includes('application/json'))
+      die(
+         `${method} ${route} → ${res.status} unexpected non-JSON response — is this feature deployed on ${BASE}?`
+      );
+   const data = await res.json().catch(() => null);
+   if (!res.ok) die(`${method} ${route} → ${res.status} ${data?.error || res.statusText}`);
+   if (!data || typeof data !== 'object') die(`${method} ${route} → empty response`);
    return data;
 }
 
@@ -118,11 +139,37 @@ function readBody(src) {
    try {
       return fs.readFileSync(src, 'utf8');
    } catch {
-      die(`cannot read --kb-body file: ${src}`);
+      die(`cannot read file: ${src}`);
    }
 }
 
 const session = () => path.basename(process.cwd());
+
+// "--at 2026-10-06 15:40" is IST; sent as-is (the server parses IST).
+function atFlag(v) {
+   if (v === undefined) return undefined;
+   if (!/^\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}$/.test(v.trim()))
+      die(`--at must be "YYYY-MM-DD HH:MM" (IST), got "${v}"`);
+   return v.trim();
+}
+
+const ist = (iso) =>
+   iso
+      ? new Date(iso).toLocaleString('en-GB', {
+           timeZone: 'Asia/Kolkata',
+           day: 'numeric',
+           month: 'short',
+           hour: '2-digit',
+           minute: '2-digit',
+           hour12: false,
+        })
+      : '–';
+
+function perfLine(p) {
+   const pct = p.eod_on_time_rate != null ? `${Math.round(p.eod_on_time_rate * 100)}%` : '–';
+   const trend = p.rating_trend.length ? ` [${p.rating_trend.slice(-8).join(' ')}]` : '';
+   return `${p.tasks_done} done (P0 ${p.p0_done}, P1 ${p.p1_done}) · rating ${p.avg_rating ?? '–'}/5${trend} · ${p.avg_task_days ?? '–'} days/task · ${p.avg_review_rounds ?? '–'} rounds · EODs on time ${pct} · sent → first EOD ${p.avg_hours_to_first_eod ?? '–'} h · review turnaround ${p.avg_turnaround_hours ?? '–'} h`;
+}
 
 async function main() {
    const [cmd, ...rest] = process.argv.slice(2);
@@ -199,6 +246,113 @@ async function main() {
          });
          await api('POST', `/docs/${doc.id}/links`, { issue: issue?.identifier || id });
          console.log(`${issue?.identifier || id} done · KB doc ${doc.id} (${workspace})`);
+         return;
+      }
+      case 'intern': {
+         const sub = pos[0];
+         const at = atFlag(flags.at);
+         if (sub === 'add') {
+            const name = need(pos[1], 'intern name');
+            const ws = flags.ws ? oneOf(flags.ws, WORKSPACES, 'workspace') : undefined;
+            const { intern } = await api('POST', '/interns', { name, workspace: ws });
+            console.log(`${intern.name} added (${intern.workspace})`);
+         } else if (sub === 'list') {
+            const { interns, overall } = await api('GET', '/interns');
+            if (!interns.length) console.log('no interns');
+            for (const n of interns) {
+               const cur = n.current
+                  ? `${n.current.identifier}${n.current.backlog_code ? ' ' + n.current.backlog_code : ''} — ${n.current.title}`
+                  : 'no open task';
+               console.log(`${n.name}${n.active ? '' : ' (inactive)'} · ${cur}`);
+               console.log(`  ${perfLine(n.perf)}`);
+            }
+            console.log(
+               `\nOverall (${overall.interns_active} active): ${overall.tasks_open} open · ${perfLine(overall)}`
+            );
+         } else if (sub === 'show') {
+            const name = need(pos[1], 'intern name');
+            const { intern, tasks } = await api('GET', `/interns/${encodeURIComponent(name)}`);
+            console.log(`${intern.name} · ${intern.workspace}\n  ${perfLine(intern.perf)}`);
+            for (const t of tasks) {
+               const st = t.stats;
+               console.log(
+                  `\n${t.identifier}${t.backlog_code ? ' ' + t.backlog_code : ''}${t.priority ? ' ' + t.priority : ''} — ${t.title} [${t.closed_at ? 'closed' : 'open'}]`
+               );
+               console.log(
+                  `  assigned ${ist(t.assigned_at)} · sent ${ist(st.sent_at)}${st.started_at ? ' · started ' + ist(st.started_at) : ''}${t.closed_at ? ' · approved ' + ist(t.closed_at) : ''}`
+               );
+               console.log(
+                  `  ${st.calendar_days} days (${st.working_days} working) · EODs ${st.eod_on_time}/${st.eod_expected} on time · sent → first EOD ${st.hours_to_first_eod ?? '–'} h · ${st.reviews} reviews (${st.changes} changes) · review turnaround ${st.avg_turnaround_hours ?? '–'} h`
+               );
+               for (const e of t.events) {
+                  const when = ist(e.at);
+                  if (e.kind === 'sent')
+                     console.log(`  ${when} sent${e.file ? ': ' + e.file : ''}`);
+                  else if (e.kind === 'start') console.log(`  ${when} started`);
+                  else if (e.kind === 'eod')
+                     console.log(`  ${when} eod: ${e.body.split('\n')[0].slice(0, 70)}`);
+                  else
+                     console.log(
+                        `  ${when} review ${e.rating}/5 ${e.outcome}${e.body ? ' — ' + e.body.split('\n')[0].slice(0, 60) : ''}`
+                     );
+               }
+            }
+         } else if (sub === 'assign') {
+            const id = need(pos[1], 'task id (OPS-n)');
+            const name = need(pos[2], 'intern name');
+            const { task } = await api('POST', `/issues/${encodeURIComponent(id)}/intern`, {
+               intern: name,
+               code: flags.code || '',
+               priority: flags.priority || '',
+               at,
+            });
+            console.log(`${task.identifier} assigned to ${name} at ${ist(task.assigned_at)} IST`);
+         } else if (sub === 'sent' || sub === 'pdf' || sub === 'start') {
+            const id = need(pos[1], 'task id (OPS-n)');
+            const kind = sub === 'start' ? 'start' : 'sent';
+            const { event } = await api('POST', `/issues/${encodeURIComponent(id)}/intern/events`, {
+               kind,
+               file: flags.file || '',
+               at,
+            });
+            console.log(`ok · ${kind} at ${ist(event.at)} IST`);
+         } else {
+            die('usage: ops intern add|list|show|assign|sent|start … (see ops --help)');
+         }
+         return;
+      }
+      case 'eod': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const body = readBody(need(flags.body, '--body <file|->')).trim();
+         if (!body) die('EOD summary is empty');
+         const { event } = await api('POST', `/issues/${encodeURIComponent(id)}/intern/events`, {
+            kind: 'eod',
+            body,
+            at: atFlag(flags.at),
+            by: session(),
+         });
+         console.log(`ok · ${ist(event.at)} IST · KB doc ${event.doc_id}`);
+         return;
+      }
+      case 'review': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const rating = Number(need(flags.rating, '--rating <1-5>'));
+         const outcome = oneOf(
+            need(flags.outcome, '--outcome <continue|changes|approve>'),
+            ['continue', 'changes', 'approve'],
+            'outcome'
+         );
+         const { event } = await api('POST', `/issues/${encodeURIComponent(id)}/intern/events`, {
+            kind: 'review',
+            rating,
+            outcome,
+            body: flags.notes || '',
+            at: atFlag(flags.at),
+            by: session(),
+         });
+         console.log(
+            `ok · ${ist(event.at)} IST${outcome === 'approve' ? ` · ${id} approved and closed` : ''}`
+         );
          return;
       }
       case undefined:

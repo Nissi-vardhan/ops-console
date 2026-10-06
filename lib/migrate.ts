@@ -308,6 +308,46 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Interns: tracked people with NO console login (not rows in users). Nissi sends
+-- each one a daily task message by hand and gets an end-of-day summary back on
+-- Lark; the console records the assignment, messages sent, the EOD summaries and
+-- Nissi's reviews — each with the real time it happened (the at column, backfillable;
+-- shown in IST). One open task per intern, enforced by the partial index.
+CREATE TABLE IF NOT EXISTS ops_interns (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  workspace  text NOT NULL DEFAULT 'trainerdb',
+  active     boolean NOT NULL DEFAULT true,
+  notes      text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_interns_name ON ops_interns (lower(name));
+CREATE TABLE IF NOT EXISTS ops_intern_tasks (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intern_id    uuid NOT NULL REFERENCES ops_interns(id) ON DELETE CASCADE,
+  issue_id     uuid NOT NULL REFERENCES ops_issues(id) ON DELETE CASCADE,
+  backlog_code text NOT NULL DEFAULT '',
+  priority     text NOT NULL DEFAULT '',            -- P0 | P1 | P2 (from the backlog)
+  assigned_at  timestamptz NOT NULL DEFAULT now(),
+  closed_at    timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_intern_tasks_one_open
+  ON ops_intern_tasks (intern_id) WHERE closed_at IS NULL;
+CREATE TABLE IF NOT EXISTS ops_intern_events (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intern_task_id uuid NOT NULL REFERENCES ops_intern_tasks(id) ON DELETE CASCADE,
+  kind           text NOT NULL CHECK (kind IN ('sent', 'start', 'eod', 'review')),
+  at             timestamptz NOT NULL DEFAULT now(),  -- when it happened
+  body           text NOT NULL DEFAULT '',
+  file           text NOT NULL DEFAULT '',
+  rating         smallint CHECK (rating BETWEEN 1 AND 5),
+  outcome        text CHECK (outcome IN ('continue', 'changes', 'approve')),
+  doc_id         uuid REFERENCES ops_docs(id) ON DELETE SET NULL,
+  created_by     text NOT NULL DEFAULT '',
+  created_at     timestamptz NOT NULL DEFAULT now()    -- when it was recorded
+);
+CREATE INDEX IF NOT EXISTS idx_ops_intern_events_task ON ops_intern_events (intern_task_id, at);
+
 -- Legacy 'tester' account is gone for good; stray role values fall back to
 -- viewer and the CHECKs keep it that way.
 DELETE FROM users WHERE lower(username) = 'tester' OR lower(email) LIKE 'tester@%';

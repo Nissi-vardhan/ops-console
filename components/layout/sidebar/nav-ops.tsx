@@ -14,6 +14,7 @@ import {
    CalendarDays,
    Workflow,
    ChevronRight,
+   GraduationCap,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -131,6 +132,7 @@ export function NavOps() {
       { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
       { name: 'Docs', icon: FileText, url: `${base}/docs` },
       { name: 'Infra', icon: Server, url: `${base}/infra` },
+      { name: 'Interns', icon: GraduationCap, url: `${base}/interns` },
       { name: 'Settings', icon: Settings, url: `${base}/settings/preferences` },
    ];
 

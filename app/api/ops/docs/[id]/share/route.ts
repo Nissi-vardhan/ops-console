@@ -34,6 +34,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
    if (denied) return denied;
    const id = (await params).id;
    if (await docForbidden(id)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   // Intern EOD summaries are internal-only — never shareable outside the console.
+   if ((await getOpsDoc(id))?.category === 'EOD')
+      return NextResponse.json(
+         { error: 'Intern EOD summaries are internal and cannot be shared' },
+         { status: 403 }
+      );
    const body = await request.json().catch(() => ({}));
    const user = await getOpsUser();
    const share = await upsertShare(id, body?.allowed_emails, user?.id ?? null);
