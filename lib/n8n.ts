@@ -17,6 +17,8 @@ async function n8n<T>(path: string): Promise<T> {
    if (!r.ok) throw new Error(`n8n ${r.status}`);
    return r.json() as Promise<T>;
 }
+/** Raw GET against the n8n public API (path after /api/v1). */
+export const n8nGet = n8n;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface RawWorkflow {

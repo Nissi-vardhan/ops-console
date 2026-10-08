@@ -1,5 +1,6 @@
 import { getPool } from '@/lib/db';
 import { WORKSPACES } from '@/lib/workspaces';
+import { seedAutomationsOnce } from '@/lib/ops-automations';
 
 // Idempotent schema for the standalone ops-console DB (opsdb). Runs on server
 // boot via instrumentation.ts. This is the OPS half only — split out of the
@@ -411,6 +412,84 @@ DO $$ BEGIN
 END $$;
 `;
 
+// Automation tab (2026-10-08, SC-255): what runs while nobody is watching.
+// automations = the registry (seeded once from AUTOMATIONS.md §3, edited in the
+// UI); automation_runs = run history the console keeps itself for 90 days
+// (n8n keeps ~15 h); n8n_workflows = cached workflow meta (active, schedule,
+// timezone); automation_status_log = status changes ("while you were away");
+// automation_risks = AUTOMATIONS.md §5 checklist.
+const AUTOMATION_SQL = `
+CREATE TABLE IF NOT EXISTS automations (
+  id            text PRIMARY KEY,
+  product       text NOT NULL,
+  category      text NOT NULL DEFAULT 'General',
+  name          text NOT NULL,
+  what          text NOT NULL DEFAULT '',
+  trigger_text  text NOT NULL DEFAULT '',
+  kind          text NOT NULL DEFAULT 'event' CHECK (kind IN ('schedule', 'event', 'manual')),
+  cadence_min   integer,
+  customer      text NOT NULL DEFAULT 'no' CHECK (customer IN ('yes', 'group', 'no')),
+  money         text NOT NULL DEFAULT '',
+  where_text    text NOT NULL DEFAULT '',
+  n8n_ids       text[] NOT NULL DEFAULT '{}',
+  feed          text NOT NULL DEFAULT '',
+  watched_by    text NOT NULL DEFAULT '',
+  owner         text NOT NULL DEFAULT '',
+  intended_off  boolean NOT NULL DEFAULT false,
+  doc_status    text NOT NULL DEFAULT '',
+  notes         text NOT NULL DEFAULT '',
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  updated_by    text NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_automations_n8n ON automations USING gin (n8n_ids);
+CREATE TABLE IF NOT EXISTS automation_runs (
+  id            bigserial PRIMARY KEY,
+  source        text NOT NULL,
+  source_ref    text NOT NULL,
+  automation_id text REFERENCES automations(id) ON DELETE SET NULL,
+  workflow_id   text,
+  started_at    timestamptz NOT NULL,
+  finished_at   timestamptz,
+  status        text NOT NULL,
+  error_text    text NOT NULL DEFAULT '',
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (source, source_ref)
+);
+CREATE INDEX IF NOT EXISTS idx_automation_runs_wf ON automation_runs (workflow_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_automation_runs_auto ON automation_runs (automation_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_automation_runs_started ON automation_runs (started_at DESC);
+CREATE TABLE IF NOT EXISTS n8n_workflows (
+  id            text PRIMARY KEY,
+  name          text NOT NULL DEFAULT '',
+  active        boolean NOT NULL DEFAULT false,
+  crons         text[] NOT NULL DEFAULT '{}',
+  tz            text NOT NULL DEFAULT '',
+  saves_success boolean NOT NULL DEFAULT true,
+  archived      boolean NOT NULL DEFAULT false,
+  refreshed_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS automation_status_log (
+  id            bigserial PRIMARY KEY,
+  automation_id text NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+  at            timestamptz NOT NULL DEFAULT now(),
+  from_status   text NOT NULL DEFAULT '',
+  to_status     text NOT NULL,
+  reason        text NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_automation_status_log_at ON automation_status_log (at DESC);
+CREATE TABLE IF NOT EXISTS automation_risks (
+  id         text PRIMARY KEY,
+  priority   text NOT NULL,
+  risk       text NOT NULL,
+  impact     text NOT NULL DEFAULT '',
+  owner      text NOT NULL DEFAULT '',
+  decision   text NOT NULL DEFAULT '',
+  done_at    timestamptz,
+  done_by    text NOT NULL DEFAULT '',
+  note       text NOT NULL DEFAULT ''
+);
+`;
+
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
@@ -419,6 +498,8 @@ export async function runMigrations(): Promise<void> {
    await pool.query(SCHEMA_SQL);
    await pool.query(IDENTIFIER_SQL);
    await pool.query(TASK_META_SQL);
+   await pool.query(AUTOMATION_SQL);
+   await seedAutomationsOnce();
    migrated = true;
    console.log('[migrate] ops schema ensured');
 }

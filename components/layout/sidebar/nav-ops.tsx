@@ -15,6 +15,7 @@ import {
    Workflow,
    ChevronRight,
    GraduationCap,
+   Bot,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -129,6 +130,7 @@ export function NavOps() {
       { name: 'Projects', icon: Box, url: `${base}/projects`, badge: counts.projectCount },
       { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
       { name: 'Workflows', icon: Workflow, url: `${base}/workflows` },
+      { name: 'Automations', icon: Bot, url: `${base}/automations` },
       { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
       { name: 'Docs', icon: FileText, url: `${base}/docs` },
       { name: 'Infra', icon: Server, url: `${base}/infra` },
