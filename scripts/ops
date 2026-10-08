@@ -44,11 +44,19 @@ const STATUSES = [
 const USAGE = `ops — log Claude session work into the ops console
 
 Usage:
-  ops task new "<title>" --ws <slug> [--desc <text>]     create a task (in-progress); prints OPS-n
+  ops task new "<title>" --ws <slug> [--desc <text>] [--trio] [--owner <session>] [--by <nissi|arun|jarvis>]
+                                                          create a task (in-progress); prints its id
   ops stage <OPS-n> <phase> "<title>"                     add a Journey step; prints the step id
   ops stage-done <step-id>                                mark a Journey step done
   ops note <OPS-n> "<text>"                               append a progress note
-  ops status <OPS-n> <status>                             set the task status
+  ops status <OPS-n> <status> [--waiting <nissi|arun>]    set the status; --waiting only with blocked,
+                                                          any other status clears it
+  ops list [--trio] [--ws <slug>] [--status open|<status>] [--owner <session>] [--by <who>]
+           [--waiting <nissi|arun>] [--since YYYY-MM-DD] [--limit N] [--json]
+                                                          tasks, newest update first (default: open, 50)
+  ops show <OPS-n> [--json]                               one task: fields, Journey, last notes, KB docs
+  ops trio <OPS-n> [--off]                                mark (or unmark) a task as a trio task
+  ops assign <OPS-n> --owner <session>                    set the session that owns a task
   ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
 
 Interns (tracked people, no console login, nothing is ever sent to them; owner/admin):
@@ -109,12 +117,19 @@ async function api(method, route, body) {
 }
 
 // Split argv into positionals and --flags (each flag takes one value).
+// Flags that take no value.
+const BOOL_FLAGS = new Set(['trio', 'off', 'json']);
+const REQUESTERS = ['nissi', 'arun', 'jarvis'];
+const WAITERS = ['nissi', 'arun'];
+
 function parse(args) {
    const pos = [];
    const flags = {};
    for (let i = 0; i < args.length; i++) {
       const a = args[i];
-      if (a.startsWith('--')) {
+      if (BOOL_FLAGS.has(a.slice(2))) {
+         flags[a.slice(2)] = true;
+      } else if (a.startsWith('--')) {
          const v = args[i + 1];
          if (v === undefined) die(`${a} needs a value`);
          flags[a.slice(2)] = v;
@@ -165,6 +180,40 @@ const ist = (iso) =>
         })
       : '–';
 
+// One line per task for `ops list`: ID · status · ws · owner · by · [TRIO] · title · updated (IST).
+function taskLine(i) {
+   const status = i.waiting_on ? `${i.status_id}(${i.waiting_on})` : i.status_id;
+   return [
+      i.identifier,
+      status,
+      i.workspace || '–',
+      i.owner_session || '–',
+      i.requested_by || '–',
+      ...(i.trio ? ['[TRIO]'] : []),
+      i.title,
+      ist(i.updated_at),
+   ].join(' · ');
+}
+
+// Progress-log lines look like "- [2026-10-08 14:05 · author · session] text";
+// lines that don't start a note continue the previous one.
+function parseNotes(progress) {
+   const notes = [];
+   for (const line of progress.split('\n')) {
+      const m = line.match(/^- \[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})((?: · [^\]]*)?)\] ?(.*)$/);
+      if (m) {
+         const parts = m[2]
+            .split(' · ')
+            .map((x) => x.trim())
+            .filter(Boolean);
+         notes.push({ at: m[1], session: parts.at(-1) || '', text: m[3] });
+      } else if (notes.length && line.trim()) notes[notes.length - 1].text += '\n' + line;
+   }
+   return notes;
+}
+
+const stepMark = (s) => (s === 'done' ? 'x' : s === 'doing' ? '>' : s === 'skipped' ? '-' : ' ');
+
 function perfLine(p) {
    const pct = p.eod_on_time_rate != null ? `${Math.round(p.eod_on_time_rate * 100)}%` : '–';
    const trend = p.rating_trend.length ? ` [${p.rating_trend.slice(-8).join(' ')}]` : '';
@@ -184,13 +233,100 @@ async function main() {
             WORKSPACES,
             'workspace'
          );
-         const { issue } = await api('POST', '/issues', {
-            title,
-            description: flags.desc || '',
-            workspace,
-            status_id: 'in-progress',
-         });
+         const body = { title, description: flags.desc || '', workspace, status_id: 'in-progress' };
+         if (flags.trio) body.trio = true;
+         if (flags.owner) body.owner_session = String(flags.owner);
+         if (flags.by)
+            body.requested_by = oneOf(String(flags.by).toLowerCase(), REQUESTERS, '--by');
+         const { issue } = await api('POST', '/issues', body);
          console.log(issue.identifier || issue.id);
+         return;
+      }
+      case 'list': {
+         const qs = new URLSearchParams();
+         const status = flags.status ? String(flags.status) : 'open';
+         if (status !== 'open') oneOf(status, STATUSES, 'status');
+         qs.set('status', status);
+         if (flags.trio) qs.set('trio', '1');
+         if (flags.ws) qs.set('ws', oneOf(String(flags.ws), WORKSPACES, 'workspace'));
+         if (flags.owner) qs.set('owner', String(flags.owner));
+         if (flags.by) qs.set('by', oneOf(String(flags.by).toLowerCase(), REQUESTERS, '--by'));
+         if (flags.waiting)
+            qs.set('waiting', oneOf(String(flags.waiting).toLowerCase(), WAITERS, '--waiting'));
+         if (flags.since) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(String(flags.since)))
+               die(`--since must be YYYY-MM-DD, got "${flags.since}"`);
+            qs.set('since', String(flags.since));
+         }
+         if (flags.limit) {
+            const n = Number(flags.limit);
+            if (!Number.isInteger(n) || n < 1) die('--limit must be a positive number');
+            qs.set('limit', String(n));
+         }
+         const { issues } = await api('GET', `/issues?${qs}`);
+         if (flags.json) {
+            console.log(JSON.stringify(issues, null, 2));
+            return;
+         }
+         if (!issues.length) console.log('no tasks');
+         for (const i of issues) console.log(taskLine(i));
+         return;
+      }
+      case 'show': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const ref = encodeURIComponent(id);
+         const [{ issue, steps }, { docs }] = await Promise.all([
+            api('GET', `/issues/${ref}`),
+            api('GET', `/issues/${ref}/links`),
+         ]);
+         const notes = parseNotes(issue.progress || '').slice(-10);
+         if (flags.json) {
+            const { progress: _progress, ...rest } = issue;
+            console.log(JSON.stringify({ ...rest, steps, notes, docs }, null, 2));
+            return;
+         }
+         const alias = issue.legacy_identifier ? ` (was ${issue.legacy_identifier})` : '';
+         console.log(`${issue.identifier}${alias}${issue.trio ? ' [TRIO]' : ''} — ${issue.title}`);
+         console.log(
+            `  status ${issue.status_id}${issue.waiting_on ? ` (waiting on ${issue.waiting_on})` : ''} · ws ${issue.workspace || '–'} · owner ${issue.owner_session || '–'} · by ${issue.requested_by || '–'}`
+         );
+         console.log(`  created ${ist(issue.created_at)} · updated ${ist(issue.updated_at)} IST`);
+         if (issue.description?.trim()) console.log(`\n${issue.description.trim()}`);
+         if (steps?.length) {
+            console.log('\nJourney:');
+            for (const st of steps)
+               console.log(`  [${stepMark(st.status)}] ${st.phase.padEnd(7)} ${st.title}`);
+         }
+         if (notes.length) {
+            console.log('\nLast notes:');
+            for (const n of notes)
+               console.log(
+                  `  ${n.at}${n.session ? ' · ' + n.session : ''}  ${n.text.replace(/\n/g, '\n    ')}`
+               );
+         }
+         if (docs?.length) {
+            console.log('\nKB docs:');
+            for (const d of docs) console.log(`  ${d.title} (${d.category})`);
+         }
+         return;
+      }
+      case 'trio': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const { issue } = await api('PATCH', `/issues/${encodeURIComponent(id)}`, {
+            trio: !flags.off,
+         });
+         console.log(
+            `${issue.identifier} ${issue.trio ? 'is now a trio task' : 'is no longer a trio task'}`
+         );
+         return;
+      }
+      case 'assign': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const owner = need(flags.owner, '--owner <session>');
+         const { issue } = await api('PATCH', `/issues/${encodeURIComponent(id)}`, {
+            owner_session: String(owner),
+         });
+         console.log(`${issue.identifier} owner: ${issue.owner_session}`);
          return;
       }
       case 'stage': {
@@ -224,7 +360,12 @@ async function main() {
       case 'status': {
          const id = need(pos[0], 'task id (OPS-n)');
          const status = oneOf(need(pos[1], 'status'), STATUSES, 'status');
-         await api('PATCH', `/issues/${encodeURIComponent(id)}`, { status_id: status });
+         const body = { status_id: status };
+         if (flags.waiting) {
+            if (status !== 'blocked') die('--waiting only goes with the blocked status');
+            body.waiting_on = oneOf(String(flags.waiting).toLowerCase(), WAITERS, '--waiting');
+         }
+         await api('PATCH', `/issues/${encodeURIComponent(id)}`, body);
          console.log('ok');
          return;
       }

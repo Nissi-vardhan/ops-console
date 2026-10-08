@@ -391,6 +391,26 @@ DO $$ BEGIN
 END $$;
 `;
 
+// Trio + ownership on tasks (2026-10-08). trio = Nissi · Arun · Jarvis work,
+// separable from every other session's; owner_session = the Claude session
+// doing it; requested_by = nissi | arun | jarvis; waiting_on = nissi | arun while
+// blocked on them. The [TRIO]-title backfill runs once (marker), so turning trio
+// off later sticks.
+const TASK_META_SQL = `
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS trio boolean NOT NULL DEFAULT false;
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS owner_session text;
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS requested_by text;
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS waiting_on text;
+CREATE INDEX IF NOT EXISTS idx_ops_issues_trio ON ops_issues (updated_at DESC) WHERE trio;
+CREATE INDEX IF NOT EXISTS idx_ops_issues_updated ON ops_issues (updated_at DESC);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app_json WHERE key = 'migr:trio-title-backfill') THEN
+    UPDATE ops_issues SET trio = true WHERE title ILIKE '[TRIO]%' AND NOT trio;
+    INSERT INTO app_json (key, value) VALUES ('migr:trio-title-backfill', 'true');
+  END IF;
+END $$;
+`;
+
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
@@ -398,6 +418,7 @@ export async function runMigrations(): Promise<void> {
    const pool = getPool();
    await pool.query(SCHEMA_SQL);
    await pool.query(IDENTIFIER_SQL);
+   await pool.query(TASK_META_SQL);
    migrated = true;
    console.log('[migrate] ops schema ensured');
 }

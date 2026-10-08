@@ -19,6 +19,7 @@ import {
    Folder,
    RefreshCcw,
    Tag,
+   Users,
 } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
@@ -69,6 +70,11 @@ const priorityOptions: ColumnOption[] = priorities.map((priority) => ({
    label: priority.name,
    icon: <priority.icon className="size-4 text-muted-foreground" />,
 }));
+
+const trioOptions: ColumnOption[] = [
+   { value: 'trio', label: 'Trio (Nissi · Arun · Jarvis)' },
+   { value: 'other', label: 'Not trio' },
+];
 
 const labelOptions: ColumnOption[] = labels.map((label) => ({
    value: label.id,
@@ -153,6 +159,14 @@ export const issueFilterColumns = [
       .displayName('Project')
       .icon(Folder)
       .options(projectOptions)
+      .build(),
+   dtf
+      .option()
+      .id('trio')
+      .accessor((issue: Issue) => (issue.trio ? 'trio' : 'other'))
+      .displayName('Trio')
+      .icon(Users)
+      .options(trioOptions)
       .build(),
    dtf
       .option()

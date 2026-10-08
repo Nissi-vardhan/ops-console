@@ -7,6 +7,7 @@ import {
    getOpsIssue,
    listIssueSteps,
    type OpsTaskStep,
+   taskMetaError,
 } from '@/lib/ops-data';
 import {
    opsAuthorized,
@@ -56,6 +57,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
    if (!id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    if (await issueForbidden(id)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
    const body = await request.json().catch(() => ({}));
+   const metaError = taskMetaError(body);
+   if (metaError) return NextResponse.json({ error: metaError }, { status: 400 });
    const issue = await updateOpsIssue(id, body ?? {});
    if (!issue) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({ issue });

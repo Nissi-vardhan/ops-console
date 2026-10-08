@@ -19,6 +19,10 @@ export interface RawIssue {
    seq: number;
    identifier: string | null;
    legacy_identifier?: string | null;
+   trio?: boolean;
+   owner_session?: string | null;
+   requested_by?: string | null;
+   waiting_on?: string | null;
    title: string;
    description: string;
    status_id: string;
@@ -108,6 +112,10 @@ export function hydrateIssue(row: RawIssue, users: User[], projects: Project[] =
       id: row.id,
       identifier: row.identifier || `OPS-${row.seq}`,
       legacyIdentifier: row.legacy_identifier ?? undefined,
+      trio: row.trio === true,
+      ownerSession: row.owner_session ?? undefined,
+      requestedBy: row.requested_by ?? undefined,
+      waitingOn: row.waiting_on ?? undefined,
       title: row.title,
       description: row.description || '',
       status: st,

@@ -15,6 +15,7 @@ import { motion } from 'motion/react';
 
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { IssueContextMenu } from './issue-context-menu';
+import { TrioBadge } from './trio-badge';
 
 export function IssueLine({ issue, layoutId = false }: { issue: Issue; layoutId?: boolean }) {
    const { orgId } = useParams<{ orgId: string }>();
@@ -48,6 +49,7 @@ export function IssueLine({ issue, layoutId = false }: { issue: Issue; layoutId?
                   <span className="text-xs sm:text-sm font-medium sm:font-semibold truncate">
                      {issue.title}
                   </span>
+                  {issue.trio && <TrioBadge className="ml-2" />}
                </Link>
                <div className="flex items-center justify-end gap-2 ml-auto sm:w-fit">
                   <div className="w-3 shrink-0"></div>

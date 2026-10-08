@@ -33,6 +33,14 @@ export interface OpsIssue {
    current_phase?: string | null;
    step_total?: number;
    step_done?: number;
+   /** Nissi · Arun · Jarvis work, kept separable from every other session's. */
+   trio?: boolean;
+   /** The Claude session doing the task. */
+   owner_session?: string | null;
+   /** nissi | arun | jarvis */
+   requested_by?: string | null;
+   /** nissi | arun while the task is blocked on them. */
+   waiting_on?: string | null;
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -159,6 +167,7 @@ export async function updateOpsProject(
 const ISSUE_SELECT = `
   i.id, i.seq, i.identifier, i.legacy_identifier, i.title, i.description, i.status_id, i.priority_id,
   i.assignee_id, i.project_id, i.label_ids, i.rank, i.due_date, i.progress, i.workspace, i.current_phase,
+  i.trio, i.owner_session, i.requested_by, i.waiting_on,
   i.created_by, i.created_at, i.updated_at,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id) AS step_total,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id
@@ -166,6 +175,74 @@ const ISSUE_SELECT = `
 
 export async function listOpsIssues(): Promise<OpsIssue[]> {
    return query<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i ORDER BY i.created_at DESC`);
+}
+
+export const REQUESTERS = ['nissi', 'arun', 'jarvis'] as const;
+export const WAITERS = ['nissi', 'arun'] as const;
+/** Statuses that count as finished; everything else is "open". */
+export const CLOSED_STATUSES = ['done', 'canceled'] as const;
+
+export interface IssueQuery {
+   trio?: boolean;
+   workspace?: string;
+   /** 'open' = not done/canceled; otherwise an exact status id. */
+   status?: string;
+   owner?: string;
+   by?: string;
+   waiting?: string;
+   /** YYYY-MM-DD (IST): updated on or after that day. */
+   since?: string;
+   limit?: number;
+   /** Restrict to these workspaces (plus untagged); null = unrestricted. */
+   allowedWorkspaces?: string[] | null;
+}
+
+/** Filtered task list (server-side), most recently updated first. */
+export async function queryOpsIssues(q: IssueQuery): Promise<OpsIssue[]> {
+   const where: string[] = [];
+   const vals: unknown[] = [];
+   const add = (sql: string, v: unknown) => {
+      vals.push(v);
+      where.push(sql.replace('?', `$${vals.length}`));
+   };
+   if (q.trio !== undefined) add('i.trio = ?', q.trio);
+   if (q.workspace) add('i.workspace = ?', q.workspace);
+   if (q.status === 'open') add('i.status_id <> ALL(?)', [...CLOSED_STATUSES]);
+   else if (q.status) add('i.status_id = ?', q.status);
+   if (q.owner) add('lower(i.owner_session) = lower(?)', q.owner);
+   if (q.by) add('i.requested_by = ?', q.by.toLowerCase());
+   if (q.waiting) add('i.waiting_on = ?', q.waiting.toLowerCase());
+   if (q.since) add("i.updated_at >= (?::date)::timestamp AT TIME ZONE 'Asia/Kolkata'", q.since);
+   if (q.allowedWorkspaces)
+      add('(i.workspace = ANY(?) OR i.workspace IS NULL)', q.allowedWorkspaces);
+   const limit = Math.min(Math.max(Math.trunc(q.limit ?? 50), 1), 500);
+   return query<OpsIssue>(
+      `SELECT ${ISSUE_SELECT} FROM ops_issues i
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+        ORDER BY i.updated_at DESC LIMIT ${limit}`,
+      vals
+   );
+}
+
+/** Validate trio/owner/requester/waiting fields of a create/patch body; error text or null. */
+export function taskMetaError(b: Record<string, unknown> | null | undefined): string | null {
+   if (!b) return null;
+   if ('trio' in b && typeof b.trio !== 'boolean') return 'trio must be true or false';
+   if ('owner_session' in b && b.owner_session != null && typeof b.owner_session !== 'string')
+      return 'owner_session must be a string';
+   if (
+      'requested_by' in b &&
+      b.requested_by != null &&
+      !(REQUESTERS as readonly unknown[]).includes(b.requested_by)
+   )
+      return `requested_by must be one of: ${REQUESTERS.join(', ')}`;
+   if (
+      'waiting_on' in b &&
+      b.waiting_on != null &&
+      !(WAITERS as readonly unknown[]).includes(b.waiting_on)
+   )
+      return `waiting_on must be one of: ${WAITERS.join(', ')}`;
+   return null;
 }
 
 export async function getOpsIssue(id: string): Promise<OpsIssue | null> {
@@ -184,10 +261,15 @@ export async function createOpsIssue(input: {
    due_date?: string | null;
    workspace?: string | null;
    created_by?: string | null;
+   trio?: boolean;
+   owner_session?: string | null;
+   requested_by?: string | null;
+   waiting_on?: string | null;
 }): Promise<OpsIssue> {
    const rows = await query<OpsIssue>(
-      `INSERT INTO ops_issues (title, description, status_id, priority_id, assignee_id, project_id, label_ids, rank, due_date, workspace, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11)
+      `INSERT INTO ops_issues (title, description, status_id, priority_id, assignee_id, project_id, label_ids, rank, due_date, workspace, created_by,
+                               trio, owner_session, requested_by, waiting_on)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11,$12,$13,$14,$15)
      RETURNING id, seq`,
       [
          input.title,
@@ -201,6 +283,10 @@ export async function createOpsIssue(input: {
          input.due_date ?? null,
          input.workspace ?? null,
          await validUserId(input.created_by),
+         input.trio === true,
+         input.owner_session?.trim() || null,
+         input.requested_by ?? null,
+         input.waiting_on ?? null,
       ]
    );
    const { id } = rows[0];
@@ -256,6 +342,10 @@ const ISSUE_FIELDS = new Set([
    'rank',
    'due_date',
    'workspace',
+   'trio',
+   'owner_session',
+   'requested_by',
+   'waiting_on',
 ]);
 
 export async function updateOpsIssue(
@@ -267,6 +357,11 @@ export async function updateOpsIssue(
       patch.assignee_id = await validUserId(patch.assignee_id as string | null);
    if ('project_id' in patch)
       patch.project_id = await validProjectId(patch.project_id as string | null);
+   // waiting_on only means something while blocked: any other status clears it.
+   if ('status_id' in patch && patch.status_id !== 'blocked' && !('waiting_on' in patch))
+      patch.waiting_on = null;
+   if (typeof patch.owner_session === 'string')
+      patch.owner_session = patch.owner_session.trim() || null;
    const sets: string[] = [];
    const vals: unknown[] = [];
    let i = 1;
@@ -303,9 +398,8 @@ export async function updateOpsIssue(
          [id]
       );
       await assignIdentifier(id, prefix, idNumber(before.identifier));
-      return queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [id]);
    }
-   return row;
+   return queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [id]);
 }
 
 export async function deleteOpsIssue(id: string): Promise<boolean> {

@@ -39,6 +39,14 @@ export interface Issue {
    journey?: { done: number; total: number };
    /** Workspace slug this issue is tagged to (see lib/workspaces.ts). */
    workspace?: string;
+   /** Nissi · Arun · Jarvis "trio" task. */
+   trio?: boolean;
+   /** Claude session doing it. */
+   ownerSession?: string;
+   /** nissi | arun | jarvis */
+   requestedBy?: string;
+   /** nissi | arun while blocked on them. */
+   waitingOn?: string;
 }
 
 /* -------------------------------------------------------------------------- */

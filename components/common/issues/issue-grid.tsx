@@ -17,6 +17,7 @@ import { StatusSelector } from './status-selector';
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { IssueContextMenu } from './issue-context-menu';
 import { PHASE_LABEL } from '@/lib/journey';
+import { TrioBadge } from './trio-badge';
 
 // Small "Execute 3/5" pill showing a task's current journey phase + step progress.
 function JourneyPill({ issue }: { issue: Issue }) {
@@ -148,6 +149,7 @@ export function IssueGrid({ issue }: IssueGridProps) {
                            {issue.identifier}
                         </span>
                      )}
+                     {issue.trio && <TrioBadge />}
                   </div>
                   {displayProperties.status && (
                      <StatusSelector status={issue.status} issueId={issue.id} />
