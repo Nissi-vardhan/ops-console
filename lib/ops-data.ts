@@ -282,11 +282,15 @@ export async function createOpsIssue(input: {
    requested_by?: string | null;
    waiting_on?: string | null;
    parent_id?: string | null;
+   /** Backdate (bearer/CLI only, e.g. a parent grouping older tasks). */
+   created_at?: string | null;
+   updated_at?: string | null;
 }): Promise<OpsIssue> {
    const rows = await query<OpsIssue>(
       `INSERT INTO ops_issues (title, description, status_id, priority_id, assignee_id, project_id, label_ids, rank, due_date, workspace, created_by,
-                               trio, owner_session, requested_by, waiting_on, parent_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11,$12,$13,$14,$15,$16)
+                               trio, owner_session, requested_by, waiting_on, parent_id, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11,$12,$13,$14,$15,$16,
+             COALESCE($17::timestamptz, now()), COALESCE($18::timestamptz, $17::timestamptz, now()))
      RETURNING id, seq`,
       [
          input.title,
@@ -305,6 +309,8 @@ export async function createOpsIssue(input: {
          input.requested_by ?? null,
          input.waiting_on ?? null,
          input.parent_id ?? null,
+         input.created_at ?? null,
+         input.updated_at ?? null,
       ]
    );
    const { id } = rows[0];
@@ -370,7 +376,9 @@ const ISSUE_FIELDS = new Set([
 
 export async function updateOpsIssue(
    id: string,
-   patch: Record<string, unknown>
+   patch: Record<string, unknown>,
+   /** quiet: a bookkeeping change (e.g. grouping old tasks) — no updated_at bump, no parent roll-up. */
+   opts: { quiet?: boolean } = {}
 ): Promise<OpsIssue | null> {
    // Null out any invalid referenced ids before building the update.
    if ('assignee_id' in patch)
@@ -403,7 +411,7 @@ export async function updateOpsIssue(
            }>('SELECT identifier, workspace, parent_id FROM ops_issues WHERE id = $1', [id])
          : null;
    const rows = await query<OpsIssue>(
-      `UPDATE ops_issues SET ${sets.join(', ')}, updated_at = now() WHERE id = $${i}
+      `UPDATE ops_issues SET ${sets.join(', ')}${opts.quiet ? '' : ', updated_at = now()'} WHERE id = $${i}
      RETURNING id, seq, identifier, legacy_identifier, title, description, status_id, priority_id,
                assignee_id, project_id, label_ids, rank, due_date, progress, workspace, parent_id, created_by, created_at, updated_at`,
       vals
@@ -422,7 +430,7 @@ export async function updateOpsIssue(
    }
    // A sub-task closing (or moving) may complete its parent.
    const parents = new Set([before?.parent_id, (row as { parent_id?: string | null }).parent_id]);
-   for (const pid of parents) if (pid) await rollUpParent(pid);
+   if (!opts.quiet) for (const pid of parents) if (pid) await rollUpParent(pid);
    return queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [id]);
 }
 

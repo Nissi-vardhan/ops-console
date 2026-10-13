@@ -8,6 +8,7 @@ import {
    resolveOpsIssueId,
 } from '@/lib/ops-data';
 import {
+   opsBearerOk,
    opsAuthorized,
    requireRole,
    accessibleWorkspaces,
@@ -98,6 +99,11 @@ export async function POST(request: Request) {
       requested_by: body?.requested_by ?? null,
       waiting_on: body?.waiting_on ?? null,
       parent_id: parentId,
+      // Backdating is for the CLI/bearer only (e.g. a parent grouping older tasks).
+      created_at:
+         opsBearerOk(request) && typeof body?.created_at === 'string' ? body.created_at : null,
+      updated_at:
+         opsBearerOk(request) && typeof body?.updated_at === 'string' ? body.updated_at : null,
    });
    return NextResponse.json({ issue }, { status: 201 });
 }

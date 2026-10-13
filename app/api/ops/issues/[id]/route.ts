@@ -12,6 +12,7 @@ import {
    listChildIssues,
 } from '@/lib/ops-data';
 import {
+   opsBearerOk,
    opsAuthorized,
    requireRole,
    accessibleWorkspaces,
@@ -78,7 +79,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const pErr = await parentError(id, String(body.parent_id));
       if (pErr) return NextResponse.json({ error: pErr }, { status: 400 });
    }
-   const issue = await updateOpsIssue(id, body ?? {});
+   // { quiet: true } (CLI/bearer only): bookkeeping change — no updated_at bump, no roll-up.
+   const quiet = body?.quiet === true && opsBearerOk(request);
+   if (body) delete body.quiet;
+   const issue = await updateOpsIssue(id, body ?? {}, { quiet });
    if (!issue) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({ issue });
 }
