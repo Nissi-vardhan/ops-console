@@ -23,6 +23,10 @@ export interface RawIssue {
    owner_session?: string | null;
    requested_by?: string | null;
    waiting_on?: string | null;
+   parent_id?: string | null;
+   parent_identifier?: string | null;
+   child_total?: number;
+   child_done?: number;
    title: string;
    description: string;
    status_id: string;
@@ -116,6 +120,10 @@ export function hydrateIssue(row: RawIssue, users: User[], projects: Project[] =
       ownerSession: row.owner_session ?? undefined,
       requestedBy: row.requested_by ?? undefined,
       waitingOn: row.waiting_on ?? undefined,
+      parentId: row.parent_id ?? undefined,
+      parentIdentifier: row.parent_identifier ?? undefined,
+      childTotal: row.child_total ?? 0,
+      childDone: row.child_done ?? 0,
       title: row.title,
       description: row.description || '',
       status: st,

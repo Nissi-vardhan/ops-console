@@ -8,6 +8,8 @@ import {
    listIssueSteps,
    type OpsTaskStep,
    taskMetaError,
+   parentError,
+   listChildIssues,
 } from '@/lib/ops-data';
 import {
    opsAuthorized,
@@ -47,7 +49,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
    if (!workspaceAllowed(await accessibleWorkspaces(), issue.workspace))
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
    const steps = await listIssueSteps(id);
-   return NextResponse.json({ issue, steps, byPhase: byPhase(steps) });
+   const children = await listChildIssues(id);
+   return NextResponse.json({ issue, steps, byPhase: byPhase(steps), children });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -59,6 +62,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
    const body = await request.json().catch(() => ({}));
    const metaError = taskMetaError(body);
    if (metaError) return NextResponse.json({ error: metaError }, { status: 400 });
+   // { parent: "CL-400" } links this task under a parent; { parent: null } unlinks.
+   if (body && 'parent' in body) {
+      if (body.parent === null || body.parent === '') body.parent_id = null;
+      else {
+         const pid = await resolveOpsIssueId(String(body.parent));
+         if (!pid) return NextResponse.json({ error: 'parent task not found' }, { status: 404 });
+         const pErr = await parentError(id, pid);
+         if (pErr) return NextResponse.json({ error: pErr }, { status: 400 });
+         body.parent_id = pid;
+      }
+      delete body.parent;
+   }
+   if (body && 'parent_id' in body && body.parent_id !== null && !('parent' in body)) {
+      const pErr = await parentError(id, String(body.parent_id));
+      if (pErr) return NextResponse.json({ error: pErr }, { status: 400 });
+   }
    const issue = await updateOpsIssue(id, body ?? {});
    if (!issue) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({ issue });

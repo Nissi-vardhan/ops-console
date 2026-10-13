@@ -16,6 +16,7 @@ import { motion } from 'motion/react';
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { IssueContextMenu } from './issue-context-menu';
 import { TrioBadge } from './trio-badge';
+import { ChildrenPill, ParentChip } from './parent-badges';
 
 export function IssueLine({ issue, layoutId = false }: { issue: Issue; layoutId?: boolean }) {
    const { orgId } = useParams<{ orgId: string }>();
@@ -50,6 +51,20 @@ export function IssueLine({ issue, layoutId = false }: { issue: Issue; layoutId?
                      {issue.title}
                   </span>
                   {issue.trio && <TrioBadge className="ml-2" />}
+                  {issue.parentIdentifier && (
+                     <span className="ml-2 hidden sm:inline-flex">
+                        <ParentChip
+                           orgId={orgId ?? 'shortcastle'}
+                           parent={issue.parentIdentifier}
+                           link={false}
+                        />
+                     </span>
+                  )}
+                  {!!issue.childTotal && (
+                     <span className="ml-2">
+                        <ChildrenPill done={issue.childDone ?? 0} total={issue.childTotal} />
+                     </span>
+                  )}
                </Link>
                <div className="flex items-center justify-end gap-2 ml-auto sm:w-fit">
                   <div className="w-3 shrink-0"></div>

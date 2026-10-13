@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
    AlertTriangle,
    CheckCircle2,
@@ -304,6 +306,7 @@ function PendingPanel({ className = '' }: { className?: string }) {
 
 export function OpsDashboard() {
    const allIssues = useIssuesStore((s) => s.issues);
+   const { orgId } = useParams<{ orgId: string }>();
    const members = useIssuesStore((s) => s.members);
    const hydrated = useIssuesStore((s) => s.hydrated);
    const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
@@ -315,6 +318,21 @@ export function OpsDashboard() {
       () => allIssues.filter((i) => inActiveWorkspace(i.workspace, activeWorkspace)),
       [allIssues, activeWorkspace]
    );
+
+   // Open parent tasks (a piece of work split across sessions) with their parts.
+   const multi = useMemo(() => {
+      const byParent = new Map<string, Issue[]>();
+      for (const c of allIssues)
+         if (c.parentId) byParent.set(c.parentId, [...(byParent.get(c.parentId) ?? []), c]);
+      return issues
+         .filter((p) => isOpen(p) && byParent.has(p.id))
+         .map((p) => {
+            const kids = byParent.get(p.id)!;
+            return { p, kids, done: kids.filter((k) => !isOpen(k)).length };
+         })
+         .sort((a, b) => a.done / a.kids.length - b.done / b.kids.length)
+         .slice(0, 12);
+   }, [allIssues, issues]);
 
    const m = useMemo(() => {
       const now = Date.now();
@@ -615,6 +633,55 @@ export function OpsDashboard() {
                      </Card>
                   </Stagger>
                </div>
+
+               {/* Multi-session work — one line per parent task, with its parts */}
+               {multi.length > 0 && (
+                  <div>
+                     <Eyebrow>Multi-session work</Eyebrow>
+                     <Card>
+                        <ul className="divide-y">
+                           {multi.map(({ p, kids, done }) => (
+                              <li key={p.id} className="py-2.5 first:pt-0 last:pb-0">
+                                 <Link
+                                    href={`/${orgId || 'shortcastle'}/issue/${p.identifier}`}
+                                    className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm hover:underline"
+                                 >
+                                    <span className="font-mono text-xs text-muted-foreground">
+                                       {p.identifier}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate font-medium">
+                                       {p.title}
+                                    </span>
+                                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                       {done}/{kids.length} parts
+                                    </span>
+                                 </Link>
+                                 <div className="mt-1.5 flex items-center gap-2">
+                                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/40">
+                                       <div
+                                          className="h-full rounded-full bg-emerald-500"
+                                          style={{
+                                             width: `${Math.round((done / kids.length) * 100)}%`,
+                                          }}
+                                       />
+                                    </div>
+                                    <span className="flex shrink-0 gap-1">
+                                       {kids.map((k) => (
+                                          <span
+                                             key={k.id}
+                                             className="size-2 rounded-full"
+                                             style={{ backgroundColor: k.status.color }}
+                                             title={`${k.identifier} · ${k.status.name}${k.ownerSession ? ' · ' + k.ownerSession : ''} — ${k.title}`}
+                                          />
+                                       ))}
+                                    </span>
+                                 </div>
+                              </li>
+                           ))}
+                        </ul>
+                     </Card>
+                  </div>
+               )}
 
                {/* Breakdown — one shared 12-col grid */}
                <div>

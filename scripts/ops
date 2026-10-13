@@ -45,6 +45,7 @@ const USAGE = `ops — log Claude session work into the ops console
 
 Usage:
   ops task new "<title>" --ws <slug> [--desc <text>] [--trio] [--owner <session>] [--by <nissi|arun|jarvis>]
+               [--parent <OPS-n>]                        --parent: this task is one part of a bigger task
                                                           create a task (in-progress); prints its id
   ops stage <OPS-n> <phase> "<title>"                     add a Journey step; prints the step id
   ops stage-done <step-id>                                mark a Journey step done
@@ -52,11 +53,12 @@ Usage:
   ops status <OPS-n> <status> [--waiting <nissi|arun>]    set the status; --waiting only with blocked,
                                                           any other status clears it
   ops list [--trio] [--ws <slug>] [--status open|<status>] [--owner <session>] [--by <who>]
-           [--waiting <nissi|arun>] [--since YYYY-MM-DD] [--limit N] [--json]
+           [--waiting <nissi|arun>] [--since YYYY-MM-DD] [--parent <OPS-n>] [--roots] [--limit N] [--json]
                                                           tasks, newest update first (default: open, 50)
   ops show <OPS-n> [--json]                               one task: fields, Journey, last notes, KB docs
   ops trio <OPS-n> [--off]                                mark (or unmark) a task as a trio task
   ops assign <OPS-n> --owner <session>                    set the session that owns a task
+  ops parent <OPS-n> <PARENT-n> | ops parent <OPS-n> --off  put a task under a parent (or take it out)
   ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
 
 Interns (tracked people, no console login, nothing is ever sent to them; owner/admin):
@@ -118,7 +120,7 @@ async function api(method, route, body) {
 
 // Split argv into positionals and --flags (each flag takes one value).
 // Flags that take no value.
-const BOOL_FLAGS = new Set(['trio', 'off', 'json']);
+const BOOL_FLAGS = new Set(['trio', 'off', 'json', 'roots']);
 const REQUESTERS = ['nissi', 'arun', 'jarvis'];
 const WAITERS = ['nissi', 'arun'];
 
@@ -190,6 +192,8 @@ function taskLine(i) {
       i.owner_session || '–',
       i.requested_by || '–',
       ...(i.trio ? ['[TRIO]'] : []),
+      ...(i.parent_identifier ? [`↳ ${i.parent_identifier}`] : []),
+      ...(i.child_total ? [`[${i.child_done}/${i.child_total}]`] : []),
       i.title,
       ist(i.updated_at),
    ].join(' · ');
@@ -238,6 +242,7 @@ async function main() {
          if (flags.owner) body.owner_session = String(flags.owner);
          if (flags.by)
             body.requested_by = oneOf(String(flags.by).toLowerCase(), REQUESTERS, '--by');
+         if (flags.parent) body.parent = String(flags.parent);
          const { issue } = await api('POST', '/issues', body);
          console.log(issue.identifier || issue.id);
          return;
@@ -258,6 +263,8 @@ async function main() {
                die(`--since must be YYYY-MM-DD, got "${flags.since}"`);
             qs.set('since', String(flags.since));
          }
+         if (flags.parent) qs.set('parent', String(flags.parent));
+         if (flags.roots) qs.set('roots', '1');
          if (flags.limit) {
             const n = Number(flags.limit);
             if (!Number.isInteger(n) || n < 1) die('--limit must be a positive number');
@@ -275,14 +282,14 @@ async function main() {
       case 'show': {
          const id = need(pos[0], 'task id (OPS-n)');
          const ref = encodeURIComponent(id);
-         const [{ issue, steps }, { docs }] = await Promise.all([
+         const [{ issue, steps, children }, { docs }] = await Promise.all([
             api('GET', `/issues/${ref}`),
             api('GET', `/issues/${ref}/links`),
          ]);
          const notes = parseNotes(issue.progress || '').slice(-10);
          if (flags.json) {
             const { progress: _progress, ...rest } = issue;
-            console.log(JSON.stringify({ ...rest, steps, notes, docs }, null, 2));
+            console.log(JSON.stringify({ ...rest, steps, notes, docs, children }, null, 2));
             return;
          }
          const alias = issue.legacy_identifier ? ` (was ${issue.legacy_identifier})` : '';
@@ -291,6 +298,15 @@ async function main() {
             `  status ${issue.status_id}${issue.waiting_on ? ` (waiting on ${issue.waiting_on})` : ''} · ws ${issue.workspace || '–'} · owner ${issue.owner_session || '–'} · by ${issue.requested_by || '–'}`
          );
          console.log(`  created ${ist(issue.created_at)} · updated ${ist(issue.updated_at)} IST`);
+         if (issue.parent_identifier) console.log(`  part of ${issue.parent_identifier}`);
+         if (children?.length) {
+            const done = children.filter((c) => ['done', 'canceled'].includes(c.status_id)).length;
+            console.log(`\nSub-tasks (${done}/${children.length} done):`);
+            for (const c of children)
+               console.log(
+                  `  ${c.identifier} · ${c.status_id} · ${c.owner_session || '–'} · ${c.title}`
+               );
+         }
          if (issue.description?.trim()) console.log(`\n${issue.description.trim()}`);
          if (steps?.length) {
             console.log('\nJourney:');
@@ -317,6 +333,17 @@ async function main() {
          });
          console.log(
             `${issue.identifier} ${issue.trio ? 'is now a trio task' : 'is no longer a trio task'}`
+         );
+         return;
+      }
+      case 'parent': {
+         const id = need(pos[0], 'task id (OPS-n)');
+         const parent = flags.off ? null : need(pos[1], 'parent task id (or --off)');
+         const { issue } = await api('PATCH', `/issues/${encodeURIComponent(id)}`, { parent });
+         console.log(
+            issue.parent_identifier
+               ? `${issue.identifier} is now part of ${issue.parent_identifier}`
+               : `${issue.identifier} has no parent`
          );
          return;
       }

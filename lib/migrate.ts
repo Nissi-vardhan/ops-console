@@ -404,6 +404,10 @@ ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS requested_by text;
 ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS waiting_on text;
 CREATE INDEX IF NOT EXISTS idx_ops_issues_trio ON ops_issues (updated_at DESC) WHERE trio;
 CREATE INDEX IF NOT EXISTS idx_ops_issues_updated ON ops_issues (updated_at DESC);
+-- Parent / sub-tasks (2026-10-13, SC-299): one piece of work done by several
+-- sessions = one parent task with a sub-task per session. One level only.
+ALTER TABLE ops_issues ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES ops_issues(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_ops_issues_parent ON ops_issues (parent_id) WHERE parent_id IS NOT NULL;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM app_json WHERE key = 'migr:trio-title-backfill') THEN
     UPDATE ops_issues SET trio = true WHERE title ILIKE '[TRIO]%' AND NOT trio;

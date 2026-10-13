@@ -41,6 +41,12 @@ export interface OpsIssue {
    requested_by?: string | null;
    /** nissi | arun while the task is blocked on them. */
    waiting_on?: string | null;
+   /** Parent task when this is one session's part of a bigger piece of work. */
+   parent_id?: string | null;
+   parent_identifier?: string | null;
+   /** Sub-task counts when this is a parent. */
+   child_total?: number;
+   child_done?: number;
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -167,7 +173,11 @@ export async function updateOpsProject(
 const ISSUE_SELECT = `
   i.id, i.seq, i.identifier, i.legacy_identifier, i.title, i.description, i.status_id, i.priority_id,
   i.assignee_id, i.project_id, i.label_ids, i.rank, i.due_date, i.progress, i.workspace, i.current_phase,
-  i.trio, i.owner_session, i.requested_by, i.waiting_on,
+  i.trio, i.owner_session, i.requested_by, i.waiting_on, i.parent_id,
+  (SELECT p.identifier FROM ops_issues p WHERE p.id = i.parent_id) AS parent_identifier,
+  (SELECT count(*)::int FROM ops_issues c WHERE c.parent_id = i.id) AS child_total,
+  (SELECT count(*)::int FROM ops_issues c WHERE c.parent_id = i.id
+     AND c.status_id IN ('done','canceled')) AS child_done,
   i.created_by, i.created_at, i.updated_at,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id) AS step_total,
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id
@@ -192,6 +202,10 @@ export interface IssueQuery {
    waiting?: string;
    /** YYYY-MM-DD (IST): updated on or after that day. */
    since?: string;
+   /** Only sub-tasks of this parent (uuid). */
+   parentId?: string;
+   /** Only top-level tasks (no parent): parents and standalone work. */
+   roots?: boolean;
    limit?: number;
    /** Restrict to these workspaces (plus untagged); null = unrestricted. */
    allowedWorkspaces?: string[] | null;
@@ -213,6 +227,8 @@ export async function queryOpsIssues(q: IssueQuery): Promise<OpsIssue[]> {
    if (q.by) add('i.requested_by = ?', q.by.toLowerCase());
    if (q.waiting) add('i.waiting_on = ?', q.waiting.toLowerCase());
    if (q.since) add("i.updated_at >= (?::date)::timestamp AT TIME ZONE 'Asia/Kolkata'", q.since);
+   if (q.parentId) add('i.parent_id = ?', q.parentId);
+   if (q.roots) where.push('i.parent_id IS NULL');
    if (q.allowedWorkspaces)
       add('(i.workspace = ANY(?) OR i.workspace IS NULL)', q.allowedWorkspaces);
    const limit = Math.min(Math.max(Math.trunc(q.limit ?? 50), 1), 500);
@@ -265,11 +281,12 @@ export async function createOpsIssue(input: {
    owner_session?: string | null;
    requested_by?: string | null;
    waiting_on?: string | null;
+   parent_id?: string | null;
 }): Promise<OpsIssue> {
    const rows = await query<OpsIssue>(
       `INSERT INTO ops_issues (title, description, status_id, priority_id, assignee_id, project_id, label_ids, rank, due_date, workspace, created_by,
-                               trio, owner_session, requested_by, waiting_on)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11,$12,$13,$14,$15)
+                               trio, owner_session, requested_by, waiting_on, parent_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'0|hzzzzz:'),$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING id, seq`,
       [
          input.title,
@@ -287,10 +304,12 @@ export async function createOpsIssue(input: {
          input.owner_session?.trim() || null,
          input.requested_by ?? null,
          input.waiting_on ?? null,
+         input.parent_id ?? null,
       ]
    );
    const { id } = rows[0];
    await assignIdentifier(id, workspacePrefix(input.workspace));
+   if (input.parent_id) await rollUpParent(input.parent_id);
    return (await queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [
       id,
    ]))!;
@@ -346,6 +365,7 @@ const ISSUE_FIELDS = new Set([
    'owner_session',
    'requested_by',
    'waiting_on',
+   'parent_id',
 ]);
 
 export async function updateOpsIssue(
@@ -375,16 +395,17 @@ export async function updateOpsIssue(
    }
    vals.push(id);
    const before =
-      'workspace' in patch
-         ? await queryOne<{ identifier: string | null; workspace: string | null }>(
-              'SELECT identifier, workspace FROM ops_issues WHERE id = $1',
-              [id]
-           )
+      'workspace' in patch || 'parent_id' in patch || 'status_id' in patch
+         ? await queryOne<{
+              identifier: string | null;
+              workspace: string | null;
+              parent_id: string | null;
+           }>('SELECT identifier, workspace, parent_id FROM ops_issues WHERE id = $1', [id])
          : null;
    const rows = await query<OpsIssue>(
       `UPDATE ops_issues SET ${sets.join(', ')}, updated_at = now() WHERE id = $${i}
      RETURNING id, seq, identifier, legacy_identifier, title, description, status_id, priority_id,
-               assignee_id, project_id, label_ids, rank, due_date, progress, workspace, created_by, created_at, updated_at`,
+               assignee_id, project_id, label_ids, rank, due_date, progress, workspace, parent_id, created_by, created_at, updated_at`,
       vals
    );
    const row = rows[0];
@@ -397,9 +418,98 @@ export async function updateOpsIssue(
          'UPDATE ops_issues SET legacy_identifier = COALESCE(legacy_identifier, identifier) WHERE id = $1',
          [id]
       );
-      await assignIdentifier(id, prefix, idNumber(before.identifier));
+      await assignIdentifier(id, prefix, idNumber(before?.identifier ?? null));
    }
+   // A sub-task closing (or moving) may complete its parent.
+   const parents = new Set([before?.parent_id, (row as { parent_id?: string | null }).parent_id]);
+   for (const pid of parents) if (pid) await rollUpParent(pid);
    return queryOne<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i WHERE i.id = $1`, [id]);
+}
+
+const CLOSED = ['done', 'canceled'];
+
+/**
+ * Check a parent link: the parent must exist, not be the task itself, and not be
+ * a sub-task (one level only); a task that has sub-tasks can't become one.
+ * Returns an error message, or null when fine. `childId` is null for a new task.
+ */
+export async function parentError(
+   childId: string | null,
+   parentId: string
+): Promise<string | null> {
+   if (childId && childId === parentId) return "a task can't be its own parent";
+   const parent = await queryOne<{ parent_id: string | null; identifier: string | null }>(
+      'SELECT parent_id, identifier FROM ops_issues WHERE id = $1',
+      [parentId]
+   );
+   if (!parent) return 'parent task not found';
+   if (parent.parent_id) return `${parent.identifier} is itself a sub-task — use its parent`;
+   if (childId) {
+      const kids = await queryOne<{ n: number }>(
+         'SELECT count(*)::int AS n FROM ops_issues WHERE parent_id = $1',
+         [childId]
+      );
+      if (kids && kids.n > 0) return "this task has sub-tasks, so it can't become one";
+   }
+   return null;
+}
+
+/** When every sub-task is closed, move an open parent to In Review ("ready to close"). */
+export async function rollUpParent(parentId: string): Promise<void> {
+   const p = await queryOne<{ status_id: string; total: number; open: number }>(
+      `SELECT p.status_id,
+              (SELECT count(*)::int FROM ops_issues c WHERE c.parent_id = p.id) AS total,
+              (SELECT count(*)::int FROM ops_issues c WHERE c.parent_id = p.id AND c.status_id <> ALL($2)) AS open
+         FROM ops_issues p WHERE p.id = $1`,
+      [parentId, CLOSED]
+   );
+   if (!p || p.total === 0) return;
+   if (p.open > 0) {
+      // A part was added or reopened after the parent went to review → back to work.
+      if (p.status_id === 'technical-review') {
+         await query(
+            "UPDATE ops_issues SET status_id = 'in-progress', updated_at = now() WHERE id = $1",
+            [parentId]
+         );
+         await appendIssueProgress(
+            parentId,
+            `${p.open} of ${p.total} sub-tasks open again — back in progress.`,
+            null,
+            'ops'
+         );
+      }
+      return;
+   }
+   if (CLOSED.includes(p.status_id) || p.status_id === 'technical-review') return;
+   await query(
+      "UPDATE ops_issues SET status_id = 'technical-review', updated_at = now() WHERE id = $1",
+      [parentId]
+   );
+   await appendIssueProgress(
+      parentId,
+      p.total === 1
+         ? 'Its only sub-task is closed — ready to close.'
+         : `All ${p.total} sub-tasks closed — ready to close.`,
+      null,
+      'ops'
+   );
+}
+
+/** Sub-tasks of a parent, oldest first. */
+export async function listChildIssues(parentId: string) {
+   return query<{
+      id: string;
+      identifier: string | null;
+      title: string;
+      status_id: string;
+      workspace: string | null;
+      owner_session: string | null;
+      updated_at: string;
+   }>(
+      `SELECT id, identifier, title, status_id, workspace, owner_session, updated_at
+         FROM ops_issues WHERE parent_id = $1 ORDER BY created_at`,
+      [parentId]
+   );
 }
 
 export async function deleteOpsIssue(id: string): Promise<boolean> {

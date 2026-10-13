@@ -42,6 +42,18 @@ export default function IssueDetails() {
       () => issues.find((candidate) => isIssueRef(candidate, issueId)),
       [issues, issueId]
    );
+   // Parent / sub-tasks (one session's part of a bigger piece of work).
+   const parent = useMemo(
+      () => (issue?.parentId ? issues.find((c) => c.id === issue.parentId) : undefined),
+      [issues, issue]
+   );
+   const children = useMemo(
+      () => (issue ? issues.filter((c) => c.parentId === issue.id) : []),
+      [issues, issue]
+   );
+   const childrenDone = children.filter(
+      (c) => c.status.category === 'completed' || c.status.category === 'canceled'
+   ).length;
 
    const detail = useMemo(() => (issue ? getIssueDetail(issue) : null), [issue]);
 
@@ -64,6 +76,15 @@ export default function IssueDetails() {
          {/* Main column */}
          <div className="flex-1 min-w-0 lg:h-full lg:overflow-y-auto">
             <div className="max-w-3xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
+               {issue.parentIdentifier && (
+                  <Link
+                     href={`/${orgId ?? 'shortcastle'}/issue/${issue.parentIdentifier}`}
+                     className="mb-2 inline-flex min-h-8 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                     ↳ Part of <span className="font-medium">{issue.parentIdentifier}</span>
+                     {parent && <span className="truncate">— {parent.title}</span>}
+                  </Link>
+               )}
                <h1 className="text-2xl font-semibold leading-tight text-balance [overflow-wrap:anywhere] sm:text-3xl">
                   {issue.title}
                </h1>
@@ -79,6 +100,46 @@ export default function IssueDetails() {
                      <p className="text-sm text-muted-foreground">No description.</p>
                   )}
                </div>
+
+               {/* Sub-tasks — each session's part of this piece of work */}
+               {children.length > 0 && (
+                  <div className="mt-8">
+                     <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Sub-tasks · {childrenDone}/{children.length} done
+                     </h2>
+                     <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+                        <div
+                           className="h-full rounded-full bg-emerald-500"
+                           style={{
+                              width: `${Math.round((childrenDone / children.length) * 100)}%`,
+                           }}
+                        />
+                     </div>
+                     <ul className="divide-y rounded-xl border bg-container">
+                        {children.map((c) => (
+                           <li key={c.id}>
+                              <Link
+                                 href={`/${orgId ?? 'shortcastle'}/issue/${c.identifier}`}
+                                 className="flex min-h-10 items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40"
+                              >
+                                 <span
+                                    className="size-2 shrink-0 rounded-full"
+                                    style={{ backgroundColor: c.status.color }}
+                                    title={c.status.name}
+                                 />
+                                 <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                    {c.identifier}
+                                 </span>
+                                 <span className="min-w-0 truncate">{c.title}</span>
+                                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                                    {c.ownerSession || c.status.name}
+                                 </span>
+                              </Link>
+                           </li>
+                        ))}
+                     </ul>
+                  </div>
+               )}
 
                {/* Journey — ordered, checkable steps across the 5 work phases */}
                <JourneyPanel issueId={issue.id} />

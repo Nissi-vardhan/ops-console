@@ -18,6 +18,7 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { IssueContextMenu } from './issue-context-menu';
 import { PHASE_LABEL } from '@/lib/journey';
 import { TrioBadge } from './trio-badge';
+import { ChildrenPill, ParentChip } from './parent-badges';
 
 // Small "Execute 3/5" pill showing a task's current journey phase + step progress.
 function JourneyPill({ issue }: { issue: Issue }) {
@@ -150,6 +151,15 @@ export function IssueGrid({ issue }: IssueGridProps) {
                         </span>
                      )}
                      {issue.trio && <TrioBadge />}
+                     {issue.parentIdentifier && (
+                        <ParentChip
+                           orgId={orgId ?? 'shortcastle'}
+                           parent={issue.parentIdentifier}
+                        />
+                     )}
+                     {!!issue.childTotal && (
+                        <ChildrenPill done={issue.childDone ?? 0} total={issue.childTotal} />
+                     )}
                   </div>
                   {displayProperties.status && (
                      <StatusSelector status={issue.status} issueId={issue.id} />

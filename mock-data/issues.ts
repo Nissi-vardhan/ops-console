@@ -47,6 +47,12 @@ export interface Issue {
    requestedBy?: string;
    /** nissi | arun while blocked on them. */
    waitingOn?: string;
+   /** Parent task (this is one session's part of a bigger piece of work). */
+   parentId?: string;
+   parentIdentifier?: string;
+   /** Sub-task counts when this is a parent. */
+   childTotal?: number;
+   childDone?: number;
 }
 
 /* -------------------------------------------------------------------------- */
