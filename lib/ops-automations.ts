@@ -3,6 +3,7 @@ import { getPool, query, queryOne } from '@/lib/db';
 import { n8nBase, n8nConfigured, n8nGet } from '@/lib/n8n';
 import { n8nSchedules } from '@/lib/automation-schedule';
 import { workspacePrefix } from '@/lib/workspaces';
+import { syncSecretOut } from '@/lib/sync-auth';
 import {
    automationStatus,
    STATUS_RANK,
@@ -275,7 +276,7 @@ async function pollFeeds(): Promise<Record<string, string>> {
       "SELECT id, feed FROM automations WHERE feed <> ''"
    );
    const at = new Date().toISOString();
-   const secret = process.env.SYNC_SECRET;
+   const secret = syncSecretOut();
 
    const crmUrl = process.env.CRM_URL?.replace(/\/+$/, '');
    if (crmUrl && secret && rows.some((r) => r.feed.startsWith('crm:'))) {
@@ -572,8 +573,8 @@ export async function automationMeta() {
       poll: await getJson<PollState>('automations:poll'),
       history_from: (await getJson<{ at: string }>('automations:history-from'))?.at ?? null,
       feeds: {
-         crm: !!(process.env.CRM_URL && process.env.SYNC_SECRET),
-         tracker: !!(process.env.TRACKER_URL && process.env.SYNC_SECRET),
+         crm: !!(process.env.CRM_URL && syncSecretOut()),
+         tracker: !!(process.env.TRACKER_URL && syncSecretOut()),
          coolify: !!process.env.COOLIFY_TOKEN,
       },
       dm_configured: !!process.env.JARVIS_DM_KEY,
