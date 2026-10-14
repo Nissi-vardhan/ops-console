@@ -528,6 +528,31 @@ CREATE TABLE IF NOT EXISTS ops_intern_updates (
 CREATE INDEX IF NOT EXISTS idx_ops_intern_updates_issue ON ops_intern_updates(issue_id, at);
 `;
 
+// Lark group inbox (2026-10-14, TDB-72): a Lark app bot in each intern's group
+// pushes every message to /api/lark/events. Messages are kept here and noted on
+// the intern's task (the last task posted with `ops lark --task`, else his open one).
+const LARK_INBOX_SQL = `
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS lark_chat_id text NOT NULL DEFAULT '';
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS lark_task_id uuid REFERENCES ops_issues(id) ON DELETE SET NULL;
+CREATE TABLE IF NOT EXISTS ops_lark_messages (
+  id          bigserial PRIMARY KEY,
+  event_id    text NOT NULL UNIQUE,
+  message_id  text NOT NULL DEFAULT '',
+  chat_id     text NOT NULL,
+  chat_name   text NOT NULL DEFAULT '',
+  intern_id   uuid REFERENCES ops_interns(id) ON DELETE SET NULL,
+  issue_id    uuid REFERENCES ops_issues(id) ON DELETE SET NULL,
+  sender_id   text NOT NULL DEFAULT '',
+  sender_name text NOT NULL DEFAULT '',
+  msg_type    text NOT NULL DEFAULT 'text',
+  text        text NOT NULL DEFAULT '',
+  sent_at     timestamptz NOT NULL DEFAULT now(),
+  received_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_lark_messages_chat ON ops_lark_messages(chat_id, sent_at);
+CREATE INDEX IF NOT EXISTS idx_ops_lark_messages_intern ON ops_lark_messages(intern_id, sent_at);
+`;
+
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
@@ -538,6 +563,7 @@ export async function runMigrations(): Promise<void> {
    await pool.query(TASK_META_SQL);
    await pool.query(AUTOMATION_SQL);
    await pool.query(INTERN_API_SQL);
+   await pool.query(LARK_INBOX_SQL);
    await seedAutomationsOnce();
    migrated = true;
    console.log('[migrate] ops schema ensured');

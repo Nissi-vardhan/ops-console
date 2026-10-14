@@ -72,7 +72,10 @@ Interns (tracked people, no console login; owner/admin):
   ops review <OPS-n> --rating <1-5> --outcome <continue|changes|approve> [--notes <text>]
                                                           review it; approve closes the task
   ops lark <name> "<text>" [--task <OPS-n>]               post to the intern's Lark group via its bot
-                                                          (--task: also note it on that task)
+                                                          (--task: note it there; replies go to that task)
+  ops lark read <name> [--task <OPS-n>] [--limit N]       what people wrote in his group (IST)
+  ops lark chats                                          groups the reader bot has heard from
+  ops lark bind <name> <oc_chat_id> | --off               link a group to the intern
   Every intern command takes --at "YYYY-MM-DD HH:MM" (IST) to backfill when it happened; default now.
 
   phases:     ${PHASES.join(' | ')}
@@ -492,9 +495,42 @@ async function main() {
          return;
       }
       case 'lark': {
+         if (pos[0] === 'read') {
+            const name = need(pos[1], 'intern name');
+            const qs = new URLSearchParams();
+            if (flags.task) qs.set('task', String(flags.task));
+            if (flags.limit) qs.set('limit', String(flags.limit));
+            const r = await api('GET', `/interns/${encodeURIComponent(name)}/lark?${qs}`);
+            if (flags.json) {
+               console.log(JSON.stringify(r.messages, null, 2));
+               return;
+            }
+            if (!r.chat_bound) console.log(`(no Lark group bound to ${r.intern} yet — see: ops lark chats)`);
+            if (!r.messages.length) console.log('no messages');
+            for (const m of r.messages)
+               console.log(`${ist(m.sent_at)} · ${m.sender_name || 'someone'}${m.identifier ? ' · ' + m.identifier : ''}: ${m.text}`);
+            return;
+         }
+         if (pos[0] === 'chats') {
+            const { chats } = await api('GET', '/lark/chats');
+            if (!chats.length) console.log('no messages received from any Lark group yet');
+            for (const c of chats)
+               console.log(`${c.chat_id} · ${c.chat_name || '(no name)'} · ${c.intern ? 'bound to ' + c.intern : 'not bound'} · ${c.messages} msgs · last ${ist(c.last_at)}`);
+            return;
+         }
+         if (pos[0] === 'bind') {
+            const name = need(pos[1], 'intern name');
+            const chat = flags.off ? '' : need(pos[2], 'chat id (oc_…, from ops lark chats)');
+            const r = await api('POST', `/interns/${encodeURIComponent(name)}/lark-chat`, { chat_id: chat });
+            console.log(chat ? `${r.intern} ← ${chat}` : `${r.intern}: Lark group unbound`);
+            return;
+         }
          const name = need(pos[0], 'intern name');
          const text = need(pos[1], 'message text');
-         const r = await api('POST', `/interns/${encodeURIComponent(name)}/lark`, { text });
+         const r = await api('POST', `/interns/${encodeURIComponent(name)}/lark`, {
+            text,
+            task: flags.task ? String(flags.task) : undefined,
+         });
          if (flags.task)
             await api('POST', `/issues/${encodeURIComponent(String(flags.task))}`, {
                note: `Posted to ${r.intern}'s Lark group: ${text}`,
