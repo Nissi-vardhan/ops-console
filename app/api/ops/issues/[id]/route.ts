@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { closeAssignmentIfFinished } from '@/lib/ops-interns';
 import {
    updateOpsIssue,
    deleteOpsIssue,
@@ -84,6 +85,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
    if (body) delete body.quiet;
    const issue = await updateOpsIssue(id, body ?? {}, { quiet });
    if (!issue) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+   if (typeof body?.status_id === 'string') await closeAssignmentIfFinished(id, body.status_id);
    return NextResponse.json({ issue });
 }
 

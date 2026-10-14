@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
 import { JourneyPanel } from './journey-panel';
+import { InternUpdates, TaskFiles } from './task-extras';
 import { TaskSessions } from './task-sessions';
 import { TaskLinkedDocs } from '@/components/common/docs/doc-links';
 import { Comments } from '@/components/common/comments';
@@ -140,6 +141,9 @@ export default function IssueDetails() {
                      </ul>
                   </div>
                )}
+
+               <TaskFiles issueRef={issue.identifier} />
+               <InternUpdates issueRef={issue.identifier} />
 
                {/* Journey — ordered, checkable steps across the 5 work phases */}
                <JourneyPanel issueId={issue.id} />

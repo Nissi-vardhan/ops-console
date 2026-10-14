@@ -659,6 +659,9 @@ export interface OpsDoc {
    pinned: boolean;
    review_stage?: string | null;
    workspace?: string | null;
+   /** Set when an intern wrote it (via the intern API): shown as "Added by <name>". */
+   author_intern_id?: string | null;
+   author_intern_name?: string | null;
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -666,8 +669,10 @@ export interface OpsDoc {
 
 export async function listOpsDocs(): Promise<OpsDoc[]> {
    return query<OpsDoc>(
-      `SELECT id, title, body, category, pinned, review_stage, workspace, created_by, created_at, updated_at
-     FROM ops_docs ORDER BY pinned DESC, updated_at DESC`
+      `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
+              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name
+         FROM ops_docs d LEFT JOIN ops_interns n ON n.id = d.author_intern_id
+        ORDER BY d.pinned DESC, d.updated_at DESC`
    );
 }
 
@@ -688,7 +693,9 @@ export async function listKbDocs(
 
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
-      `SELECT id, title, body, category, pinned, review_stage, workspace, created_by, created_at, updated_at FROM ops_docs WHERE id = $1`,
+      `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
+              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name
+         FROM ops_docs d LEFT JOIN ops_interns n ON n.id = d.author_intern_id WHERE d.id = $1`,
       [id]
    );
 }

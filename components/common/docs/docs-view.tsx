@@ -37,6 +37,7 @@ interface Doc {
    pinned: boolean;
    review_stage?: string | null;
    workspace?: string | null;
+   author_intern_name?: string | null;
    created_at?: string;
    created_by?: string | null;
    updated_at: string;
@@ -315,6 +316,14 @@ export function DocsView() {
                                     <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                                  )}
                                  <span className="truncate">{d.title}</span>
+                                 {d.author_intern_name && (
+                                    <span
+                                       title={`Added by ${d.author_intern_name} (intern)`}
+                                       className="shrink-0 rounded border border-violet-500/40 bg-violet-500/10 px-1 text-[10px] font-medium text-violet-600 dark:text-violet-300"
+                                    >
+                                       {d.author_intern_name}
+                                    </span>
+                                 )}
                                  {d.review_stage && (
                                     <span
                                        title={
@@ -420,6 +429,14 @@ export function DocsView() {
                                     })}
                                     {' · '}
                                     {readMins} min read
+                                    {selected.author_intern_name && (
+                                       <>
+                                          {' · '}
+                                          <span className="font-medium text-violet-600 dark:text-violet-300">
+                                             Added by {selected.author_intern_name} (intern)
+                                          </span>
+                                       </>
+                                    )}
                                  </p>
                               </div>
                               <div className="flex shrink-0 items-center gap-0.5">

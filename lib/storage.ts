@@ -10,7 +10,12 @@ function endpoint(): string {
    return process.env.MINIO_S3_ENDPOINT || process.env.MINIO_ENDPOINT || '';
 }
 
+// Dev-only fallback: STORAGE_LOCAL_DIR stores objects on disk (ignored in production).
+const localDir = () =>
+   process.env.NODE_ENV !== 'production' ? process.env.STORAGE_LOCAL_DIR || '' : '';
+
 export function storageConfigured(): boolean {
+   if (localDir()) return true;
    return !!endpoint() && !!process.env.MINIO_ROOT_USER && !!process.env.MINIO_ROOT_PASSWORD;
 }
 
@@ -38,10 +43,23 @@ async function ensureBucket(): Promise<void> {
 }
 
 export async function putObject(key: string, body: Buffer, contentType: string): Promise<void> {
+   if (localDir()) {
+      const { mkdir, writeFile } = await import('node:fs/promises');
+      const { dirname, join } = await import('node:path');
+      const file = join(localDir(), key);
+      await mkdir(dirname(file), { recursive: true });
+      await writeFile(file, body);
+      return;
+   }
    await ensureBucket();
    await client().putObject(bucket(), key, body, body.length, { 'Content-Type': contentType });
 }
 
 export async function getObjectStream(key: string): Promise<Readable> {
+   if (localDir()) {
+      const { createReadStream } = await import('node:fs');
+      const { join } = await import('node:path');
+      return createReadStream(join(localDir(), key));
+   }
    return client().getObject(bucket(), key);
 }

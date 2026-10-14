@@ -494,6 +494,38 @@ CREATE TABLE IF NOT EXISTS automation_risks (
 );
 `;
 
+// Intern API (2026-10-14, TDB-67): an intern works his assigned tasks and his
+// KB docs through a personal API key (no console login). Task PDFs attach to the
+// task; his KB docs live in the workspace KB marked as his and start "in review";
+// his task updates (start / progress / stuck / unstuck / close) are logged and
+// mirrored to his Lark group. Ratings/reviews stay internal (ops_intern_events).
+const INTERN_API_SQL = `
+ALTER TABLE ops_attachments ADD COLUMN IF NOT EXISTS issue_id uuid REFERENCES ops_issues(id) ON DELETE CASCADE;
+ALTER TABLE ops_attachments ADD COLUMN IF NOT EXISTS intern_id uuid REFERENCES ops_interns(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_ops_attachments_issue ON ops_attachments(issue_id) WHERE issue_id IS NOT NULL;
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS author_intern_id uuid REFERENCES ops_interns(id) ON DELETE SET NULL;
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS lark_webhook text NOT NULL DEFAULT '';
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS lark_secret text NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS ops_intern_keys (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intern_id    uuid NOT NULL REFERENCES ops_interns(id) ON DELETE CASCADE,
+  token_hash   text NOT NULL UNIQUE,
+  prefix       text NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  last_used_at timestamptz,
+  revoked_at   timestamptz
+);
+CREATE TABLE IF NOT EXISTS ops_intern_updates (
+  id         bigserial PRIMARY KEY,
+  intern_id  uuid NOT NULL REFERENCES ops_interns(id) ON DELETE CASCADE,
+  issue_id   uuid NOT NULL REFERENCES ops_issues(id) ON DELETE CASCADE,
+  kind       text NOT NULL CHECK (kind IN ('start', 'progress', 'stuck', 'unstuck', 'close')),
+  text       text NOT NULL DEFAULT '',
+  at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_intern_updates_issue ON ops_intern_updates(issue_id, at);
+`;
+
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
@@ -503,6 +535,7 @@ export async function runMigrations(): Promise<void> {
    await pool.query(IDENTIFIER_SQL);
    await pool.query(TASK_META_SQL);
    await pool.query(AUTOMATION_SQL);
+   await pool.query(INTERN_API_SQL);
    await seedAutomationsOnce();
    migrated = true;
    console.log('[migrate] ops schema ensured');

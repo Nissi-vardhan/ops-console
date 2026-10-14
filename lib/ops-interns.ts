@@ -1,5 +1,6 @@
 import { query, queryOne } from '@/lib/db';
 import { createOpsDoc, getOpsIssue, linkDocIssue, updateOpsIssue } from '@/lib/ops-data';
+import { notifyInternGroup } from '@/lib/intern-api';
 import { IST, perfStats, taskStats, type PerfStats, type TaskStats } from '@/lib/intern-stats';
 
 // Interns are tracked people with no console login. Per intern task the console
@@ -53,6 +54,7 @@ export interface InternEvent {
 export type InternTaskFull = InternTask & { events: InternEvent[]; stats: TaskStats };
 
 export interface InternSummary extends Intern {
+   lark_connected: boolean;
    current: InternTask | null;
    perf: PerfStats;
    last_eod_at: string | null;
@@ -122,8 +124,14 @@ function summarize(intern: Intern, tasks: InternTaskFull[]): InternSummary {
       .flatMap((t) => t.events)
       .filter((e) => e.kind === 'eod')
       .reduce<number | null>((max, e) => Math.max(max ?? 0, new Date(e.at).getTime()), null);
+   // Never hand the Lark webhook/secret back to the browser — just whether it's set.
+   const safe: Intern & { lark_webhook?: string; lark_secret?: string } = { ...intern };
+   const lark_webhook = safe.lark_webhook;
+   delete safe.lark_webhook;
+   delete safe.lark_secret;
    return {
-      ...intern,
+      ...safe,
+      lark_connected: !!lark_webhook,
       current: mine.find((t) => !t.closed_at) ?? null,
       perf: perfStats(mine),
       last_eod_at: lastEod == null ? null : new Date(lastEod).toISOString(),
@@ -186,8 +194,14 @@ export async function assignInternTask(
          throw new InternError(`${intern.name} already has an open task`, 409);
       throw e;
    }
-   await updateOpsIssue(issueId, { status_id: 'in-progress' });
-   return (await openTaskOf(intern.id))!;
+   // Assigned = to-do until the intern starts it (via the intern API).
+   await updateOpsIssue(issueId, { status_id: 'to-do' });
+   const task = (await openTaskOf(intern.id))!;
+   await notifyInternGroup(
+      intern.id,
+      `📌 New task for ${intern.name}: ${task.identifier} · ${task.title}`
+   );
+   return task;
 }
 
 async function openTaskOf(internId: string): Promise<InternTask | null> {
@@ -292,4 +306,43 @@ export async function recordInternEvent(
       await updateOpsIssue(issueId, { status_id: 'in-progress' });
    }
    return ev;
+}
+
+/** A task marked done/canceled in the console closes its open intern assignment (frees the intern). */
+export async function closeAssignmentIfFinished(issueId: string, status: string): Promise<void> {
+   if (status !== 'done' && status !== 'canceled') return;
+   await query(
+      'UPDATE ops_intern_tasks SET closed_at = now() WHERE issue_id = $1 AND closed_at IS NULL',
+      [issueId]
+   );
+}
+
+/** Update an intern's settings (Lark group webhook/secret, active, notes). */
+export async function updateIntern(
+   ref: string,
+   patch: { lark_webhook?: string; lark_secret?: string; active?: boolean; notes?: string }
+): Promise<Intern | null> {
+   const intern = await findIntern(ref);
+   if (!intern) return null;
+   const sets: string[] = [];
+   const vals: unknown[] = [];
+   for (const k of ['lark_webhook', 'lark_secret', 'active', 'notes'] as const) {
+      if (patch[k] === undefined) continue;
+      vals.push(patch[k]);
+      sets.push(`${k} = $${vals.length}`);
+   }
+   if (sets.length) {
+      vals.push(intern.id);
+      await query(`UPDATE ops_interns SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals);
+   }
+   return findIntern(intern.id);
+}
+
+/** An intern's own task updates on one task (start / progress / stuck / unstuck / close). */
+export async function internUpdatesFor(issueId: string) {
+   return query<{ kind: string; text: string; at: string; intern: string }>(
+      `SELECT u.kind, u.text, u.at, n.name AS intern FROM ops_intern_updates u
+         JOIN ops_interns n ON n.id = u.intern_id WHERE u.issue_id = $1 ORDER BY u.at`,
+      [issueId]
+   );
 }

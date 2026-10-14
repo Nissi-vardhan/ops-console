@@ -78,6 +78,7 @@ interface InternSummary {
    current: InternTask | null;
    perf: PerfStats;
    last_eod_at: string | null;
+   lark_connected?: boolean;
 }
 type FullTask = InternTask & { events: InternEvent[]; stats: TaskStats };
 interface Profile {
@@ -369,6 +370,7 @@ function InternProfile({
             </span>
          </div>
          <PerfTiles p={intern.perf} />
+         <InternAccess intern={intern} />
 
          {open ? (
             <OpenTaskActions task={open} onChange={onChange} />
@@ -686,4 +688,229 @@ function AssignForm({ intern, onChange }: { intern: string; onChange: () => void
          </div>
       </div>
    );
+}
+
+interface ApiKey {
+   id: string;
+   prefix: string;
+   created_at: string;
+   last_used_at: string | null;
+   revoked_at: string | null;
+}
+interface KbDoc {
+   id: string;
+   title: string;
+   review_stage?: string | null;
+   author_intern_name?: string | null;
+   updated_at: string;
+}
+
+/** API key, Lark group and KB docs for one intern (owner/admin). */
+function InternAccess({ intern }: { intern: InternSummary }) {
+   const base = `/api/ops/interns/${intern.id}`;
+   const [keys, setKeys] = useState<ApiKey[]>([]);
+   const [fresh, setFresh] = useState<string | null>(null);
+   const [hook, setHook] = useState('');
+   const [secret, setSecret] = useState('');
+   const [lark, setLark] = useState(!!intern.lark_connected);
+   const [docs, setDocs] = useState<KbDoc[]>([]);
+
+   const loadKeys = useCallback(async () => {
+      const r = await fetch(`${base}/keys`, { cache: 'no-store' }).catch(() => null);
+      setKeys(r?.ok ? (await r.json()).keys : []);
+   }, [base]);
+   useEffect(() => {
+      loadKeys();
+      fetch('/api/ops/docs', { cache: 'no-store' })
+         .then((r) => (r.ok ? r.json() : null))
+         .then((d) =>
+            setDocs((d?.docs ?? []).filter((x: KbDoc) => x.author_intern_name === intern.name))
+         )
+         .catch(() => setDocs([]));
+   }, [loadKeys, intern.name]);
+
+   const field =
+      'h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm outline-none focus:border-primary';
+   const active = keys.filter((k) => !k.revoked_at);
+   return (
+      <div className="grid gap-3 md:grid-cols-2">
+         <div className="space-y-2 rounded-xl border bg-container p-4 text-sm">
+            <p className="font-medium">API access</p>
+            <p className="text-xs text-muted-foreground">
+               A personal key that only opens this intern&apos;s assigned tasks and KB docs.
+               Internal reviews and stats are never visible to it.
+            </p>
+            {fresh && (
+               <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
+                  <p className="font-medium">Copy this key now — it won&apos;t be shown again.</p>
+                  <code className="block break-all rounded bg-background px-2 py-1 font-mono">
+                     {fresh}
+                  </code>
+                  <Button
+                     size="sm"
+                     variant="outline"
+                     onClick={() =>
+                        navigator.clipboard.writeText(fresh).then(() => toast.success('Copied'))
+                     }
+                  >
+                     Copy
+                  </Button>
+               </div>
+            )}
+            <ul className="space-y-1 text-xs">
+               {keys.length === 0 && <li className="text-muted-foreground">No keys yet.</li>}
+               {keys.map((k) => (
+                  <li key={k.id} className="flex flex-wrap items-center gap-2">
+                     <code className="font-mono">{k.prefix}…</code>
+                     <span className="text-muted-foreground">
+                        {k.revoked_at
+                           ? `revoked ${ist(k.revoked_at)}`
+                           : k.last_used_at
+                             ? `last used ${ist(k.last_used_at)}`
+                             : 'never used'}
+                     </span>
+                     {!k.revoked_at && (
+                        <button
+                           type="button"
+                           className="ml-auto min-h-8 text-red-600 hover:underline"
+                           onClick={async () => {
+                              if (!window.confirm('Revoke this key? It stops working immediately.'))
+                                 return;
+                              await fetch(`${base}/keys/${k.id}`, { method: 'DELETE' });
+                              loadKeys();
+                           }}
+                        >
+                           Revoke
+                        </button>
+                     )}
+                  </li>
+               ))}
+            </ul>
+            <Button
+               size="sm"
+               onClick={async () => {
+                  if (
+                     active.length &&
+                     !window.confirm(
+                        'Create another key? The current one keeps working until revoked.'
+                     )
+                  )
+                     return;
+                  const r = await fetch(`${base}/keys`, { method: 'POST' });
+                  const d = await r.json().catch(() => null);
+                  if (r.ok && d?.token) {
+                     setFresh(d.token);
+                     loadKeys();
+                  } else toast.error(d?.error || 'Could not create key');
+               }}
+            >
+               Create API key
+            </Button>
+         </div>
+         <div className="space-y-2 rounded-xl border bg-container p-4 text-sm">
+            <p className="font-medium">
+               Lark group alerts{' '}
+               <span
+                  className={`text-xs ${lark ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}
+               >
+                  · {lark ? 'connected' : 'not set'}
+               </span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+               New task, started, stuck (with reason) and submitted go to this group automatically.
+            </p>
+            <input
+               className={field}
+               placeholder="Custom bot webhook URL (…/open-apis/bot/v2/hook/…)"
+               value={hook}
+               onChange={(e) => setHook(e.target.value)}
+            />
+            <input
+               className={field}
+               placeholder="Signing secret (only if the bot has signature verification)"
+               value={secret}
+               onChange={(e) => setSecret(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+               <Button
+                  size="sm"
+                  disabled={!hook.trim()}
+                  onClick={async () => {
+                     if (
+                        await post2(base, 'PATCH', {
+                           lark_webhook: hook.trim(),
+                           lark_secret: secret.trim(),
+                        })
+                     ) {
+                        setLark(true);
+                        setHook('');
+                        setSecret('');
+                        toast.success('Lark group saved');
+                     }
+                  }}
+               >
+                  Save
+               </Button>
+               <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!lark}
+                  onClick={async () => {
+                     if (await post2(`${base}/lark-test`, 'POST'))
+                        toast.success('Test message sent');
+                  }}
+               >
+                  Send test
+               </Button>
+               {lark && (
+                  <Button
+                     size="sm"
+                     variant="ghost"
+                     onClick={async () => {
+                        if (await post2(base, 'PATCH', { lark_webhook: '', lark_secret: '' }))
+                           setLark(false);
+                     }}
+                  >
+                     Disconnect
+                  </Button>
+               )}
+            </div>
+            <div className="border-t pt-2">
+               <p className="mb-1 text-xs font-medium">
+                  KB docs added by {intern.name} ({docs.length})
+               </p>
+               {docs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">None yet.</p>
+               ) : (
+                  <ul className="space-y-0.5 text-xs">
+                     {docs.slice(0, 12).map((d) => (
+                        <li key={d.id}>
+                           <a href={`/shortcastle/docs?doc=${d.id}`} className="hover:underline">
+                              {d.review_stage === 'approved'
+                                 ? '🟢'
+                                 : d.review_stage === 'changes'
+                                   ? '🔴'
+                                   : '🟡'}{' '}
+                              {d.title}
+                           </a>
+                        </li>
+                     ))}
+                  </ul>
+               )}
+            </div>
+         </div>
+      </div>
+   );
+}
+
+async function post2(url: string, method: string, body?: unknown): Promise<boolean> {
+   const r = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+   }).catch(() => null);
+   if (r?.ok) return true;
+   const e = await r?.json().catch(() => null);
+   toast.error(e?.error || 'Request failed');
+   return false;
 }

@@ -19,9 +19,16 @@ function sign(timestamp: number, secret: string): string {
 export async function sendLarkText(text: string): Promise<{ ok: boolean; error?: string }> {
    const url = process.env.LARK_WEBHOOK_URL;
    if (!url) return { ok: false, error: 'LARK_WEBHOOK_URL not set' };
+   return sendLarkToHook(url, process.env.LARK_SECRET || '', text);
+}
 
+/** Post to a specific custom-bot webhook (e.g. one intern's group), signed if a secret is set. */
+export async function sendLarkToHook(
+   url: string,
+   secret: string,
+   text: string
+): Promise<{ ok: boolean; error?: string }> {
    const body: Record<string, unknown> = { msg_type: 'text', content: { text } };
-   const secret = process.env.LARK_SECRET;
    if (secret) {
       const ts = Math.floor(Date.now() / 1000);
       body.timestamp = String(ts);
