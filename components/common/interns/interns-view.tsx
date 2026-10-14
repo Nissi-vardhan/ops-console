@@ -106,7 +106,6 @@ const ist = (iso: string | null) =>
         })
       : '–';
 const dash = (v: number | null | undefined, unit = '') => (v == null ? '–' : `${v}${unit}`);
-const pct = (r: number | null) => (r == null ? '–' : `${Math.round(r * 100)}%`);
 
 async function post(url: string, body: unknown): Promise<boolean> {
    const r = await fetch(url, {
@@ -162,6 +161,8 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
    );
 }
 
+// Timing tiles (days per task, EOD punctuality, turnaround) are hidden: Nissi dropped
+// intern timing metrics on 8 Oct. The API still computes them.
 function PerfTiles({ p, open }: { p: PerfStats; open?: boolean }) {
    return (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -176,15 +177,7 @@ function PerfTiles({ p, open }: { p: PerfStats; open?: boolean }) {
             value={p.avg_rating == null ? '–' : `${p.avg_rating}/5`}
             hint={p.recent_avg_rating == null ? undefined : `last 3: ${p.recent_avg_rating}`}
          />
-         <Tile label="Avg days / task" value={dash(p.avg_task_days)} />
          <Tile label="Avg review rounds" value={dash(p.avg_review_rounds)} />
-         <Tile label="EODs on time" value={pct(p.eod_on_time_rate)} hint="every working day" />
-         <Tile label="Sent → first EOD" value={dash(p.avg_hours_to_first_eod, ' h')} />
-         <Tile
-            label="Review turnaround"
-            value={dash(p.avg_turnaround_hours, ' h')}
-            hint="EOD → review"
-         />
       </div>
    );
 }
@@ -312,8 +305,7 @@ export function InternsView() {
                            )}
                         </div>
                         <div className="mt-1 text-[11px] text-muted-foreground">
-                           {n.perf.tasks_done} done · {dash(n.perf.avg_task_days)} days/task · EODs
-                           on time {pct(n.perf.eod_on_time_rate)}
+                           {n.perf.tasks_done} done
                            {n.last_eod_at && ` · last EOD ${ist(n.last_eod_at)}`}
                         </div>
                      </button>
@@ -412,24 +404,8 @@ function TaskCard({ base, t }: { base: string; t: FullTask }) {
          </p>
          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span>
-               <b className="font-medium text-foreground">{s.calendar_days}</b> days (
-               {s.working_days} working)
-            </span>
-            <span>
-               EODs <b className="font-medium text-foreground">{s.eod_on_time}</b>/{s.eod_expected}{' '}
-               on time
-            </span>
-            <span>
-               sent → first EOD{' '}
-               <b className="font-medium text-foreground">{dash(s.hours_to_first_eod, ' h')}</b>
-            </span>
-            <span>
                <b className="font-medium text-foreground">{s.reviews}</b> reviews ({s.changes}{' '}
                changes)
-            </span>
-            <span>
-               turnaround{' '}
-               <b className="font-medium text-foreground">{dash(s.avg_turnaround_hours, ' h')}</b>
             </span>
          </div>
          {t.events.length === 0 ? (
