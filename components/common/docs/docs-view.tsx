@@ -38,6 +38,7 @@ interface Doc {
    review_stage?: string | null;
    workspace?: string | null;
    author_intern_name?: string | null;
+   intern_visible?: boolean;
    created_at?: string;
    created_by?: string | null;
    updated_at: string;
@@ -438,6 +439,28 @@ export function DocsView() {
                                        </>
                                     )}
                                  </p>
+                                 {!selected.author_intern_name && selected.category !== 'EOD' && (
+                                    <label
+                                       className="mt-1.5 inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
+                                       title="Interns can read this doc through the task API. Off = internal only."
+                                    >
+                                       <input
+                                          type="checkbox"
+                                          checked={!!selected.intern_visible}
+                                          onChange={async (e) => {
+                                             const r = await fetch(`/api/ops/docs/${selected.id}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                   intern_visible: e.target.checked,
+                                                }),
+                                             }).catch(() => null);
+                                             if (r?.ok) load(selected.id);
+                                          }}
+                                       />
+                                       Visible to interns
+                                    </label>
+                                 )}
                               </div>
                               <div className="flex shrink-0 items-center gap-0.5">
                                  <Button

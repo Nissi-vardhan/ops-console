@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
    /* config options here */
    devIndicators: false,
+   poweredByHeader: false, // don't advertise the stack
    serverExternalPackages: ['pg'],
    async headers() {
       return [

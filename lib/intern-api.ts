@@ -208,9 +208,9 @@ export async function myTask(intern: InternRow, ref: string) {
          name: f.filename,
          size: Number(f.size),
          type: f.content_type,
-         added_by: f.intern_id ? 'you' : 'ops',
+         added_by: f.intern_id ? 'you' : 'reviewer',
          added_at_ist: ist(f.created_at),
-         url: `/api/intern/v1/files/${f.id}`,
+         url: `/v1/files/${f.id}`,
       })),
       updates: updates.map((u) => ({
          stage: u.kind,
@@ -311,8 +311,9 @@ export async function assertCanAttachToTask(intern: InternRow, ref: string): Pro
 
 const DOC_COLS = `d.id, d.title, d.category, d.review_stage, d.created_at, d.updated_at,
    (d.author_intern_id = $1) AS mine`;
-// Visible to the intern: his workspace, never internal EOD docs, and either his own or approved.
-const VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND (d.author_intern_id = $1 OR d.review_stage = 'approved')`;
+// Visible to the intern: his workspace, never internal EOD docs, and either his own or
+// explicitly shared with interns (approved internal docs stay hidden unless shared).
+const VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND (d.author_intern_id = $1 OR d.intern_visible)`;
 
 interface DocRow {
    id: string;
@@ -375,7 +376,7 @@ export async function getKbDoc(intern: InternRow, id: string) {
          name: f.filename,
          size: Number(f.size),
          type: f.content_type,
-         url: `/api/intern/v1/files/${f.id}`,
+         url: `/v1/files/${f.id}`,
       })),
    };
 }

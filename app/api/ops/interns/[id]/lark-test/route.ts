@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
    const r = await sendLarkToHook(
       intern.lark_webhook,
       intern.lark_secret || '',
-      `🔔 Ops test message for ${intern.name}'s task group.`
+      '🔔 Task updates are connected to this group.'
    );
    return r.ok
       ? NextResponse.json({ ok: true })

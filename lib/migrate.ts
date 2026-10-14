@@ -504,6 +504,8 @@ ALTER TABLE ops_attachments ADD COLUMN IF NOT EXISTS issue_id uuid REFERENCES op
 ALTER TABLE ops_attachments ADD COLUMN IF NOT EXISTS intern_id uuid REFERENCES ops_interns(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_ops_attachments_issue ON ops_attachments(issue_id) WHERE issue_id IS NOT NULL;
 ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS author_intern_id uuid REFERENCES ops_interns(id) ON DELETE SET NULL;
+-- Docs an owner explicitly shares with interns (others stay internal, approved or not).
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS intern_visible boolean NOT NULL DEFAULT false;
 ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS lark_webhook text NOT NULL DEFAULT '';
 ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS lark_secret text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS ops_intern_keys (

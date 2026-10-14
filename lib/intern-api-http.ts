@@ -94,6 +94,6 @@ export async function uploadFile(
       name: att.filename,
       size: att.size,
       type: ct,
-      url: `/api/intern/v1/files/${att.id}`,
+      url: `/v1/files/${att.id}`,
    };
 }

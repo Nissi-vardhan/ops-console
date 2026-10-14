@@ -1,12 +1,12 @@
-# Ops Task API — v1
+# Task API — v1
 
 Use this API to read the tasks assigned to you, update their stage as you work, attach files, and keep the knowledge base (KB) up to date.
 
-- **Base URL:** `https://ops.shortcastle.com/api/intern/v1`
+- **Base URL:** `https://API_HOST/v1`
 - **Auth:** send your personal key on every request: `Authorization: Bearer <your-key>`. Keep the key secret. If it leaks, ask for it to be revoked; a new one can be issued.
 - **Time zone:** every time comes back twice. `*_at` is ISO-8601 in UTC, e.g. `2026-10-14T10:10:00.000Z`. `*_ist` is a readable label in India time (IST), e.g. `14 Oct 2026, 15:40`.
 - **Format:** JSON in, JSON out. File uploads use `multipart/form-data` with a field named `file`.
-- **Endpoint list:** `GET /api/intern/v1` (no key needed).
+- **Endpoint list:** `GET /v1` (no key needed).
 
 ---
 
@@ -185,7 +185,7 @@ Errors come back as `{ "error": "message" }` with a status code:
 ## 6. Examples (curl)
 
 ```bash
-KEY="<your-key>"; API="https://ops.shortcastle.com/api/intern/v1"
+KEY="<your-key>"; API="https://API_HOST/v1"
 
 curl -s -H "Authorization: Bearer $KEY" "$API/tasks"
 curl -s -H "Authorization: Bearer $KEY" "$API/tasks/TDB-70"
