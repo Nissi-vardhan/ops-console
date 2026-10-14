@@ -52,7 +52,7 @@ Usage:
   ops note <OPS-n> "<text>"                               append a progress note
   ops status <OPS-n> <status> [--waiting <nissi|arun>]    set the status; --waiting only with blocked,
                                                           any other status clears it
-  ops list [--trio] [--ws <slug>] [--status open|<status>] [--owner <session>] [--by <who>]
+  ops list [--trio] [--ws <slug>] [--status open|all|<status>] [--owner <session>] [--by <who>]
            [--waiting <nissi|arun>] [--since YYYY-MM-DD] [--parent <OPS-n>] [--roots] [--limit N] [--json]
                                                           tasks, newest update first (default: open, 50)
   ops show <OPS-n> [--json]                               one task: fields, Journey, last notes, KB docs
@@ -61,7 +61,7 @@ Usage:
   ops parent <OPS-n> <PARENT-n> | ops parent <OPS-n> --off  put a task under a parent (or take it out)
   ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
 
-Interns (tracked people, no console login, nothing is ever sent to them; owner/admin):
+Interns (tracked people, no console login; owner/admin):
   ops intern add "<name>" [--ws <slug>]                   add an intern (default workspace trainerdb)
   ops intern list                                         interns, open task, performance + overall
   ops intern show <name>                                  one intern's tasks, events (IST) and numbers
@@ -71,6 +71,8 @@ Interns (tracked people, no console login, nothing is ever sent to them; owner/a
   ops eod <OPS-n> --body <file|->                         his EOD summary (also filed as a KB doc)
   ops review <OPS-n> --rating <1-5> --outcome <continue|changes|approve> [--notes <text>]
                                                           review it; approve closes the task
+  ops lark <name> "<text>" [--task <OPS-n>]               post to the intern's Lark group via its bot
+                                                          (--task: also note it on that task)
   Every intern command takes --at "YYYY-MM-DD HH:MM" (IST) to backfill when it happened; default now.
 
   phases:     ${PHASES.join(' | ')}
@@ -250,8 +252,8 @@ async function main() {
       case 'list': {
          const qs = new URLSearchParams();
          const status = flags.status ? String(flags.status) : 'open';
-         if (status !== 'open') oneOf(status, STATUSES, 'status');
-         qs.set('status', status);
+         if (status !== 'open' && status !== 'all') oneOf(status, STATUSES, 'status');
+         if (status !== 'all') qs.set('status', status);
          if (flags.trio) qs.set('trio', '1');
          if (flags.ws) qs.set('ws', oneOf(String(flags.ws), WORKSPACES, 'workspace'));
          if (flags.owner) qs.set('owner', String(flags.owner));
@@ -487,6 +489,18 @@ async function main() {
          } else {
             die('usage: ops intern add|list|show|assign|sent|start … (see ops --help)');
          }
+         return;
+      }
+      case 'lark': {
+         const name = need(pos[0], 'intern name');
+         const text = need(pos[1], 'message text');
+         const r = await api('POST', `/interns/${encodeURIComponent(name)}/lark`, { text });
+         if (flags.task)
+            await api('POST', `/issues/${encodeURIComponent(String(flags.task))}`, {
+               note: `Posted to ${r.intern}'s Lark group: ${text}`,
+               session: session(),
+            });
+         console.log(`posted to ${r.intern}'s Lark group${flags.task ? ` · noted on ${flags.task}` : ''}`);
          return;
       }
       case 'eod': {
