@@ -60,6 +60,10 @@ Usage:
   ops assign <OPS-n> --owner <session>                    set the session that owns a task
   ops parent <OPS-n> <PARENT-n> | ops parent <OPS-n> --off  put a task under a parent (or take it out)
   ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
+  ops kb list --ws <slug> [--pending|--approved|--all] [--by <author>] [--since YYYY-MM-DD] [--json]
+                                                          KB docs, newest first; --pending = in review or
+                                                          changes requested (e.g. docs interns wrote)
+  ops kb show <doc-id> [--json]                           one doc: status, author, linked tasks, full body
 
 Interns (tracked people, no console login; owner/admin):
   ops intern add "<name>" [--ws <slug>]                   add an intern (default workspace trainerdb)
@@ -125,7 +129,7 @@ async function api(method, route, body) {
 
 // Split argv into positionals and --flags (each flag takes one value).
 // Flags that take no value.
-const BOOL_FLAGS = new Set(['trio', 'off', 'json', 'roots']);
+const BOOL_FLAGS = new Set(['trio', 'off', 'json', 'roots', 'pending', 'approved', 'all']);
 const REQUESTERS = ['nissi', 'arun', 'jarvis'];
 const WAITERS = ['nissi', 'arun'];
 
@@ -494,6 +498,91 @@ async function main() {
          }
          return;
       }
+      case 'kb': {
+         const sub = pos[0];
+         const stageLabel = (st) =>
+            st === 'approved'
+               ? 'approved'
+               : st === 'review'
+                 ? 'in review'
+                 : st === 'changes'
+                   ? 'changes requested'
+                   : 'not reviewed';
+         const author = (d) =>
+            d.author_intern_name ? `${d.author_intern_name} (intern)` : d.created_by || '–';
+         if (sub === 'list') {
+            const ws = oneOf(need(flags.ws, '--ws <slug>'), WORKSPACES, 'workspace');
+            const modes = ['pending', 'approved', 'all'].filter((m) => flags[m]);
+            if (modes.length > 1) die('use only one of --pending, --approved, --all');
+            const mode = modes[0] || 'all';
+            if (flags.since && !/^\d{4}-\d{2}-\d{2}$/.test(String(flags.since)))
+               die(`--since must be YYYY-MM-DD, got "${flags.since}"`);
+            const by = flags.by ? String(flags.by).toLowerCase() : '';
+            const { docs } = await api('GET', '/docs');
+            const rows = docs
+               .filter((d) => d.workspace === ws)
+               .filter((d) =>
+                  mode === 'pending'
+                     ? d.review_stage === 'review' || d.review_stage === 'changes'
+                     : mode === 'approved'
+                       ? d.review_stage === 'approved'
+                       : true
+               )
+               .filter((d) => !by || author(d).toLowerCase().includes(by))
+               .filter(
+                  (d) =>
+                     !flags.since ||
+                     new Date(d.created_at) >= new Date(`${flags.since}T00:00:00+05:30`)
+               )
+               .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+               .map((d) => ({
+                  id: d.id,
+                  title: d.title,
+                  workspace: d.workspace,
+                  category: d.category,
+                  status: stageLabel(d.review_stage),
+                  author: author(d),
+                  intern_visible: !!d.intern_visible,
+                  created_at: d.created_at,
+                  updated_at: d.updated_at,
+               }));
+            if (flags.json) {
+               console.log(JSON.stringify(rows, null, 2));
+               return;
+            }
+            if (!rows.length) console.log('no docs');
+            for (const d of rows)
+               console.log(
+                  `${d.id} · ${d.status} · ${d.category} · ${d.author} · ${ist(d.created_at)} · ${d.title}`
+               );
+            return;
+         }
+         if (sub === 'show') {
+            const id = need(pos[1], 'doc id (from ops kb list)');
+            const { doc } = await api('GET', `/docs/${encodeURIComponent(id)}`);
+            const { issues } = await api('GET', `/docs/${encodeURIComponent(id)}/links`);
+            const tasks = (issues || []).map((i) => i.identifier).filter(Boolean);
+            if (flags.json) {
+               console.log(
+                  JSON.stringify(
+                     { ...doc, status: stageLabel(doc.review_stage), linked_tasks: tasks },
+                     null,
+                     2
+                  )
+               );
+               return;
+            }
+            console.log(doc.title);
+            console.log(
+               `  ${doc.workspace || '–'} · ${doc.category} · ${stageLabel(doc.review_stage)} · by ${author(doc)}${doc.intern_visible ? ' · visible to interns' : ''}`
+            );
+            console.log(`  created ${ist(doc.created_at)} · updated ${ist(doc.updated_at)} IST`);
+            console.log(`  linked tasks: ${tasks.length ? tasks.join(', ') : '–'}`);
+            console.log(`\n${doc.body}`);
+            return;
+         }
+         die('usage: ops kb list --ws <slug> … | ops kb show <doc-id> (see ops --help)');
+      }
       case 'lark': {
          if (pos[0] === 'read') {
             const name = need(pos[1], 'intern name');
@@ -505,23 +594,30 @@ async function main() {
                console.log(JSON.stringify(r.messages, null, 2));
                return;
             }
-            if (!r.chat_bound) console.log(`(no Lark group bound to ${r.intern} yet — see: ops lark chats)`);
+            if (!r.chat_bound)
+               console.log(`(no Lark group bound to ${r.intern} yet — see: ops lark chats)`);
             if (!r.messages.length) console.log('no messages');
             for (const m of r.messages)
-               console.log(`${ist(m.sent_at)} · ${m.sender_name || 'someone'}${m.identifier ? ' · ' + m.identifier : ''}: ${m.text}`);
+               console.log(
+                  `${ist(m.sent_at)} · ${m.sender_name || 'someone'}${m.identifier ? ' · ' + m.identifier : ''}: ${m.text}`
+               );
             return;
          }
          if (pos[0] === 'chats') {
             const { chats } = await api('GET', '/lark/chats');
             if (!chats.length) console.log('no messages received from any Lark group yet');
             for (const c of chats)
-               console.log(`${c.chat_id} · ${c.chat_name || '(no name)'} · ${c.intern ? 'bound to ' + c.intern : 'not bound'} · ${c.messages} msgs · last ${ist(c.last_at)}`);
+               console.log(
+                  `${c.chat_id} · ${c.chat_name || '(no name)'} · ${c.intern ? 'bound to ' + c.intern : 'not bound'} · ${c.messages} msgs · last ${ist(c.last_at)}`
+               );
             return;
          }
          if (pos[0] === 'bind') {
             const name = need(pos[1], 'intern name');
             const chat = flags.off ? '' : need(pos[2], 'chat id (oc_…, from ops lark chats)');
-            const r = await api('POST', `/interns/${encodeURIComponent(name)}/lark-chat`, { chat_id: chat });
+            const r = await api('POST', `/interns/${encodeURIComponent(name)}/lark-chat`, {
+               chat_id: chat,
+            });
             console.log(chat ? `${r.intern} ← ${chat}` : `${r.intern}: Lark group unbound`);
             return;
          }
@@ -536,7 +632,9 @@ async function main() {
                note: `Posted to ${r.intern}'s Lark group: ${text}`,
                session: session(),
             });
-         console.log(`posted to ${r.intern}'s Lark group${flags.task ? ` · noted on ${flags.task}` : ''}`);
+         console.log(
+            `posted to ${r.intern}'s Lark group${flags.task ? ` · noted on ${flags.task}` : ''}`
+         );
          return;
       }
       case 'eod': {
