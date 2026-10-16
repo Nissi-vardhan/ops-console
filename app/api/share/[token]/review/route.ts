@@ -33,6 +33,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
    const email = await reviewerEmail(token);
    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
    const body = await request.json().catch(() => ({}));
+   // Share-link reviewers can review staging, never promote to or change production (SC-356).
+   const stage = String(body?.stage ?? '').toLowerCase();
+   const doc = await getOpsDoc(share.doc_id);
+   if (stage !== 'note' && (stage === 'approved' || doc?.review_stage === 'approved'))
+      return NextResponse.json({ error: 'Only the owner can change production' }, { status: 403 });
    const res = await setDocReview(share.doc_id, {
       stage: body?.stage,
       note: typeof body?.note === 'string' ? body.note : '',

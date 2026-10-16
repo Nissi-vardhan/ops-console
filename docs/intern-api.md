@@ -111,9 +111,9 @@ Every action endpoint returns the updated task (the same shape as `GET /tasks/{i
 
 ## 3. Knowledge base
 
-The KB is the documentation of the product you work on. You can **read** the approved docs of your workspace, and **write** your own docs.
+The KB is the documentation of the product you work on. You **write** docs here and can read back the docs you wrote.
 
-Every doc you create or edit goes to `in_review`. A reviewer then either approves it (`approved`, part of the official KB) or asks for changes (`changes_requested`). Keep the KB current:
+Every doc you create or edit goes to `in_review`. A reviewer either asks for changes (`changes_requested`) or accepts it into the official KB. Once accepted, it no longer appears in your list. Keep the KB current:
 
 - document the whole app first
 - add or update docs whenever you build a feature, fix something or learn something
@@ -121,7 +121,7 @@ Every doc you create or edit goes to `in_review`. A reviewer then either approve
 
 ### `GET /kb?scope=all|mine&q=search`
 
-Lists docs. `all` (the default) returns approved docs plus your own. `mine` returns only yours. `q` searches titles and bodies.
+Lists your docs that are still in review or waiting for changes. `scope` is accepted for compatibility; both values return the same list. `q` searches titles and bodies.
 
 ```json
 {
@@ -130,8 +130,8 @@ Lists docs. `all` (the default) returns approved docs plus your own. `mine` retu
          "id": "…",
          "title": "…",
          "category": "KB",
-         "status": "approved",
-         "mine": false,
+         "status": "in_review",
+         "mine": true,
          "created_at_ist": "…",
          "updated_at_ist": "…"
       }

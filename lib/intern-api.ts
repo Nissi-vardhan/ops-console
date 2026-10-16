@@ -313,7 +313,8 @@ const DOC_COLS = `d.id, d.title, d.category, d.review_stage, d.created_at, d.upd
    (d.author_intern_id = $1) AS mine`;
 // Visible to the intern: his workspace, never internal EOD docs, and either his own or
 // explicitly shared with interns (approved internal docs stay hidden unless shared).
-const VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND (d.author_intern_id = $1 OR d.intern_visible)`;
+// Interns never see the production KB (Nissi, 16 Oct): only their own docs while in staging.
+const VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND d.author_intern_id = $1 AND d.review_stage IS DISTINCT FROM 'approved'`;
 
 interface DocRow {
    id: string;

@@ -22,13 +22,13 @@ interface Review {
 }
 
 const STAGE = {
-   review: { label: 'In review', cls: 'bg-amber-500/12 text-amber-500', Icon: Eye },
+   review: { label: 'In review (staging)', cls: 'bg-amber-500/12 text-amber-500', Icon: Eye },
    changes: {
       label: 'Changes requested',
       cls: 'bg-red-500/12 text-red-500',
       Icon: MessageSquareWarning,
    },
-   approved: { label: 'Approved', cls: 'bg-emerald-500/12 text-emerald-500', Icon: Check },
+   approved: { label: 'In production', cls: 'bg-emerald-500/12 text-emerald-500', Icon: Check },
    note: { label: 'Note', cls: 'bg-muted/60 text-muted-foreground', Icon: MessageSquarePlus },
 } as const;
 type StageKey = keyof typeof STAGE;
@@ -53,8 +53,16 @@ function when(iso: string): string {
  * `baseUrl` GETs {stage, reviews} and POSTs {stage, note?}. Shared by the owner
  * Docs view (right rail) and the public share page.
  */
-export function DocReview({ baseUrl }: { baseUrl: string }) {
+export function DocReview({
+   baseUrl,
+   onChanged,
+}: {
+   baseUrl: string;
+   /** Called after a stage change; gets the doc id to show (a promoted draft becomes its production doc). */
+   onChanged?: (docId?: string) => void;
+}) {
    const [stage, setStage] = useState<string | null>(null);
+   const [canPromote, setCanPromote] = useState(false);
    const [reviews, setReviews] = useState<Review[]>([]);
    const [loaded, setLoaded] = useState(false);
    const [note, setNote] = useState('');
@@ -70,6 +78,7 @@ export function DocReview({ baseUrl }: { baseUrl: string }) {
       if (d) {
          setStage(d.stage ?? null);
          setReviews((d.reviews ?? []) as Review[]);
+         setCanPromote(!!d.can_promote);
       }
       setLoaded(true);
    }, [baseUrl]);
@@ -86,10 +95,12 @@ export function DocReview({ baseUrl }: { baseUrl: string }) {
          body: JSON.stringify({ stage: nextStage, note: withNote ?? '' }),
       }).catch(() => null);
       if (r && r.ok) {
+         const j = await r.json().catch(() => null);
          setNote('');
          setAsking(false);
          setAddingNote(false);
-         await load();
+         if (onChanged && nextStage !== 'note') onChanged(j?.doc_id);
+         else await load();
       }
       setBusy(false);
    };
@@ -123,28 +134,36 @@ export function DocReview({ baseUrl }: { baseUrl: string }) {
                   <cur.Icon className="size-3" /> {cur.label}
                </span>
             ) : (
-               <span className="ml-auto text-[11px] text-muted-foreground">Not in review</span>
+               <span className="ml-auto text-[11px] text-muted-foreground">Staging</span>
             )}
          </div>
 
          {/* Body */}
          <div className="p-3.5">
-            <div className="flex flex-wrap gap-1">
-               {stageBtn('review', 'Review', '', () => {
-                  setAsking(false);
-                  setAddingNote(false);
-                  post('review');
-               })}
-               {stageBtn('changes', 'Request changes', asking ? 'x' : '', () => {
-                  setAddingNote(false);
-                  setAsking((v) => !v);
-               })}
-               {stageBtn('approved', 'Approve', '', () => {
-                  setAsking(false);
-                  setAddingNote(false);
-                  post('approved');
-               })}
-            </div>
+            {stage === 'approved' && !canPromote ? (
+               <p className="text-xs text-muted-foreground">
+                  In production. Only the owner can change it; edits are saved to staging first.
+               </p>
+            ) : (
+               <div className="flex flex-wrap gap-1">
+                  {stageBtn('review', 'Review', '', () => {
+                     setAsking(false);
+                     setAddingNote(false);
+                     post('review');
+                  })}
+                  {stageBtn('changes', 'Request changes', asking ? 'x' : '', () => {
+                     setAddingNote(false);
+                     setAsking((v) => !v);
+                  })}
+                  {canPromote &&
+                     stage !== 'approved' &&
+                     stageBtn('approved', 'Promote to production', '', () => {
+                        setAsking(false);
+                        setAddingNote(false);
+                        post('approved');
+                     })}
+               </div>
+            )}
 
             {asking && (
                <div className="mt-2.5 space-y-2">

@@ -551,6 +551,10 @@ CREATE TABLE IF NOT EXISTS ops_lark_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_ops_lark_messages_chat ON ops_lark_messages(chat_id, sent_at);
 CREATE INDEX IF NOT EXISTS idx_ops_lark_messages_intern ON ops_lark_messages(intern_id, sent_at);
+-- KB staging/production (2026-10-16, SC-356): production = review_stage 'approved'; an edit to a
+-- production doc is a staged draft (draft_of = that doc) that replaces it when promoted.
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS draft_of uuid REFERENCES ops_docs(id) ON DELETE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_docs_draft_of ON ops_docs(draft_of) WHERE draft_of IS NOT NULL;
 `;
 
 let migrated = false;

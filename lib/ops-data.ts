@@ -662,8 +662,10 @@ export interface OpsDoc {
    /** Set when an intern wrote it (via the intern API): shown as "Added by <name>". */
    author_intern_id?: string | null;
    author_intern_name?: string | null;
-   /** Shared with interns via the task API (other docs stay internal). */
+   /** Legacy flag, no longer used: interns only ever see their own staging docs. */
    intern_visible?: boolean;
+   /** Set on a staged edit of a production doc; promoting it replaces that doc. */
+   draft_of?: string | null;
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -672,7 +674,7 @@ export interface OpsDoc {
 export async function listOpsDocs(): Promise<OpsDoc[]> {
    return query<OpsDoc>(
       `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
-              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible
+              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of
          FROM ops_docs d LEFT JOIN ops_interns n ON n.id = d.author_intern_id
         ORDER BY d.pinned DESC, d.updated_at DESC`
    );
@@ -696,7 +698,7 @@ export async function listKbDocs(
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
       `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
-              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible
+              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of
          FROM ops_docs d LEFT JOIN ops_interns n ON n.id = d.author_intern_id WHERE d.id = $1`,
       [id]
    );
@@ -817,6 +819,33 @@ export async function setDocReview(
       ]
    );
    if (isNote) return { doc: await getOpsDoc(docId), review: rows[0] };
+   const draft = await queryOne<{ draft_of: string | null }>(
+      'SELECT draft_of FROM ops_docs WHERE id = $1',
+      [docId]
+   );
+   if (stage === 'approved' && draft?.draft_of) {
+      // Promoting a staged edit: its text replaces the production doc, the review is
+      // recorded on the production doc too, and the draft goes away.
+      const prodId = draft.draft_of;
+      await query(
+         `UPDATE ops_docs p SET title = d.title, body = d.body, category = d.category,
+                 review_stage = 'approved', updated_at = now()
+            FROM ops_docs d WHERE d.id = $1 AND p.id = $2`,
+         [docId, prodId]
+      );
+      const moved = await query<DocReview>(
+         `INSERT INTO ops_doc_reviews (doc_id, stage, note, author_name, author_email)
+          VALUES ($1, 'approved', $2, $3, $4) RETURNING ${REVIEW_COLS}`,
+         [
+            prodId,
+            ((input.note ?? '') ? input.note + ' · ' : '') + 'promoted a staged edit',
+            input.author_name ?? '',
+            input.author_email ?? '',
+         ]
+      );
+      await query('DELETE FROM ops_docs WHERE id = $1', [docId]);
+      return { doc: await getOpsDoc(prodId), review: moved[0] };
+   }
    await query('UPDATE ops_docs SET review_stage = $1, updated_at = now() WHERE id = $2', [
       stage,
       docId,
@@ -848,11 +877,50 @@ export async function createOpsDoc(input: {
    return rows[0];
 }
 
-const DOC_FIELDS = new Set(['title', 'body', 'category', 'pinned', 'workspace', 'intern_visible']);
+const DOC_FIELDS = new Set(['title', 'body', 'category', 'pinned', 'workspace']);
+const TEXT_FIELDS = ['title', 'body', 'category'] as const;
+
+/** Production = approved. Everything else (no review yet, in review, changes) is staging. */
+export const isProductionDoc = (d: Pick<OpsDoc, 'review_stage'> | null | undefined) =>
+   d?.review_stage === 'approved';
+
 export async function updateOpsDoc(
    id: string,
    patch: Record<string, unknown>
 ): Promise<OpsDoc | null> {
+   const current = await getOpsDoc(id);
+   if (!current) return null;
+   // Editing the text of a production doc never changes production directly: the
+   // edit is saved as a staged draft (one per production doc) until it's promoted.
+   if (isProductionDoc(current) && TEXT_FIELDS.some((k) => k in patch)) {
+      const next = {
+         title: typeof patch.title === 'string' ? patch.title : current.title,
+         body: typeof patch.body === 'string' ? patch.body : current.body,
+         category: typeof patch.category === 'string' ? patch.category : current.category,
+      };
+      const existing = await queryOne<{ id: string }>(
+         'SELECT id FROM ops_docs WHERE draft_of = $1',
+         [id]
+      );
+      if (existing) {
+         await query(
+            `UPDATE ops_docs SET title = $1, body = $2, category = $3, review_stage = 'review',
+                    updated_at = now() WHERE id = $4`,
+            [next.title, next.body, next.category, existing.id]
+         );
+         return getOpsDoc(existing.id);
+      }
+      const rows = await query<{ id: string }>(
+         `INSERT INTO ops_docs (title, body, category, pinned, workspace, created_by, review_stage, draft_of)
+          VALUES ($1, $2, $3, false, $4, $5, 'review', $6) RETURNING id`,
+         [next.title, next.body, next.category, current.workspace ?? null, current.created_by, id]
+      );
+      await query(
+         'INSERT INTO ops_doc_links (doc_id, issue_id) SELECT $1, issue_id FROM ops_doc_links WHERE doc_id = $2 ON CONFLICT DO NOTHING',
+         [rows[0].id, id]
+      );
+      return getOpsDoc(rows[0].id);
+   }
    const sets: string[] = [];
    const vals: unknown[] = [];
    let i = 1;

@@ -22,9 +22,9 @@ interface Attachment {
 }
 
 const STAGE_LABEL: Record<string, string> = {
-   review: 'In review',
-   changes: 'Changes requested',
-   approved: 'Approved',
+   review: 'Staging · in review',
+   changes: 'Staging · changes requested',
+   approved: 'Production',
 };
 const STAGE_CLS: Record<string, string> = {
    review: 'text-amber-500',
@@ -138,11 +138,11 @@ export function DocDetails({ doc, readMins }: { doc: DocMeta; readMins: number }
          <Card title="Details" icon={Info}>
             <div className="-my-0.5">
                <Row label="Category">{doc.category}</Row>
-               <Row label="Status">
+               <Row label="Layer">
                   {stage ? (
                      <span className={STAGE_CLS[stage] ?? ''}>{STAGE_LABEL[stage] ?? stage}</span>
                   ) : (
-                     <span className="text-muted-foreground">Not in review</span>
+                     <span className="text-muted-foreground">Staging</span>
                   )}
                </Row>
                <Row label="Created">{fmtDate(doc.created_at)}</Row>

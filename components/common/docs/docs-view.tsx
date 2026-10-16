@@ -38,7 +38,7 @@ interface Doc {
    review_stage?: string | null;
    workspace?: string | null;
    author_intern_name?: string | null;
-   intern_visible?: boolean;
+   draft_of?: string | null;
    created_at?: string;
    created_by?: string | null;
    updated_at: string;
@@ -51,6 +51,8 @@ export function DocsView() {
    const [selId, setSelId] = useState<string | null>(null);
    const [loading, setLoading] = useState(true);
    const [filter, setFilter] = useState('');
+   // KB layer: staging = not yet verified, production = promoted by the owner (SC-356).
+   const [layer, setLayer] = useState<'all' | 'staging' | 'production'>('all');
    const [editing, setEditing] = useState(false);
    const [activeH, setActiveH] = useState<string>('');
    const [shareOpen, setShareOpen] = useState(false);
@@ -200,8 +202,10 @@ export function DocsView() {
             body: JSON.stringify(draft),
          });
          if (r.ok) {
+            // Editing a production doc saves a staged draft instead; open that draft.
+            const j = await r.json().catch(() => null);
             setEditing(false);
-            await load(selId);
+            await load(j?.doc?.id ?? selId);
          }
       } else {
          const r = await fetch('/api/ops/docs', {
@@ -251,10 +255,16 @@ export function DocsView() {
          // Scope to the active workspace (untagged docs show under "All").
          if (!inActiveWorkspace(d.workspace, activeWorkspace)) continue;
          if (q && !`${d.title} ${d.category}`.toLowerCase().includes(q)) continue;
+         const prod = d.review_stage === 'approved';
+         if ((layer === 'production' && !prod) || (layer === 'staging' && prod)) continue;
          (g[d.category || 'Doc'] ??= []).push(d);
       }
       return Object.entries(g);
-   }, [docs, filter, activeWorkspace]);
+   }, [docs, filter, activeWorkspace, layer]);
+   const pendingDraft = useMemo(
+      () => (selected ? (docs.find((x) => x.draft_of === selected.id) ?? null) : null),
+      [docs, selected]
+   );
 
    return (
       <div className="flex h-full w-full overflow-hidden">
@@ -283,6 +293,25 @@ export function DocsView() {
                      className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-xs outline-none focus:border-primary"
                   />
                </div>
+            </div>
+            <div className="flex gap-1 px-3 pb-2">
+               {(['all', 'staging', 'production'] as const).map((l) => (
+                  <button
+                     key={l}
+                     onClick={() => setLayer(l)}
+                     className={`min-h-8 flex-1 rounded-md px-2 text-xs capitalize transition-colors ${
+                        layer === l
+                           ? l === 'production'
+                              ? 'bg-emerald-500/15 font-medium text-emerald-600 dark:text-emerald-400'
+                              : l === 'staging'
+                                ? 'bg-amber-500/15 font-medium text-amber-600 dark:text-amber-400'
+                                : 'bg-muted font-medium text-foreground'
+                           : 'text-muted-foreground hover:bg-muted/60'
+                     }`}
+                  >
+                     {l}
+                  </button>
+               ))}
             </div>
             <div className="flex-1 overflow-y-auto pb-4">
                {loading &&
@@ -317,6 +346,14 @@ export function DocsView() {
                                     <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                                  )}
                                  <span className="truncate">{d.title}</span>
+                                 {d.draft_of && (
+                                    <span
+                                       title="Staged edit of a production doc"
+                                       className="shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+                                    >
+                                       edit
+                                    </span>
+                                 )}
                                  {d.author_intern_name && (
                                     <span
                                        title={`Added by ${d.author_intern_name} (intern)`}
@@ -329,10 +366,10 @@ export function DocsView() {
                                     <span
                                        title={
                                           d.review_stage === 'approved'
-                                             ? 'Approved'
+                                             ? 'In production'
                                              : d.review_stage === 'changes'
-                                               ? 'Changes requested'
-                                               : 'In review'
+                                               ? 'Staging · changes requested'
+                                               : 'Staging · in review'
                                        }
                                        className={`ml-auto size-2 shrink-0 rounded-full ${
                                           d.review_stage === 'approved'
@@ -417,6 +454,17 @@ export function DocsView() {
                               <div className="min-w-0">
                                  <span className="inline-flex items-center rounded-full bg-primary/12 px-2.5 py-0.5 text-[11px] font-medium text-primary">
                                     {selected.category}
+                                 </span>{' '}
+                                 <span
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                                       selected.review_stage === 'approved'
+                                          ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+                                          : 'bg-amber-500/12 text-amber-600 dark:text-amber-400'
+                                    }`}
+                                 >
+                                    {selected.review_stage === 'approved'
+                                       ? 'Production'
+                                       : 'Staging'}
                                  </span>
                                  <h1 className="mt-2.5 text-[28px] font-semibold leading-tight tracking-tight">
                                     {selected.title}
@@ -439,27 +487,28 @@ export function DocsView() {
                                        </>
                                     )}
                                  </p>
-                                 {!selected.author_intern_name && selected.category !== 'EOD' && (
-                                    <label
-                                       className="mt-1.5 inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
-                                       title="Interns can read this doc through the task API. Off = internal only."
-                                    >
-                                       <input
-                                          type="checkbox"
-                                          checked={!!selected.intern_visible}
-                                          onChange={async (e) => {
-                                             const r = await fetch(`/api/ops/docs/${selected.id}`, {
-                                                method: 'PATCH',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                   intern_visible: e.target.checked,
-                                                }),
-                                             }).catch(() => null);
-                                             if (r?.ok) load(selected.id);
-                                          }}
-                                       />
-                                       Visible to interns
-                                    </label>
+                                 {selected.draft_of && (
+                                    <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                       Staged edit of a production doc. Promoting it replaces{' '}
+                                       <button
+                                          className="underline"
+                                          onClick={() => setSelId(selected.draft_of ?? null)}
+                                       >
+                                          the production version
+                                       </button>
+                                       .
+                                    </p>
+                                 )}
+                                 {pendingDraft && (
+                                    <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                       An edit of this doc is waiting in staging.{' '}
+                                       <button
+                                          className="underline"
+                                          onClick={() => setSelId(pendingDraft.id)}
+                                       >
+                                          Open it
+                                       </button>
+                                    </p>
                                  )}
                               </div>
                               <div className="flex shrink-0 items-center gap-0.5">
@@ -507,7 +556,11 @@ export function DocsView() {
 
                   <aside className="sticky top-0 hidden max-h-[calc(100vh-1rem)] w-80 shrink-0 space-y-5 self-start overflow-y-auto pt-1 lg:block">
                      <DocDetails doc={selected} readMins={readMins} />
-                     <DocReview baseUrl={`/api/ops/docs/${selected.id}/review`} />
+                     <DocReview
+                        key={selected.id}
+                        baseUrl={`/api/ops/docs/${selected.id}/review`}
+                        onChanged={(id) => load(id ?? selected.id)}
+                     />
                      {toc.length > 0 && (
                         <div>
                            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

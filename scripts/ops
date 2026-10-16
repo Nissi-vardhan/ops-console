@@ -59,11 +59,13 @@ Usage:
   ops trio <OPS-n> [--off]                                mark (or unmark) a task as a trio task
   ops assign <OPS-n> --owner <session>                    set the session that owns a task
   ops parent <OPS-n> <PARENT-n> | ops parent <OPS-n> --off  put a task under a parent (or take it out)
-  ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file a KB doc, linked to it
-  ops kb list --ws <slug> [--pending|--approved|--all] [--by <author>] [--since YYYY-MM-DD] [--json]
-                                                          KB docs, newest first; --pending = in review or
-                                                          changes requested (e.g. docs interns wrote)
-  ops kb show <doc-id> [--json]                           one doc: status, author, linked tasks, full body
+  ops done <OPS-n> --kb "<title>" --kb-body <file|->      close the task + file its task report (a Report
+                                                          doc in staging), linked to it
+  ops kb list --ws <slug|all> [--staging|--production|--pending|--all] [--by <author>] [--since YYYY-MM-DD] [--json]
+                                                          docs, newest first. Production = promoted by Nissi;
+                                                          staging = everything else (--pending: in review or
+                                                          changes requested). --ws all = the main KB
+  ops kb show <doc-id> [--json]                           one doc: layer, author, linked tasks, full body
 
 Interns (tracked people, no console login; owner/admin):
   ops intern add "<name>" [--ws <slug>]                   add an intern (default workspace trainerdb)
@@ -129,7 +131,17 @@ async function api(method, route, body) {
 
 // Split argv into positionals and --flags (each flag takes one value).
 // Flags that take no value.
-const BOOL_FLAGS = new Set(['trio', 'off', 'json', 'roots', 'pending', 'approved', 'all']);
+const BOOL_FLAGS = new Set([
+   'trio',
+   'off',
+   'json',
+   'roots',
+   'pending',
+   'approved',
+   'all',
+   'staging',
+   'production',
+]);
 const REQUESTERS = ['nissi', 'arun', 'jarvis'];
 const WAITERS = ['nissi', 'arun'];
 
@@ -418,7 +430,7 @@ async function main() {
          const { doc } = await api('POST', '/docs', {
             title: kbTitle,
             body,
-            category: 'KB',
+            category: 'Report',
             workspace,
          });
          await api('POST', `/docs/${doc.id}/links`, { issue: issue?.identifier || id });
@@ -502,31 +514,36 @@ async function main() {
          const sub = pos[0];
          const stageLabel = (st) =>
             st === 'approved'
-               ? 'approved'
+               ? 'production'
                : st === 'review'
-                 ? 'in review'
+                 ? 'staging · in review'
                  : st === 'changes'
-                   ? 'changes requested'
-                   : 'not reviewed';
+                   ? 'staging · changes requested'
+                   : 'staging';
          const author = (d) =>
             d.author_intern_name ? `${d.author_intern_name} (intern)` : d.created_by || '–';
          if (sub === 'list') {
-            const ws = oneOf(need(flags.ws, '--ws <slug>'), WORKSPACES, 'workspace');
-            const modes = ['pending', 'approved', 'all'].filter((m) => flags[m]);
-            if (modes.length > 1) die('use only one of --pending, --approved, --all');
-            const mode = modes[0] || 'all';
+            const wsArg = need(flags.ws, '--ws <slug|all>');
+            const ws = wsArg === 'all' ? 'all' : oneOf(wsArg, WORKSPACES, 'workspace');
+            const modes = ['staging', 'production', 'pending', 'approved', 'all'].filter(
+               (m) => flags[m]
+            );
+            if (modes.length > 1) die('use only one of --staging, --production, --pending, --all');
+            const mode = modes[0] === 'approved' ? 'production' : modes[0] || 'all';
             if (flags.since && !/^\d{4}-\d{2}-\d{2}$/.test(String(flags.since)))
                die(`--since must be YYYY-MM-DD, got "${flags.since}"`);
             const by = flags.by ? String(flags.by).toLowerCase() : '';
             const { docs } = await api('GET', '/docs');
             const rows = docs
-               .filter((d) => d.workspace === ws)
+               .filter((d) => ws === 'all' || d.workspace === ws)
                .filter((d) =>
                   mode === 'pending'
                      ? d.review_stage === 'review' || d.review_stage === 'changes'
-                     : mode === 'approved'
+                     : mode === 'production'
                        ? d.review_stage === 'approved'
-                       : true
+                       : mode === 'staging'
+                         ? d.review_stage !== 'approved'
+                         : true
                )
                .filter((d) => !by || author(d).toLowerCase().includes(by))
                .filter(
@@ -539,6 +556,7 @@ async function main() {
                   id: d.id,
                   title: d.title,
                   workspace: d.workspace,
+                  draft_of: d.draft_of || null,
                   category: d.category,
                   status: stageLabel(d.review_stage),
                   author: author(d),
@@ -553,7 +571,7 @@ async function main() {
             if (!rows.length) console.log('no docs');
             for (const d of rows)
                console.log(
-                  `${d.id} · ${d.status} · ${d.category} · ${d.author} · ${ist(d.created_at)} · ${d.title}`
+                  `${d.id} · ${d.status}${d.draft_of ? ' (edit of a production doc)' : ''} · ${ws === 'all' ? (d.workspace || '–') + ' · ' : ''}${d.category} · ${d.author} · ${ist(d.created_at)} · ${d.title}`
                );
             return;
          }
