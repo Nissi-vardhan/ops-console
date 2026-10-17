@@ -35,7 +35,7 @@ export const inboxItems = [
       icon: FolderKanban,
    },
    {
-      name: 'Agent',
+      name: 'Ask',
       url: '/shortcastle/agent',
       icon: Bot,
    },

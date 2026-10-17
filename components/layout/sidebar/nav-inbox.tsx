@@ -23,7 +23,7 @@ const ITEM_KEYS: Record<string, SidebarItemKey> = {
    'Inbox': 'inbox',
    'Reviews': 'reviews',
    'My issues': 'my-issues',
-   'Agent': 'agent',
+   'Ask': 'agent',
 };
 
 export function NavInbox() {
@@ -35,13 +35,8 @@ export function NavInbox() {
    const unread = mounted ? getUnreadCount() : 0;
 
    const orderedItems = mounted
-      ? resolveOrder(
-           order.personal,
-           inboxItems.map((item) => ITEM_KEYS[item.name]).filter(Boolean)
-        )
-           .map((key) =>
-              inboxItems.find((item) => ITEM_KEYS[item.name] === key)
-           )
+      ? resolveOrder(order.personal, inboxItems.map((item) => ITEM_KEYS[item.name]).filter(Boolean))
+           .map((key) => inboxItems.find((item) => ITEM_KEYS[item.name] === key))
            .filter((item): item is (typeof inboxItems)[number] => Boolean(item))
       : inboxItems;
 

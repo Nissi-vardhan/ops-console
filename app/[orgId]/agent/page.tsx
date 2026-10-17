@@ -1,11 +1,12 @@
-import AgentChat from '@/components/common/agent/agent-chat';
-import Header from '@/components/layout/headers/agent/header';
 import MainLayout from '@/components/layout/main-layout';
+import { TopHeader } from '@/components/layout/top-header';
+import { AskView } from '@/components/common/ask/ask-view';
 
-export default function AgentPage() {
+// "Ask" (SC-368): team questions answered from the KB. Replaces the template's mock agent chat.
+export default function AskPage() {
    return (
-      <MainLayout header={<Header />} headersNumber={1}>
-         <AgentChat />
+      <MainLayout header={<TopHeader title="Ask" />} headersNumber={1}>
+         <AskView />
       </MainLayout>
    );
 }

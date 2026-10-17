@@ -555,6 +555,20 @@ CREATE INDEX IF NOT EXISTS idx_ops_lark_messages_intern ON ops_lark_messages(int
 -- production doc is a staged draft (draft_of = that doc) that replaces it when promoted.
 ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS draft_of uuid REFERENCES ops_docs(id) ON DELETE CASCADE;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_docs_draft_of ON ops_docs(draft_of) WHERE draft_of IS NOT NULL;
+-- Ask (SC-368): team questions answered from the KB. Unanswered ones are KB gaps for Nissi.
+CREATE TABLE IF NOT EXISTS ops_kb_questions (
+  id          bigserial PRIMARY KEY,
+  question    text NOT NULL,
+  workspace   text NOT NULL DEFAULT 'all',
+  staging     boolean NOT NULL DEFAULT false,
+  answered    boolean NOT NULL DEFAULT false,
+  answer      text NOT NULL DEFAULT '',
+  source_ids  uuid[] NOT NULL DEFAULT '{}',
+  asked_by    text NOT NULL DEFAULT '',
+  resolved_at timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_kb_questions_gaps ON ops_kb_questions(created_at DESC) WHERE NOT answered AND resolved_at IS NULL;
 `;
 
 let migrated = false;
