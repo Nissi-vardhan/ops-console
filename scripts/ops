@@ -71,7 +71,7 @@ Interns (tracked people, no console login; owner/admin):
   ops intern add "<name>" [--ws <slug>]                   add an intern (default workspace trainerdb)
   ops intern list                                         interns, open task, performance + overall
   ops intern show <name>                                  one intern's tasks, events (IST) and numbers
-  ops intern assign <OPS-n> <name> [--code CLN-01] [--priority P0]   assign (one open task per intern)
+  ops intern assign <OPS-n> <name> [--code CLN-01] [--priority P0]   assign (any number of open tasks)
   ops intern sent <OPS-n> [--file <name>]                 the task message/PDF was sent to him
   ops intern start <OPS-n>                                he reported starting the task
   ops eod <OPS-n> --body <file|->                         his EOD summary (also filed as a KB doc)
@@ -449,9 +449,15 @@ async function main() {
             const { interns, overall } = await api('GET', '/interns');
             if (!interns.length) console.log('no interns');
             for (const n of interns) {
-               const cur = n.current
-                  ? `${n.current.identifier}${n.current.backlog_code ? ' ' + n.current.backlog_code : ''} — ${n.current.title}`
-                  : 'no open task';
+               const open = n.open || (n.current ? [n.current] : []);
+               const cur = open.length
+                  ? open
+                       .map(
+                          (t) =>
+                             `${t.identifier}${t.backlog_code ? ' ' + t.backlog_code : ''} — ${t.title}`
+                       )
+                       .join(' | ')
+                  : 'no open tasks';
                console.log(`${n.name}${n.active ? '' : ' (inactive)'} · ${cur}`);
                console.log(`  ${perfLine(n.perf)}`);
             }

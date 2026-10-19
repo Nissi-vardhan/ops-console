@@ -76,6 +76,7 @@ interface InternSummary {
    workspace: string;
    active: boolean;
    current: InternTask | null;
+   open?: InternTask[];
    perf: PerfStats;
    last_eod_at: string | null;
    lark_connected?: boolean;
@@ -249,7 +250,7 @@ export function InternsView() {
                <PageHeader
                   icon={GraduationCap}
                   title="Interns"
-                  subtitle="Nissi sends the daily task message by hand and gets the EOD summary on Lark. One open task at a time. Times in IST."
+                  subtitle="Nissi sends the daily task message by hand and gets the EOD summary on Lark. Times in IST."
                />
                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Lock className="size-3.5 shrink-0" /> Internal only — interns have no login and
@@ -291,17 +292,20 @@ export function InternsView() {
                            </span>
                         </div>
                         <div className="mt-1.5 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                           {n.current ? (
-                              <>
-                                 <span className="font-mono text-foreground">
-                                    {n.current.identifier}
-                                 </span>
-                                 {n.current.backlog_code && ` · ${n.current.backlog_code}`}
-                                 {n.current.priority && ` · ${n.current.priority}`} —{' '}
-                                 {n.current.title}
-                              </>
+                           {n.open && n.open.length > 0 ? (
+                              <ul className="space-y-0.5">
+                                 {n.open.map((t) => (
+                                    <li key={t.id}>
+                                       <span className="font-mono text-foreground">
+                                          {t.identifier}
+                                       </span>
+                                       {t.backlog_code && ` · ${t.backlog_code}`}
+                                       {t.priority && ` · ${t.priority}`} — {t.title}
+                                    </li>
+                                 ))}
+                              </ul>
                            ) : (
-                              'No open task — ready for the next one'
+                              'No open tasks'
                            )}
                         </div>
                         <div className="mt-1 text-[11px] text-muted-foreground">

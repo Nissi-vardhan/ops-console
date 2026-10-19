@@ -55,7 +55,9 @@ export type InternTaskFull = InternTask & { events: InternEvent[]; stats: TaskSt
 
 export interface InternSummary extends Intern {
    lark_connected: boolean;
+   /** Newest open task (kept for older callers); `open` lists all of them. */
    current: InternTask | null;
+   open: InternTask[];
    perf: PerfStats;
    last_eod_at: string | null;
 }
@@ -129,10 +131,14 @@ function summarize(intern: Intern, tasks: InternTaskFull[]): InternSummary {
    const lark_webhook = safe.lark_webhook;
    delete safe.lark_webhook;
    delete safe.lark_secret;
+   const openTasks = mine
+      .filter((t) => !t.closed_at)
+      .sort((a, b) => (a.assigned_at < b.assigned_at ? 1 : -1));
    return {
       ...safe,
       lark_connected: !!lark_webhook,
-      current: mine.find((t) => !t.closed_at) ?? null,
+      current: openTasks[0] ?? null,
+      open: openTasks,
       perf: perfStats(mine),
       last_eod_at: lastEod == null ? null : new Date(lastEod).toISOString(),
    };
@@ -160,7 +166,7 @@ export async function internProfile(
    return { intern: summarize(intern, tasks), tasks };
 }
 
-/** Assign a task to an intern. Refused while the intern still has an open task. */
+/** Assign a task to an intern. An intern can hold any number of open tasks (Nissi, 19 Oct). */
 export async function assignInternTask(
    internRef: string,
    issueId: string,
@@ -169,12 +175,6 @@ export async function assignInternTask(
    const intern = await findIntern(internRef);
    if (!intern) throw new InternError(`no intern "${internRef}"`, 404);
    if (!intern.active) throw new InternError(`${intern.name} is inactive`);
-   const open = await openTaskOf(intern.id);
-   if (open)
-      throw new InternError(
-         `${intern.name} already has an open task (${open.identifier}) — review and approve it first`,
-         409
-      );
    const taken = await queryOne<{ name: string }>(
       `SELECT n.name FROM ops_intern_tasks t JOIN ops_interns n ON n.id = t.intern_id
         WHERE t.issue_id = $1 AND t.closed_at IS NULL`,
@@ -191,12 +191,12 @@ export async function assignInternTask(
       );
    } catch (e) {
       if ((e as { code?: string }).code === '23505')
-         throw new InternError(`${intern.name} already has an open task`, 409);
+         throw new InternError('that task is already assigned to an intern', 409);
       throw e;
    }
    // Assigned = to-do until the intern starts it (via the intern API).
    await updateOpsIssue(issueId, { status_id: 'to-do' });
-   const task = (await openTaskOf(intern.id))!;
+   const task = (await openTaskOn(intern.id, issueId))!;
    await notifyInternGroup(
       intern.id,
       `📌 New task for ${intern.name}: ${task.identifier} · ${task.title}`
@@ -204,10 +204,10 @@ export async function assignInternTask(
    return task;
 }
 
-async function openTaskOf(internId: string): Promise<InternTask | null> {
+async function openTaskOn(internId: string, issueId: string): Promise<InternTask | null> {
    return queryOne<InternTask>(
-      `SELECT ${TASK_COLS} FROM ${TASK_FROM} WHERE t.intern_id = $1 AND t.closed_at IS NULL`,
-      [internId]
+      `SELECT ${TASK_COLS} FROM ${TASK_FROM} WHERE t.intern_id = $1 AND t.issue_id = $2 AND t.closed_at IS NULL`,
+      [internId, issueId]
    );
 }
 

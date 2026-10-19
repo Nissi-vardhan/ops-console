@@ -332,8 +332,7 @@ CREATE TABLE IF NOT EXISTS ops_intern_tasks (
   assigned_at  timestamptz NOT NULL DEFAULT now(),
   closed_at    timestamptz
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_intern_tasks_one_open
-  ON ops_intern_tasks (intern_id) WHERE closed_at IS NULL;
+-- (was: one open task per intern; removed 19 Oct 2026, SC-404 — see LARK_INBOX_SQL)
 CREATE TABLE IF NOT EXISTS ops_intern_events (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   intern_task_id uuid NOT NULL REFERENCES ops_intern_tasks(id) ON DELETE CASCADE,
@@ -556,6 +555,9 @@ CREATE INDEX IF NOT EXISTS idx_ops_lark_messages_intern ON ops_lark_messages(int
 ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS draft_of uuid REFERENCES ops_docs(id) ON DELETE CASCADE;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_docs_draft_of ON ops_docs(draft_of) WHERE draft_of IS NOT NULL;
 -- Ask (SC-368): team questions answered from the KB. Unanswered ones are KB gaps for Nissi.
+-- SC-404 (19 Oct): interns can hold several open tasks; a task can still have only one open assignment.
+DROP INDEX IF EXISTS idx_ops_intern_tasks_one_open;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_intern_tasks_issue_open ON ops_intern_tasks (issue_id) WHERE closed_at IS NULL;
 CREATE TABLE IF NOT EXISTS ops_kb_questions (
   id          bigserial PRIMARY KEY,
   question    text NOT NULL,
