@@ -695,6 +695,29 @@ export async function listKbDocs(
    );
 }
 
+// Same feed, ranked by a question (CL-515): full-text match of ANY word on title (weighted) + body, best first.
+// Lets a bot fetch only the few articles relevant to a customer's message.
+export async function searchKbDocs(
+   workspace: string,
+   approvedOnly: boolean,
+   q: string,
+   limit: number
+): Promise<(Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'> & { rank: number })[]> {
+   return query<Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'> & { rank: number }>(
+      `SELECT id, title, body, updated_at,
+              ts_rank(setweight(to_tsvector('english', title), 'A') || to_tsvector('english', body),
+                      replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery) AS rank
+         FROM ops_docs
+        WHERE category = 'KB' AND workspace = $1
+          AND ($2::boolean = false OR review_stage = 'approved')
+          AND (setweight(to_tsvector('english', title), 'A') || to_tsvector('english', body))
+              @@ replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery
+        ORDER BY rank DESC, updated_at DESC
+        LIMIT $4`,
+      [workspace, approvedOnly, q, limit]
+   );
+}
+
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
       `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
