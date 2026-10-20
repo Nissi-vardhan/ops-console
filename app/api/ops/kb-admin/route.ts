@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { getOpsDoc, setDocReview } from '@/lib/ops-data';
 import { kbGapsFor, listKbAdmin, resolveGaps, type KbFilter } from '@/lib/ops-kb-admin';
 import { WORKSPACES } from '@/lib/workspaces';
 
-// Knowledge Base manager (SC-418). Owners only.
+// Knowledge Base manager (SC-418). Owners only, signed in: the CLI/session bearer is
+// refused here, because the Live switch changes production (same rule as docs review).
+async function ownerOnly(): Promise<Response | null> {
+   const u = await getOpsUser();
+   if (!u) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   if (u.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   return null;
+}
+
 // GET  ?ws=<product>&filter=all|live|review&q=  → { docs, counts, gaps }
 // POST { action: 'toggle', id, live }            → set an article live (production) or back to review
 // POST { action: 'resolve', ids }               → mark unanswered questions as handled
 export async function GET(request: Request) {
-   const denied = await requireRole(request, 'owner');
+   const denied = await ownerOnly();
    if (denied) return denied;
    const sp = new URL(request.url).searchParams;
    const ws = sp.get('ws') || '';
@@ -24,7 +31,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-   const denied = await requireRole(request, 'owner');
+   const denied = await ownerOnly();
    if (denied) return denied;
    const body = await request.json().catch(() => null);
    if (body?.action === 'resolve') {
