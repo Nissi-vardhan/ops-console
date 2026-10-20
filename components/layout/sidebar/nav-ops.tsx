@@ -90,10 +90,14 @@ export function NavOps() {
 
    const myTasksUrl = `${base}/my-issues`;
    const [meId, setMeId] = useState<string | null>(null);
+   const [isOwner, setIsOwner] = useState(false);
    useEffect(() => {
       fetch('/api/ops/me', { cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null))
-         .then((d) => setMeId(d?.user?.id ?? null))
+         .then((d) => {
+            setMeId(d?.user?.id ?? null);
+            setIsOwner(d?.user?.role === 'owner');
+         })
          .catch(() => {});
    }, []);
 
@@ -131,7 +135,10 @@ export function NavOps() {
       { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
       { name: 'Workflows', icon: Workflow, url: `${base}/workflows` },
       { name: 'Automations', icon: Bot, url: `${base}/automations` },
-      { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
+      // Owners manage the product KBs (SC-418); everyone else keeps the search page.
+      isOwner
+         ? { name: 'Knowledge Base', icon: Sparkles, url: `${base}/kb` }
+         : { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
       { name: 'Docs', icon: FileText, url: `${base}/docs` },
       { name: 'Infra', icon: Server, url: `${base}/infra` },
       { name: 'Interns', icon: GraduationCap, url: `${base}/interns` },
