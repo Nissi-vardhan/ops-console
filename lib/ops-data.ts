@@ -183,8 +183,15 @@ const ISSUE_SELECT = `
   (SELECT count(*)::int FROM ops_task_steps s WHERE s.issue_id = i.id
      AND s.status IN ('done','skipped')) AS step_done`;
 
+// The console loads every task on each page load. The progress log is most of that
+// payload and only the task page shows it (it fetches the task itself), so the full
+// list leaves it out.
+const ISSUE_LIST_SELECT = ISSUE_SELECT.replace('i.progress,', "''::text AS progress,");
+
 export async function listOpsIssues(): Promise<OpsIssue[]> {
-   return query<OpsIssue>(`SELECT ${ISSUE_SELECT} FROM ops_issues i ORDER BY i.created_at DESC`);
+   return query<OpsIssue>(
+      `SELECT ${ISSUE_LIST_SELECT} FROM ops_issues i ORDER BY i.created_at DESC`
+   );
 }
 
 export const REQUESTERS = ['nissi', 'arun', 'jarvis'] as const;

@@ -547,9 +547,38 @@ export async function computeAll(
    return { rows: out, missed };
 }
 
+// The automations page computes status over 7 days of runs, which takes seconds.
+// Serve the last result and refresh it in the background once it's over a minute
+// old; edits to the registry clear it.
+type Computed = Awaited<ReturnType<typeof computeAll>>;
+let computed: { at: number; value: Computed } | null = null;
+let computing: Promise<Computed> | null = null;
+
+function recompute(): Promise<Computed> {
+   computing ??= computeAll()
+      .then((value) => {
+         computed = { at: Date.now(), value };
+         return value;
+      })
+      .finally(() => {
+         computing = null;
+      });
+   return computing;
+}
+
+export async function computeAllCached(maxAgeMs = 60_000): Promise<Computed> {
+   if (!computed) return recompute();
+   if (Date.now() - computed.at > maxAgeMs) recompute().catch(() => {});
+   return computed.value;
+}
+
+function clearComputed() {
+   computed = null;
+}
+
 /** Write a status_log row for every automation whose status changed since its last entry. */
 async function logStatusChanges(): Promise<void> {
-   const { rows } = await computeAll();
+   const { rows } = await recompute();
    const last = await query<{ automation_id: string; to_status: string }>(
       `SELECT DISTINCT ON (automation_id) automation_id, to_status FROM automation_status_log
         ORDER BY automation_id, at DESC`
@@ -855,6 +884,7 @@ export function automationInputError(b: Record<string, unknown>): string | null 
 }
 
 export async function updateAutomation(id: string, patch: Record<string, unknown>, by: string) {
+   clearComputed();
    const sets: string[] = [];
    const vals: unknown[] = [];
    for (const k of EDITABLE) {
@@ -872,6 +902,7 @@ export async function updateAutomation(id: string, patch: Record<string, unknown
 }
 
 export async function createAutomation(input: Record<string, unknown>, by: string) {
+   clearComputed();
    const product = String(input.product ?? '');
    const prefix = workspacePrefix(product).toLowerCase();
    const n = await queryOne<{ n: number }>(
@@ -890,6 +921,7 @@ export async function createAutomation(input: Record<string, unknown>, by: strin
 }
 
 export async function deleteAutomation(id: string) {
+   clearComputed();
    const r = await query<{ id: string }>('DELETE FROM automations WHERE id = $1 RETURNING id', [
       id,
    ]);

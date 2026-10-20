@@ -4,7 +4,7 @@ import { getIssueDetail } from '@/mock-data/issue-details';
 import { useIssuesStore } from '@/store/issues-store';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IssuePropertiesPanel } from './issue-properties-panel';
@@ -57,6 +57,21 @@ export default function IssueDetails() {
    ).length;
 
    const detail = useMemo(() => (issue ? getIssueDetail(issue) : null), [issue]);
+   // The task list leaves out the progress log (it's large); fetch it for this task.
+   const [progress, setProgress] = useState<{ id: string; text: string } | null>(null);
+   const taskId = issue?.id;
+   useEffect(() => {
+      if (!taskId) return;
+      let live = true;
+      fetch(`/api/ops/issues/${taskId}`, { cache: 'no-store' })
+         .then((r) => (r.ok ? r.json() : null))
+         .then((d) => live && d?.issue && setProgress({ id: taskId, text: d.issue.progress || '' }))
+         .catch(() => {});
+      return () => {
+         live = false;
+      };
+   }, [taskId]);
+   const progressText = (progress?.id === taskId ? progress?.text : '') || issue?.progress || '';
 
    if (!issue || !detail) {
       return (
@@ -151,16 +166,14 @@ export default function IssueDetails() {
                <TaskLinkedDocs issueRef={issue.identifier} base={`/${orgId ?? 'shortcastle'}`} />
 
                {/* Progress log — appended by `ops note` / agents as they work */}
-               {issue.progress?.trim() && (
+               {progressText.trim() && (
                   <div className="mt-8">
                      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Progress
                      </h2>
                      <div className="rounded-xl border bg-container p-3">
                         <div className={prose}>
-                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {issue.progress}
-                           </ReactMarkdown>
+                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{progressText}</ReactMarkdown>
                         </div>
                      </div>
                   </div>

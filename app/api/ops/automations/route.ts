@@ -4,7 +4,7 @@ import { getOpsUser } from '@/lib/ops-session';
 import {
    automationInputError,
    automationMeta,
-   computeAll,
+   computeAllCached,
    createAutomation,
 } from '@/lib/ops-automations';
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
    const denied = await requireRole(request, 'admin');
    if (denied) return denied;
    const sp = new URL(request.url).searchParams;
-   const { rows } = await computeAll();
+   const { rows } = await computeAllCached();
    const counts: Record<string, Record<string, number>> = {};
    for (const r of rows) {
       counts[r.product] ??= {};
