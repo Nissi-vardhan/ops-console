@@ -256,8 +256,8 @@ export function InternsView() {
                   subtitle="Nissi sends the daily task message by hand and gets the EOD summary on Lark. Times in IST."
                />
                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Lock className="size-3.5 shrink-0" /> Internal only — interns have no login and
-                  nothing here is ever sent to them.
+                  <Lock className="size-3.5 shrink-0" /> Internal only — interns never see this
+                  page, their ratings or review notes.
                </p>
                {overall && interns.length > 0 && (
                   <section className="space-y-2">
@@ -700,6 +700,117 @@ interface KbDoc {
    updated_at: string;
 }
 
+/** The intern's login for the limited intern page (SC-430). Owners only; hidden for others. */
+function InternLogin({ internId }: { internId: string }) {
+   const base = `/api/ops/interns/${internId}/login`;
+   const [info, setInfo] = useState<{
+      login_name: string | null;
+      enabled: boolean;
+      password_set_at: string | null;
+   } | null>(null);
+   const [fresh, setFresh] = useState<{ login_name: string; password: string } | null>(null);
+   const load = useCallback(async () => {
+      const r = await fetch(base, { cache: 'no-store' }).catch(() => null);
+      setInfo(r?.ok ? await r.json() : null);
+   }, [base]);
+   useEffect(() => {
+      load();
+   }, [load]);
+   if (!info) return null; // not an owner
+   const host = 'https://tasks.shortcastle.com';
+   const post = async (action: 'reset' | 'disable') => {
+      const r = await fetch(base, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ action }),
+      }).catch(() => null);
+      const d = r ? await r.json().catch(() => null) : null;
+      if (!r?.ok) return toast.error(d?.error || 'Could not save');
+      if (action === 'reset') setFresh(d);
+      else {
+         setFresh(null);
+         toast.success('Login turned off; the intern is signed out');
+      }
+      load();
+   };
+   return (
+      <div className="space-y-2 rounded-xl border bg-container p-4 text-sm md:col-span-2">
+         <p className="font-medium">Intern page login</p>
+         <p className="text-xs text-muted-foreground">
+            A username and password for {host}: only this intern&apos;s own tasks, files and docs.
+            No ratings, review notes or other people&apos;s work. It never opens the ops console.
+         </p>
+         {fresh && (
+            <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
+               <p className="font-medium">
+                  Send these to the intern now. The password won&apos;t be shown again.
+               </p>
+               <code className="block break-all rounded bg-background px-2 py-1 font-mono">
+                  {`${host}\nUsername: ${fresh.login_name}\nPassword: ${fresh.password}`}
+               </code>
+               <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                     navigator.clipboard
+                        .writeText(
+                           `${host}\nUsername: ${fresh.login_name}\nPassword: ${fresh.password}`
+                        )
+                        .then(() => toast.success('Copied'))
+                  }
+               >
+                  Copy
+               </Button>
+            </div>
+         )}
+         <p className="text-xs">
+            {info.enabled ? (
+               <>
+                  On · username <code className="font-mono">{info.login_name}</code>
+                  {info.password_set_at && (
+                     <span className="text-muted-foreground">
+                        {' '}
+                        · password set {ist(info.password_set_at)}
+                     </span>
+                  )}
+               </>
+            ) : (
+               <span className="text-muted-foreground">No login yet.</span>
+            )}
+         </p>
+         <div className="flex flex-wrap gap-2">
+            <Button
+               size="sm"
+               onClick={() => {
+                  if (
+                     info.enabled &&
+                     !window.confirm(
+                        'Reset the password? The old one stops working and the intern is signed out.'
+                     )
+                  )
+                     return;
+                  post('reset');
+               }}
+            >
+               {info.enabled ? 'Reset password' : 'Create login'}
+            </Button>
+            {info.enabled && (
+               <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                     if (window.confirm('Turn off this login? The intern is signed out at once.'))
+                        post('disable');
+                  }}
+               >
+                  Turn off
+               </Button>
+            )}
+         </div>
+      </div>
+   );
+}
+
 /** API key, Lark group and KB docs for one intern (owner/admin). */
 function InternAccess({ intern }: { intern: InternSummary }) {
    const base = `/api/ops/interns/${intern.id}`;
@@ -729,6 +840,7 @@ function InternAccess({ intern }: { intern: InternSummary }) {
    const active = keys.filter((k) => !k.revoked_at);
    return (
       <div className="grid gap-3 md:grid-cols-2">
+         <InternLogin internId={intern.id} />
          <div className="space-y-2 rounded-xl border bg-container p-4 text-sm">
             <p className="font-medium">API access</p>
             <p className="text-xs text-muted-foreground">

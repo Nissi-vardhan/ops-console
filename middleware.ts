@@ -41,6 +41,12 @@ export async function middleware(req: NextRequest) {
    if (internHost && host === internHost) {
       if (path === '/api/intern/v1' || path.startsWith('/api/intern/v1/'))
          return NextResponse.next();
+      // The intern page (SC-430): one self-contained HTML page, no console assets.
+      if (path === '/') {
+         const url = req.nextUrl.clone();
+         url.pathname = '/api/intern/portal';
+         return NextResponse.rewrite(url);
+      }
       return NextResponse.json({ error: 'not found' }, { status: 404 });
    }
    // Console host: static assets pass straight through (as before this matcher change).

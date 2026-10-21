@@ -8,6 +8,7 @@ import {
 } from '@/lib/ops-data';
 import { listIssueAttachments } from '@/lib/ops-attachments';
 import { sendLarkToHook } from '@/lib/lark';
+import { portalInternId } from '@/lib/intern-portal';
 
 // Intern API (TDB-67). An intern authenticates with a personal key and can only
 // reach: his assigned tasks (description, files, his own updates), the approved
@@ -94,6 +95,18 @@ export async function revokeInternKey(internId: string, keyId: string): Promise<
 /** The intern behind a request's Bearer key, or null. */
 export async function authIntern(request: Request): Promise<InternRow | null> {
    const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+   if (!token) {
+      // Signed in on the intern page (cookie). Changes also need the page's own header, so another
+      // site can't post on his behalf.
+      const id = await portalInternId(request);
+      if (!id) return null;
+      if (request.method !== 'GET' && request.headers.get('x-portal') !== '1') return null;
+      const row = await queryOne<InternRow>(
+         'SELECT id, name, workspace, active, lark_webhook, lark_secret FROM ops_interns WHERE id = $1',
+         [id]
+      );
+      return row?.active ? row : null;
+   }
    if (!token.startsWith(KEY_PREFIX) || token.length < 20) return null;
    const row = await queryOne<InternRow & { key_id: string; last_used_at: string | null }>(
       `SELECT n.id, n.name, n.workspace, n.active, n.lark_webhook, n.lark_secret, k.id AS key_id, k.last_used_at

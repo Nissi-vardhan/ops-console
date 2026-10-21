@@ -574,7 +574,13 @@ CREATE INDEX IF NOT EXISTS idx_ops_kb_questions_gaps ON ops_kb_questions(created
 -- task closed. The first correction keeps the original rating/notes; edited_* say who and when.
 ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS edited_at timestamptz;
 ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS edited_by text NOT NULL DEFAULT '';
-ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS original jsonb;
+ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS original jsonb;-- Intern login (SC-430, 21 Oct 2026): a username + password per intern for the limited page on the
+-- intern host. Nissi creates/resets it; password_set_at changes on every reset or disable, which
+-- signs out existing sessions.
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS login_name text;
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS password_hash text;
+ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS password_set_at timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_interns_login ON ops_interns (lower(login_name)) WHERE login_name IS NOT NULL;
 `;
 
 let migrated = false;
