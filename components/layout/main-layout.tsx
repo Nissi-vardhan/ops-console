@@ -7,6 +7,7 @@ import { OpsBootstrap } from '@/components/ops-bootstrap';
 import { PageTransition } from '@/components/layout/page-transition';
 import { WorkspaceBar } from '@/components/layout/workspace-bar';
 import { cn } from '@/lib/utils';
+import { NotForInterns } from '@/components/intern-hide';
 
 interface MainLayoutProps {
    children: React.ReactNode;
@@ -38,8 +39,10 @@ export default function MainLayout({ children, header, headersNumber = 2 }: Main
    return (
       <SidebarProvider>
          <OpsBootstrap />
-         <CreateIssueModalProvider />
-         <CommandPalette />
+         <NotForInterns>
+            <CreateIssueModalProvider />
+            <CommandPalette />
+         </NotForInterns>
          <AppSidebar />
          <div className="h-svh overflow-hidden lg:p-2 w-full">
             <div className="lg:border lg:rounded-md overflow-hidden flex flex-col items-center justify-start bg-container h-full w-full">
@@ -50,7 +53,9 @@ export default function MainLayout({ children, header, headersNumber = 2 }: Main
                      isEmptyHeader(header) ? 'h-full' : height[headersNumber as keyof typeof height]
                   )}
                >
-                  <WorkspaceBar />
+                  <NotForInterns>
+                     <WorkspaceBar />
+                  </NotForInterns>
                   <PageTransition>{children}</PageTransition>
                </div>
             </div>

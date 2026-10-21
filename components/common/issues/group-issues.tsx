@@ -1,5 +1,6 @@
 'use client';
 
+import { NotForInterns } from '@/components/intern-hide';
 import { Issue } from '@/mock-data/issues';
 import { Status } from '@/mock-data/status';
 import { useIssuesStore } from '@/store/issues-store';
@@ -71,17 +72,19 @@ export function GroupIssues({ group, issues, count }: GroupIssuesProps) {
                   </span>
                </div>
 
-               <Button
-                  className="size-6"
-                  size="icon"
-                  variant="ghost"
-                  onClick={(e) => {
-                     e.stopPropagation();
-                     openModal(group.status);
-                  }}
-               >
-                  <Plus className="size-4" />
-               </Button>
+               <NotForInterns>
+                  <Button
+                     className="size-6"
+                     size="icon"
+                     variant="ghost"
+                     onClick={(e) => {
+                        e.stopPropagation();
+                        openModal(group.status);
+                     }}
+                  >
+                     <Plus className="size-4" />
+                  </Button>
+               </NotForInterns>
             </div>
          </div>
 

@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useIssuesStore } from '@/store/issues-store';
 import { status as allStatus, Status } from '@/mock-data/status';
 import { CheckIcon } from 'lucide-react';
+import { useInternMode } from '@/components/intern-mode';
 import { useEffect, useId, useState } from 'react';
 import { renderStatusIcon } from '@/lib/status-utils';
 
@@ -22,6 +23,8 @@ interface StatusSelectorProps {
 }
 
 export function StatusSelector({ status, issueId }: StatusSelectorProps) {
+   // Intern mode (SC-430): shown, not editable.
+   const intern = useInternMode();
    const id = useId();
    const [open, setOpen] = useState<boolean>(false);
    const [value, setValue] = useState<string>(status.id);
@@ -46,7 +49,7 @@ export function StatusSelector({ status, issueId }: StatusSelectorProps) {
 
    return (
       <div className="*:not-first:mt-2">
-         <Popover open={open} onOpenChange={setOpen}>
+         <Popover open={open} onOpenChange={(o) => setOpen(o && !intern)}>
             <PopoverTrigger asChild>
                <Button
                   id={id}

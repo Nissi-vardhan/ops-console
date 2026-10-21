@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
@@ -18,7 +19,7 @@ const geistMono = JetBrains_Mono({
 
 const siteUrl = 'https://ops.shortcastle.com';
 
-export const metadata: Metadata = {
+const opsMetadata: Metadata = {
    title: {
       template: '%s | Shortcastle Ops',
       default: 'Shortcastle Ops',
@@ -44,6 +45,26 @@ export const metadata: Metadata = {
    },
 };
 
+const TASKS_ICON =
+   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%232563eb'/%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E";
+
+// On the intern host (SC-430) the app is "TrainerDB Tasks": no company name, no app manifest.
+const internMetadata: Metadata = {
+   title: { template: '%s | TrainerDB Tasks', default: 'TrainerDB Tasks' },
+   robots: { index: false, follow: false },
+   icons: { icon: TASKS_ICON },
+};
+
+async function onInternHost(): Promise<boolean> {
+   const host = ((await headers()).get('host') || '').split(':')[0].toLowerCase();
+   const internHost = (process.env.INTERN_API_HOST || '').toLowerCase();
+   return !!internHost && host === internHost;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+   return (await onInternHost()) ? internMetadata : opsMetadata;
+}
+
 export const viewport = {
    themeColor: '#eef2f8',
 };
@@ -52,12 +73,14 @@ import { ThemeProvider } from '@/components/layout/theme-provider';
 import { ConfirmProvider } from '@/components/common/confirm';
 import { PwaRegister } from '@/components/pwa-register';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { InternModeProvider } from '@/components/intern-mode';
 
-export default function RootLayout({
+export default async function RootLayout({
    children,
 }: Readonly<{
    children: React.ReactNode;
 }>) {
+   const intern = await onInternHost();
    return (
       <html lang="en" suppressHydrationWarning>
          <head>
@@ -69,9 +92,11 @@ export default function RootLayout({
          >
             <NuqsAdapter>
                <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-                  <ConfirmProvider>{children}</ConfirmProvider>
+                  <InternModeProvider value={intern}>
+                     <ConfirmProvider>{children}</ConfirmProvider>
+                  </InternModeProvider>
                   <Toaster />
-                  <PwaRegister />
+                  {!intern && <PwaRegister />}
                </ThemeProvider>
             </NuqsAdapter>
          </body>

@@ -4,6 +4,9 @@ import { jwtVerify } from 'jose';
 // Gate the whole ops console behind a valid session; only /login + /api/auth
 // stay open so a user can actually sign in.
 const OPS_COOKIE = 'ops_session';
+const INTERN_COOKIE = 'tdb_session';
+// The three console screens an intern can open on the intern host.
+const INTERN_PAGES = /^\/tasks\/(my-issues|docs|issue\/[A-Za-z0-9-]+)\/?$/;
 // /share/* is a public, Google-gated doc viewer (it does its own auth).
 // /manifest.webmanifest + /sw.js MUST stay open: the browser fetches the PWA
 // manifest WITHOUT credentials (no session cookie), so gating it behind auth
@@ -39,16 +42,38 @@ export async function middleware(req: NextRequest) {
       return NextResponse.rewrite(url);
    }
    if (internHost && host === internHost) {
+      // The intern host (SC-430) serves the console in intern mode and nothing else: the Task
+      // API, the intern sign-in page, three screens, and their data (answered by the intern-only
+      // handlers in /api/intern/console, never by the console's own API).
       if (path === '/api/intern/v1' || path.startsWith('/api/intern/v1/'))
          return NextResponse.next();
-      // The intern page (SC-430): one self-contained HTML page, no console assets.
-      if (path === '/') {
+      if (path.startsWith('/api/intern/console/') || path.startsWith('/_next/'))
+         return NextResponse.next();
+      if (path === '/api/auth' || path.startsWith('/api/ops/')) {
          const url = req.nextUrl.clone();
-         url.pathname = '/api/intern/portal';
+         url.pathname =
+            '/api/intern/console/' +
+            (path === '/api/auth' ? 'auth' : path.slice('/api/ops/'.length));
          return NextResponse.rewrite(url);
+      }
+      if (path === '/login') {
+         const url = req.nextUrl.clone();
+         url.pathname = '/intern-login';
+         return NextResponse.rewrite(url);
+      }
+      const signedIn = !!req.cookies.get(INTERN_COOKIE)?.value;
+      if (path === '/' || INTERN_PAGES.test(path)) {
+         if (signedIn && path !== '/') return NextResponse.next();
+         const url = req.nextUrl.clone();
+         url.pathname = signedIn ? '/tasks/my-issues' : '/login';
+         url.search = '';
+         return NextResponse.redirect(url);
       }
       return NextResponse.json({ error: 'not found' }, { status: 404 });
    }
+   // The intern sign-in page and the intern data handlers exist only on the intern host.
+   if (path === '/intern-login' || path.startsWith('/api/intern/console'))
+      return NextResponse.json({ error: 'not found' }, { status: 404 });
    // Console host: static assets pass straight through (as before this matcher change).
    if (path.startsWith('/_next/') || path === '/favicon.ico' || ASSET.test(path))
       return NextResponse.next();

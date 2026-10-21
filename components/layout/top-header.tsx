@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useCommandStore } from '@/store/command-store';
 import { NotificationsBell } from '@/components/layout/notifications-bell';
+import { NotForInterns } from '@/components/intern-hide';
 
 /**
  * App top bar: sidebar toggle + page title on the left and a centred search
@@ -19,19 +20,21 @@ export function TopHeader({ title }: { title?: string }) {
                {title}
             </span>
          )}
-         <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="mx-auto flex h-9 w-full min-w-0 max-w-md items-center gap-2 rounded-full border bg-muted/40 px-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70"
-            aria-label="Search"
-         >
-            <Search className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate text-left">Search anything…</span>
-            <kbd className="hidden rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium tracking-wide sm:inline">
-               ⌘K
-            </kbd>
-         </button>
-         <NotificationsBell />
+         <NotForInterns>
+            <button
+               type="button"
+               onClick={() => setOpen(true)}
+               className="mx-auto flex h-9 w-full min-w-0 max-w-md items-center gap-2 rounded-full border bg-muted/40 px-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70"
+               aria-label="Search"
+            >
+               <Search className="size-4 shrink-0" />
+               <span className="min-w-0 flex-1 truncate text-left">Search anything…</span>
+               <kbd className="hidden rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium tracking-wide sm:inline">
+                  ⌘K
+               </kbd>
+            </button>
+            <NotificationsBell />
+         </NotForInterns>
       </div>
    );
 }

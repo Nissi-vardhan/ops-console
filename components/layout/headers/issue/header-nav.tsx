@@ -10,6 +10,7 @@ import { ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, Star } from 'luci
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { isIssueRef } from '@/mock-data/issues';
+import { useInternMode } from '@/components/intern-mode';
 
 /**
  * Issue page header: breadcrumb (team › cycle › identifier + title) and
@@ -18,6 +19,7 @@ import { isIssueRef } from '@/mock-data/issues';
 export default function HeaderNav() {
    const { orgId, issueId } = useParams<{ orgId: string; issueId: string }>();
    const { issues } = useIssuesStore();
+   const intern = useInternMode();
 
    const team = teams[0];
    const index = issues.findIndex((candidate) => isIssueRef(candidate, issueId));
@@ -31,16 +33,25 @@ export default function HeaderNav() {
       <div className="w-full flex justify-between items-center border-b py-1.5 px-6 h-10 gap-4">
          <div className="flex items-center gap-2 min-w-0">
             <SidebarTrigger />
-            <Link
-               href={`/${orgId}/team/${team.id}/overview`}
-               className="flex items-center gap-1.5 shrink-0 hover:opacity-80"
-            >
-               <div className="inline-flex size-5 bg-muted/50 items-center justify-center rounded shrink-0 text-xs">
-                  {team.icon}
-               </div>
-               <span className="text-sm font-medium hidden md:inline">{team.name}</span>
-            </Link>
-            {cycle && (
+            {intern ? (
+               <Link
+                  href="/tasks/my-issues"
+                  className="shrink-0 text-sm font-medium hover:opacity-80"
+               >
+                  My tasks
+               </Link>
+            ) : (
+               <Link
+                  href={`/${orgId}/team/${team.id}/overview`}
+                  className="flex items-center gap-1.5 shrink-0 hover:opacity-80"
+               >
+                  <div className="inline-flex size-5 bg-muted/50 items-center justify-center rounded shrink-0 text-xs">
+                     {team.icon}
+                  </div>
+                  <span className="text-sm font-medium hidden md:inline">{team.name}</span>
+               </Link>
+            )}
+            {!intern && cycle && (
                <>
                   <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
                   <Link
@@ -61,8 +72,12 @@ export default function HeaderNav() {
                   <span className="font-medium">{issue.title}</span>
                </span>
             )}
-            <Star className="size-3.5 text-muted-foreground shrink-0" />
-            <MoreHorizontal className="size-3.5 text-muted-foreground shrink-0" />
+            {!intern && (
+               <>
+                  <Star className="size-3.5 text-muted-foreground shrink-0" />
+                  <MoreHorizontal className="size-3.5 text-muted-foreground shrink-0" />
+               </>
+            )}
          </div>
 
          <div className="flex items-center gap-1 shrink-0">

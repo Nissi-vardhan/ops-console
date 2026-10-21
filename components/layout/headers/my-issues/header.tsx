@@ -17,6 +17,7 @@ import { BarChart3, PanelRight, SearchIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { DisplayOptions } from '../display-options';
 import Notifications from '../issues/notifications';
+import { NotForInterns } from '@/components/intern-hide';
 
 function HeaderNav() {
    const { isSearchOpen, toggleSearch, closeSearch, setSearchQuery, searchQuery } =
@@ -81,7 +82,9 @@ function HeaderNav() {
                   >
                      <SearchIcon className="h-4 w-4" />
                   </Button>
-                  <Notifications />
+                  <NotForInterns>
+                     <Notifications />
+                  </NotForInterns>
                </>
             )}
          </div>
@@ -99,23 +102,25 @@ function HeaderOptions() {
    return (
       <div className="w-full flex justify-between items-center border-b py-1.5 px-6 h-10">
          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-               {MY_ISSUES_TAB_ITEMS.map((item) => (
-                  <button
-                     key={item.value}
-                     type="button"
-                     onClick={() => void setTab(item.value === 'assigned' ? null : item.value)}
-                     className={cn(
-                        'px-2.5 h-7 inline-flex items-center rounded-full border text-xs font-medium transition-colors',
-                        tab === item.value
-                           ? 'bg-accent text-foreground border-border'
-                           : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                     )}
-                  >
-                     {item.label}
-                  </button>
-               ))}
-            </div>
+            <NotForInterns>
+               <div className="flex items-center gap-1">
+                  {MY_ISSUES_TAB_ITEMS.map((item) => (
+                     <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => void setTab(item.value === 'assigned' ? null : item.value)}
+                        className={cn(
+                           'px-2.5 h-7 inline-flex items-center rounded-full border text-xs font-medium transition-colors',
+                           tab === item.value
+                              ? 'bg-accent text-foreground border-border'
+                              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                        )}
+                     >
+                        {item.label}
+                     </button>
+                  ))}
+               </div>
+            </NotForInterns>
             <span className="text-sm text-muted-foreground hidden sm:inline">
                {count} {count === 1 ? 'task' : 'tasks'}
             </span>

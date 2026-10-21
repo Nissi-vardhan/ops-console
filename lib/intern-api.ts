@@ -93,14 +93,22 @@ export async function revokeInternKey(internId: string, keyId: string): Promise<
 }
 
 /** The intern behind a request's Bearer key, or null. */
-export async function authIntern(request: Request): Promise<InternRow | null> {
+export async function authIntern(
+   request: Request,
+   opts: { originChecked?: boolean } = {}
+): Promise<InternRow | null> {
    const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
    if (!token) {
       // Signed in on the intern page (cookie). Changes also need the page's own header, so another
       // site can't post on his behalf.
       const id = await portalInternId(request);
       if (!id) return null;
-      if (request.method !== 'GET' && request.headers.get('x-portal') !== '1') return null;
+      if (
+         request.method !== 'GET' &&
+         !opts.originChecked &&
+         request.headers.get('x-portal') !== '1'
+      )
+         return null;
       const row = await queryOne<InternRow>(
          'SELECT id, name, workspace, active, lark_webhook, lark_secret FROM ops_interns WHERE id = $1',
          [id]
@@ -327,7 +335,7 @@ const DOC_COLS = `d.id, d.title, d.category, d.review_stage, d.created_at, d.upd
 // Visible to the intern: his workspace, never internal EOD docs, and either his own or
 // explicitly shared with interns (approved internal docs stay hidden unless shared).
 // Interns never see the production KB (Nissi, 16 Oct): only their own docs while in staging.
-const VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND d.author_intern_id = $1 AND d.review_stage IS DISTINCT FROM 'approved'`;
+export const INTERN_DOC_VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND d.author_intern_id = $1 AND d.review_stage IS DISTINCT FROM 'approved'`;
 
 interface DocRow {
    id: string;
@@ -359,7 +367,7 @@ const docOut = (d: DocRow) => ({
 export async function listKb(intern: InternRow, scope: 'mine' | 'all', q?: string) {
    const rows = await query<DocRow>(
       `SELECT ${DOC_COLS} FROM ops_docs d
-        WHERE ${VISIBLE} ${scope === 'mine' ? 'AND d.author_intern_id = $1' : ''}
+        WHERE ${INTERN_DOC_VISIBLE} ${scope === 'mine' ? 'AND d.author_intern_id = $1' : ''}
           ${q ? `AND (d.title ILIKE $3 OR d.body ILIKE $3)` : ''}
         ORDER BY d.updated_at DESC LIMIT 500`,
       q ? [intern.id, intern.workspace, `%${q}%`] : [intern.id, intern.workspace]
@@ -370,7 +378,7 @@ export async function listKb(intern: InternRow, scope: 'mine' | 'all', q?: strin
 async function visibleDoc(intern: InternRow, id: string): Promise<DocRow> {
    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new InternApiError('doc not found', 404);
    const d = await queryOne<DocRow>(
-      `SELECT ${DOC_COLS}, d.body FROM ops_docs d WHERE d.id = $3 AND ${VISIBLE}`,
+      `SELECT ${DOC_COLS}, d.body FROM ops_docs d WHERE d.id = $3 AND ${INTERN_DOC_VISIBLE}`,
       [intern.id, intern.workspace, id]
    );
    if (!d) throw new InternApiError('doc not found', 404);
@@ -464,7 +472,7 @@ export async function canReadFile(intern: InternRow, fileId: string): Promise<bo
           SELECT 1 FROM ops_attachments a
            WHERE a.id = $3 AND (
              a.issue_id IN (SELECT issue_id FROM ops_intern_tasks WHERE intern_id = $1)
-             OR a.doc_id IN (SELECT d.id FROM ops_docs d WHERE ${VISIBLE})
+             OR a.doc_id IN (SELECT d.id FROM ops_docs d WHERE ${INTERN_DOC_VISIBLE})
            )
        ) AS ok`,
       [intern.id, intern.workspace, fileId]

@@ -22,6 +22,7 @@ import { DocDetails } from './doc-details';
 import { useConfirm } from '@/components/common/confirm';
 import { Stagger, Item } from '@/components/motion';
 import { Comments } from '@/components/common/comments';
+import { useInternMode } from '@/components/intern-mode';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
    useActiveWorkspaceStore,
@@ -59,6 +60,8 @@ export function DocsView() {
    // Mobile master–detail: below sm the list and reading pane can't sit side by
    // side, so we show one at a time. `mobileList` true = list is showing.
    const [mobileList, setMobileList] = useState(false);
+   // Intern mode (SC-430): only their own docs — no layers, sharing, pins, deletes, reviews or comments.
+   const intern = useInternMode();
    const [draft, setDraft] = useState<{ title: string; category: string; body: string }>({
       title: '',
       category: 'Doc',
@@ -294,7 +297,7 @@ export function DocsView() {
                   />
                </div>
             </div>
-            <div className="flex gap-1 px-3 pb-2">
+            <div className={`flex gap-1 px-3 pb-2 ${intern ? 'hidden' : ''}`}>
                {(['all', 'staging', 'production'] as const).map((l) => (
                   <button
                      key={l}
@@ -512,30 +515,36 @@ export function DocsView() {
                                  )}
                               </div>
                               <div className="flex shrink-0 items-center gap-0.5">
-                                 <Button
-                                    size="xs"
-                                    variant="ghost"
-                                    onClick={() => setShareOpen(true)}
-                                    title="Share"
-                                 >
-                                    <Share2 className="size-4" />
-                                 </Button>
-                                 <Button
-                                    size="xs"
-                                    variant="ghost"
-                                    onClick={togglePin}
-                                    title={selected.pinned ? 'Unpin' : 'Pin'}
-                                 >
-                                    <Pin
-                                       className={`size-4 ${selected.pinned ? 'fill-primary text-primary' : ''}`}
-                                    />
-                                 </Button>
+                                 {!intern && (
+                                    <>
+                                       <Button
+                                          size="xs"
+                                          variant="ghost"
+                                          onClick={() => setShareOpen(true)}
+                                          title="Share"
+                                       >
+                                          <Share2 className="size-4" />
+                                       </Button>
+                                       <Button
+                                          size="xs"
+                                          variant="ghost"
+                                          onClick={togglePin}
+                                          title={selected.pinned ? 'Unpin' : 'Pin'}
+                                       >
+                                          <Pin
+                                             className={`size-4 ${selected.pinned ? 'fill-primary text-primary' : ''}`}
+                                          />
+                                       </Button>
+                                    </>
+                                 )}
                                  <Button size="xs" variant="ghost" onClick={startEdit} title="Edit">
                                     <Pencil className="size-4" />
                                  </Button>
-                                 <Button size="xs" variant="ghost" onClick={del} title="Delete">
-                                    <Trash2 className="size-4 text-red-400" />
-                                 </Button>
+                                 {!intern && (
+                                    <Button size="xs" variant="ghost" onClick={del} title="Delete">
+                                       <Trash2 className="size-4 text-red-400" />
+                                    </Button>
+                                 )}
                               </div>
                            </div>
                         </div>
@@ -556,11 +565,13 @@ export function DocsView() {
 
                   <aside className="sticky top-0 hidden max-h-[calc(100vh-1rem)] w-80 shrink-0 space-y-5 self-start overflow-y-auto pt-1 lg:block">
                      <DocDetails doc={selected} readMins={readMins} />
-                     <DocReview
-                        key={selected.id}
-                        baseUrl={`/api/ops/docs/${selected.id}/review`}
-                        onChanged={(id) => load(id ?? selected.id)}
-                     />
+                     {!intern && (
+                        <DocReview
+                           key={selected.id}
+                           baseUrl={`/api/ops/docs/${selected.id}/review`}
+                           onChanged={(id) => load(id ?? selected.id)}
+                        />
+                     )}
                      {toc.length > 0 && (
                         <div>
                            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -585,7 +596,7 @@ export function DocsView() {
                            </nav>
                         </div>
                      )}
-                     <div className="border-t border-border/60 pt-4">
+                     <div className={`border-t border-border/60 pt-4 ${intern ? 'hidden' : ''}`}>
                         <Comments
                            listUrl={`/api/ops/comments?kind=doc&id=${selected.id}`}
                            postUrl="/api/ops/comments"

@@ -7,6 +7,13 @@ import { User } from '@/mock-data/users';
 import { issuePatchToRaw, type RawIssue } from '@/lib/ops-hydrate';
 import { create } from 'zustand';
 
+// Intern mode (SC-430): the task list is read-only; interns change a task only through
+// their own action buttons on the task page.
+let readOnly = false;
+export function setIssuesReadOnly(v: boolean) {
+   readOnly = v;
+}
+
 // Persist a change to the ops backend (fire-and-forget; local state is optimistic).
 function persist(path: string, method: string, body?: unknown) {
    return fetch(`/api/ops/${path}`, {
@@ -104,6 +111,7 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
 
    // Actions — optimistic local update + persist to the backend.
    addIssue: (issue: Issue) => {
+      if (readOnly) return;
       set((state) => {
          const newIssues = [...state.issues, issue];
          return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };
@@ -136,6 +144,7 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
    },
 
    updateIssue: (id: string, updatedIssue: Partial<Issue>) => {
+      if (readOnly) return;
       set((state) => {
          const newIssues = state.issues.map((issue) =>
             issue.id === id ? { ...issue, ...updatedIssue } : issue
@@ -168,6 +177,7 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
    },
 
    deleteIssue: (id: string) => {
+      if (readOnly) return;
       set((state) => {
          const newIssues = state.issues.filter((issue) => issue.id !== id);
          return { issues: newIssues, issuesByStatus: groupIssuesByStatus(newIssues) };

@@ -39,12 +39,14 @@ import { status } from '@/mock-data/status';
 import { priorities } from '@/mock-data/priorities';
 import { labels } from '@/mock-data/labels';
 import { toast } from 'sonner';
+import { useInternMode } from '@/components/intern-mode';
 
 interface IssueContextMenuProps {
    issueId?: string;
 }
 
 export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
+   const intern = useInternMode();
    const [isSubscribed, setIsSubscribed] = useState(false);
    const [isFavorite, setIsFavorite] = useState(false);
 
@@ -162,6 +164,8 @@ export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
       toast.success('Reminder set');
    };
 
+   // Intern mode (SC-430): no right-click menu (interns change tasks only via their actions).
+   if (intern) return null;
    return (
       <ContextMenuContent className="w-64">
          <ContextMenuGroup>
@@ -189,19 +193,15 @@ export function IssueContextMenu({ issueId }: IssueContextMenuProps) {
                   <ContextMenuItem onClick={() => handleAssigneeChange(null)}>
                      <User className="size-4" /> Unassigned
                   </ContextMenuItem>
-                  {members
-                     .map((user) => (
-                        <ContextMenuItem
-                           key={user.id}
-                           onClick={() => handleAssigneeChange(user.id)}
-                        >
-                           <Avatar className="size-4">
-                              <AvatarImage src={user.avatarUrl} alt={user.name} />
-                              <AvatarFallback>{user.name[0]}</AvatarFallback>
-                           </Avatar>
-                           {user.name}
-                        </ContextMenuItem>
-                     ))}
+                  {members.map((user) => (
+                     <ContextMenuItem key={user.id} onClick={() => handleAssigneeChange(user.id)}>
+                        <Avatar className="size-4">
+                           <AvatarImage src={user.avatarUrl} alt={user.name} />
+                           <AvatarFallback>{user.name[0]}</AvatarFallback>
+                        </Avatar>
+                        {user.name}
+                     </ContextMenuItem>
+                  ))}
                </ContextMenuSubContent>
             </ContextMenuSub>
 

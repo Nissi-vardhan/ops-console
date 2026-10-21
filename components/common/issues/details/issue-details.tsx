@@ -14,6 +14,8 @@ import { TaskSessions } from './task-sessions';
 import { TaskLinkedDocs } from '@/components/common/docs/doc-links';
 import { Comments } from '@/components/common/comments';
 import { isIssueRef } from '@/mock-data/issues';
+import { useInternMode } from '@/components/intern-mode';
+import { InternTaskPanel } from './intern-task-panel';
 
 /**
  * Issue detail page: rich description, sub-issues, activity feed and a
@@ -23,6 +25,7 @@ export default function IssueDetails() {
    const { orgId, issueId } = useParams<{ orgId: string; issueId: string }>();
    const router = useRouter();
    const { issues } = useIssuesStore();
+   const intern = useInternMode();
 
    // Esc closes the open task (back), unless you're typing in a field.
    useEffect(() => {
@@ -77,7 +80,10 @@ export default function IssueDetails() {
       return (
          <div className="flex flex-col items-center justify-center h-full gap-2 text-sm text-muted-foreground">
             <p>Issue {issueId} not found.</p>
-            <Link href={`/${orgId ?? 'shortcastle'}/team/CORE/all`} className="underline">
+            <Link
+               href={intern ? '/tasks/my-issues' : `/${orgId ?? 'shortcastle'}/team/CORE/all`}
+               className="underline"
+            >
                Back to issues
             </Link>
          </div>
@@ -160,13 +166,14 @@ export default function IssueDetails() {
                <TaskFiles issueRef={issue.identifier} />
                <InternUpdates issueRef={issue.identifier} />
 
-               {/* Journey — ordered, checkable steps across the 5 work phases */}
-               <JourneyPanel issueId={issue.id} />
+               {/* Journey — ordered, checkable steps across the 5 work phases (not for interns:
+                   reviewers' sessions write these) */}
+               {!intern && <JourneyPanel issueId={issue.id} />}
 
                <TaskLinkedDocs issueRef={issue.identifier} base={`/${orgId ?? 'shortcastle'}`} />
 
                {/* Progress log — appended by `ops note` / agents as they work */}
-               {progressText.trim() && (
+               {!intern && progressText.trim() && (
                   <div className="mt-8">
                      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Progress
@@ -179,19 +186,26 @@ export default function IssueDetails() {
                   </div>
                )}
 
-               <TaskSessions identifier={issue.identifier} />
-
-               <Comments
-                  listUrl={`/api/ops/comments?kind=issue&id=${issue.id}`}
-                  postUrl="/api/ops/comments"
-                  extra={{ kind: 'issue', id: issue.id }}
-               />
+               {!intern && (
+                  <>
+                     <TaskSessions identifier={issue.identifier} />
+                     <Comments
+                        listUrl={`/api/ops/comments?kind=issue&id=${issue.id}`}
+                        postUrl="/api/ops/comments"
+                        extra={{ kind: 'issue', id: issue.id }}
+                     />
+                  </>
+               )}
             </div>
          </div>
 
          {/* Properties sidebar (stacks under the content below lg) */}
          <aside className="w-full shrink-0 border-t bg-container px-4 py-6 sm:px-8 lg:w-80 lg:h-full lg:overflow-y-auto lg:border-t-0 lg:border-l lg:px-5">
-            <IssuePropertiesPanel issue={issue} detail={detail} />
+            {intern ? (
+               <InternTaskPanel issue={issue} />
+            ) : (
+               <IssuePropertiesPanel issue={issue} detail={detail} />
+            )}
          </aside>
       </div>
    );

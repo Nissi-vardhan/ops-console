@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/layout/theme-toggle-button';
+import { useInternMode } from '@/components/intern-mode';
 
 function signOut() {
    fetch('/api/auth', {
@@ -20,6 +21,7 @@ function signOut() {
 export function SidebarUser() {
    const [me, setMe] = useState<{ email?: string; username?: string } | null>(null);
    const { orgId } = useParams<{ orgId: string }>();
+   const intern = useInternMode();
    useEffect(() => {
       fetch('/api/ops/me', { cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null))
@@ -29,14 +31,15 @@ export function SidebarUser() {
 
    const name = me?.username || (me?.email ? me.email.split('@')[0] : 'Ops');
    const initials = name.slice(0, 2).toUpperCase();
-   const accountHref = `/${orgId || 'shortcastle'}/settings/profile`;
+   // Interns have no settings page; their card links back to their tasks.
+   const accountHref = intern ? '/tasks/my-issues' : `/${orgId || 'shortcastle'}/settings/profile`;
 
    return (
       <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
          {/* click name/avatar → Account settings */}
          <Link
             href={accountHref}
-            title="Account settings"
+            title={intern ? 'My tasks' : 'Account settings'}
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg -m-1 p-1 transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:m-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0"
          >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
@@ -45,7 +48,7 @@ export function SidebarUser() {
             <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
                <p className="truncate text-sm font-medium">{name}</p>
                <p className="truncate text-[11px] text-muted-foreground">
-                  {me?.email || 'signed in'}
+                  {intern ? 'Intern' : me?.email || 'signed in'}
                </p>
             </div>
          </Link>

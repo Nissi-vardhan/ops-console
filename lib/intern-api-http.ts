@@ -49,11 +49,12 @@ const ALLOWED = [
 export async function uploadFile(
    request: Request,
    intern: InternRow,
-   target: { issue_id?: string; doc_id?: string }
+   target: { issue_id?: string; doc_id?: string },
+   parsed?: FormData | null
 ) {
    if (!storageConfigured())
       throw new InternApiError('file storage is not available right now', 503);
-   const form = await request.formData().catch(() => null);
+   const form = parsed ?? (await request.formData().catch(() => null));
    const file = form?.get('file');
    if (!(file instanceof File)) throw new InternApiError('multipart field "file" is required');
    const buf = Buffer.from(await file.arrayBuffer());

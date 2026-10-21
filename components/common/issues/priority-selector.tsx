@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useIssuesStore } from '@/store/issues-store';
 import { priorities, Priority } from '@/mock-data/priorities';
 import { CheckIcon } from 'lucide-react';
+import { useInternMode } from '@/components/intern-mode';
 import { useEffect, useId, useState } from 'react';
 
 interface PrioritySelectorProps {
@@ -21,6 +22,8 @@ interface PrioritySelectorProps {
 }
 
 export function PrioritySelector({ priority, issueId }: PrioritySelectorProps) {
+   // Intern mode (SC-430): shown, not editable.
+   const intern = useInternMode();
    const id = useId();
    const [open, setOpen] = useState<boolean>(false);
    const [value, setValue] = useState<string>(priority.id);
@@ -45,7 +48,7 @@ export function PrioritySelector({ priority, issueId }: PrioritySelectorProps) {
 
    return (
       <div className="*:not-first:mt-2">
-         <Popover open={open} onOpenChange={setOpen}>
+         <Popover open={open} onOpenChange={(o) => setOpen(o && !intern)}>
             <PopoverTrigger asChild>
                <Button
                   id={id}

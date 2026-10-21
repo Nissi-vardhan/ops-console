@@ -10,11 +10,75 @@ import { BackToApp } from '@/components/layout/sidebar/back-to-app';
 import { SidebarUser } from '@/components/layout/sidebar/sidebar-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
 import { CastleMark, Crenellation } from '@/components/brand/castle-mark';
+import { TasksMark, useInternMode } from '@/components/intern-mode';
+import {
+   SidebarGroup,
+   SidebarMenu,
+   SidebarMenuButton,
+   SidebarMenuItem,
+} from '@/components/ui/sidebar';
+import { FileText, ListTodo } from 'lucide-react';
+
+/** Intern mode (SC-430): just their tasks and their docs. */
+function NavIntern() {
+   const pathname = usePathname();
+   const items = [
+      {
+         name: 'My tasks',
+         icon: ListTodo,
+         url: '/tasks/my-issues',
+         match: ['/tasks/my-issues', '/tasks/issue/'],
+      },
+      { name: 'Docs', icon: FileText, url: '/tasks/docs', match: ['/tasks/docs'] },
+   ];
+   return (
+      <SidebarGroup>
+         <SidebarMenu>
+            {items.map((item) => {
+               const isActive = item.match.some((m) => pathname.startsWith(m));
+               return (
+                  <SidebarMenuItem key={item.name}>
+                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
+                        <Link href={item.url}>
+                           <item.icon className="size-4" />
+                           <span>{item.name}</span>
+                        </Link>
+                     </SidebarMenuButton>
+                  </SidebarMenuItem>
+               );
+            })}
+         </SidebarMenu>
+      </SidebarGroup>
+   );
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
    const pathname = usePathname();
    const { orgId } = useParams<{ orgId: string }>();
+   const intern = useInternMode();
    const isSettings = pathname.includes('/settings');
+   if (intern)
+      return (
+         <Sidebar collapsible="icon" {...props}>
+            <SidebarHeader>
+               <Link
+                  href="/tasks/my-issues"
+                  className="flex items-center gap-2 rounded-md px-2 pt-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+               >
+                  <TasksMark className="size-7 shrink-0" />
+                  <span className="text-sm font-semibold group-data-[collapsible=icon]:hidden">
+                     TrainerDB Tasks
+                  </span>
+               </Link>
+            </SidebarHeader>
+            <SidebarContent>
+               <NavIntern />
+            </SidebarContent>
+            <SidebarFooter>
+               <SidebarUser />
+            </SidebarFooter>
+         </Sidebar>
+      );
    return (
       <Sidebar collapsible="icon" {...props}>
          <SidebarHeader>
