@@ -49,6 +49,9 @@ export interface InternEvent {
    doc_id: string | null;
    created_by: string;
    created_at: string;
+   edited_at?: string | null;
+   edited_by?: string;
+   original?: { rating: number | null; body: string } | null;
 }
 
 export type InternTaskFull = InternTask & { events: InternEvent[]; stats: TaskStats };
@@ -306,6 +309,39 @@ export async function recordInternEvent(
       await updateOpsIssue(issueId, { status_id: 'in-progress' });
    }
    return ev;
+}
+
+/**
+ * Correct a review's rating and/or notes, also on a closed task. The outcome stays (it already
+ * opened/closed the task). Without eventId it corrects the task's latest review. The first
+ * correction keeps the original rating and notes in `original`.
+ */
+export async function correctInternReview(
+   issueId: string,
+   input: { eventId?: string | null; rating?: number | null; body?: string; by?: string }
+): Promise<InternEvent> {
+   const ev = await queryOne<InternEvent>(
+      `SELECT e.* FROM ops_intern_events e JOIN ops_intern_tasks t ON t.id = e.intern_task_id
+        WHERE t.issue_id = $1 AND e.kind = 'review' AND ($2::uuid IS NULL OR e.id = $2::uuid)
+        ORDER BY e.at DESC LIMIT 1`,
+      [issueId, input.eventId || null]
+   );
+   if (!ev) throw new InternError('no review on that task to correct', 404);
+   let rating = ev.rating;
+   if (input.rating != null) {
+      rating = Number(input.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5)
+         throw new InternError('rating must be 1–5');
+   }
+   const body = input.body !== undefined ? input.body.trim() : ev.body;
+   if (rating === ev.rating && body === ev.body) throw new InternError('nothing to change');
+   return (await queryOne<InternEvent>(
+      `UPDATE ops_intern_events
+          SET rating = $2, body = $3, edited_at = now(), edited_by = $4,
+              original = COALESCE(original, jsonb_build_object('rating', rating, 'body', body))
+        WHERE id = $1 RETURNING *`,
+      [ev.id, rating, body, input.by ?? '']
+   ))!;
 }
 
 /** A task marked done/canceled in the console closes its open intern assignment (frees the intern). */

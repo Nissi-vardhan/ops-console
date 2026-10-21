@@ -570,7 +570,11 @@ CREATE TABLE IF NOT EXISTS ops_kb_questions (
   resolved_at timestamptz,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_ops_kb_questions_gaps ON ops_kb_questions(created_at DESC) WHERE NOT answered AND resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_ops_kb_questions_gaps ON ops_kb_questions(created_at DESC) WHERE NOT answered AND resolved_at IS NULL;-- Review corrections (21 Oct 2026): a reviewer can fix a review's rating and notes, even after the
+-- task closed. The first correction keeps the original rating/notes; edited_* say who and when.
+ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS edited_at timestamptz;
+ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS edited_by text NOT NULL DEFAULT '';
+ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS original jsonb;
 `;
 
 let migrated = false;

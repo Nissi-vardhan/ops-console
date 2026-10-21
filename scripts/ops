@@ -81,6 +81,9 @@ Interns (tracked people, no console login; owner/admin):
   ops eod <OPS-n> --body <file|->                         his EOD summary (also filed as a KB doc)
   ops review <OPS-n> --rating <1-5> --outcome <continue|changes|approve> [--notes <text>]
                                                           review it; approve closes the task
+  ops review <OPS-n> --fix [--event <id>] [--rating <1-5>] [--notes <text>]
+                                                          correct a review's rating/notes (latest review unless
+                                                          --event); works on closed tasks, keeps the original
   ops lark <name> "<text>" [--task <OPS-n>]               post to the intern's Lark group via its bot
                                                           (--task: note it there; replies go to that task)
   ops lark read <name> [--task <OPS-n>] [--limit N]       what people wrote in his group (IST)
@@ -136,6 +139,7 @@ async function api(method, route, body) {
 // Split argv into positionals and --flags (each flag takes one value).
 // Flags that take no value.
 const BOOL_FLAGS = new Set([
+   'fix',
    'trio',
    'off',
    'json',
@@ -726,6 +730,21 @@ async function main() {
       }
       case 'review': {
          const id = need(pos[0], 'task id (OPS-n)');
+         if (flags.fix) {
+            if (flags.rating === undefined && flags.notes === undefined)
+               die('ops review --fix needs --rating and/or --notes');
+            const { event } = await api('PATCH', `/issues/${encodeURIComponent(id)}/intern/events`, {
+               event_id: flags.event || null,
+               rating: flags.rating === undefined ? null : Number(flags.rating),
+               body: flags.notes,
+               by: session(),
+            });
+            const was = event.original?.rating;
+            console.log(
+               `corrected review ${event.id} · rating ${was != null && was !== event.rating ? `${was} → ` : ''}${event.rating} · ${event.outcome}`
+            );
+            return;
+         }
          const rating = Number(need(flags.rating, '--rating <1-5>'));
          const outcome = oneOf(
             need(flags.outcome, '--outcome <continue|changes|approve>'),

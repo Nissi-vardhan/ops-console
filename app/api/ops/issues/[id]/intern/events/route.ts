@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { resolveOpsIssueId } from '@/lib/ops-data';
-import { recordInternEvent, InternError, type InternEventKind } from '@/lib/ops-interns';
+import {
+   correctInternReview,
+   recordInternEvent,
+   InternError,
+   type InternEventKind,
+} from '@/lib/ops-interns';
 import { parseIstAt } from '@/lib/intern-stats';
 
 // POST /api/ops/issues/:id/intern/events — record against the task's open intern
@@ -28,6 +33,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
          by: me?.username || (typeof b?.by === 'string' ? b.by : '') || 'cli',
       });
       return NextResponse.json({ event }, { status: 201 });
+   } catch (e) {
+      if (e instanceof InternError)
+         return NextResponse.json({ error: e.message }, { status: e.status });
+      throw e;
+   }
+}
+
+// PATCH /api/ops/issues/:id/intern/events — correct a review: { event_id?, rating?, body? }.
+// Works on closed tasks too; without event_id it corrects the task's latest review.
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+   const denied = await requireRole(request, 'admin');
+   if (denied) return denied;
+   const issueId = await resolveOpsIssueId((await params).id);
+   if (!issueId) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+   const b = await request.json().catch(() => null);
+   const me = await getOpsUser();
+   try {
+      const event = await correctInternReview(issueId, {
+         eventId: typeof b?.event_id === 'string' ? b.event_id : null,
+         rating: b?.rating ?? null,
+         body: typeof b?.body === 'string' ? b.body : undefined,
+         by: me?.username || (typeof b?.by === 'string' ? b.by : '') || 'cli',
+      });
+      return NextResponse.json({ event });
    } catch (e) {
       if (e instanceof InternError)
          return NextResponse.json({ error: e.message }, { status: e.status });

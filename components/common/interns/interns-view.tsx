@@ -43,6 +43,9 @@ interface InternEvent {
    rating: number | null;
    outcome: 'continue' | 'changes' | 'approve' | null;
    doc_id: string | null;
+   edited_at?: string | null;
+   edited_by?: string;
+   original?: { rating: number | null; body: string } | null;
 }
 interface TaskStats {
    sent_at: string;
@@ -443,6 +446,18 @@ function TaskCard({ base, t }: { base: string; t: FullTask }) {
                               >
                                  {OUTCOME_LABEL[e.outcome]}
                               </span>
+                              {e.edited_at && (
+                                 <span
+                                    className="text-[11px] text-muted-foreground"
+                                    title={`Corrected${e.edited_by ? ` by ${e.edited_by}` : ''}${
+                                       e.original?.rating != null
+                                          ? `; originally ${e.original.rating}/5`
+                                          : ''
+                                    }`}
+                                 >
+                                    (corrected)
+                                 </span>
+                              )}
                            </>
                         )}
                         {e.doc_id && (
