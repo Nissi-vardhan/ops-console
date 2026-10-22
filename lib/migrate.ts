@@ -589,7 +589,24 @@ DO $$ BEGIN
     ALTER TABLE ops_docs ADD CONSTRAINT ops_docs_kb_audience_check CHECK (kb_audience IN ('support', 'marketing'));
   END IF;
 END $$;
-ALTER TABLE ops_kb_questions ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'support';
+ALTER TABLE ops_kb_questions ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'support';-- KB push keys (SC-437, 22 Oct 2026): an outside team pushes its own KB articles into ONE
+-- workspace. A key can only create/update KB docs there (always staging; an update to a live
+-- article becomes a staged edit). Owners create and revoke keys; only the hash is stored.
+CREATE TABLE IF NOT EXISTS ops_kb_push_keys (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace    text NOT NULL,
+  label        text NOT NULL DEFAULT '',
+  prefix       text NOT NULL,
+  token_hash   text NOT NULL UNIQUE,
+  created_by   text NOT NULL DEFAULT '',
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  last_used_at timestamptz,
+  revoked_at   timestamptz
+);
+-- The pusher's own id for an article, so pushing the same ref again updates it.
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS external_ref text;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_docs_external_ref
+  ON ops_docs (workspace, external_ref) WHERE external_ref IS NOT NULL AND draft_of IS NULL;
 `;
 
 let migrated = false;

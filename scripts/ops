@@ -29,6 +29,7 @@ const WORKSPACES = [
    'trainerdb',
    'shortcastle',
    'mrzerocode',
+   'trainerstack',
 ];
 const PHASES = ['plan', 'prepare', 'execute', 'verify', 'done'];
 const STATUSES = [

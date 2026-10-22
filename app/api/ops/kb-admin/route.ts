@@ -9,6 +9,7 @@ import {
    type KbFilter,
 } from '@/lib/ops-kb-admin';
 import { WORKSPACES } from '@/lib/workspaces';
+import { createPushKey, listPushKeys, revokePushKey } from '@/lib/kb-push';
 
 // Knowledge Base manager (SC-418). Owners only, signed in: the CLI/session bearer is
 // refused here, because the Live switch changes production (same rule as docs review).
@@ -23,6 +24,7 @@ async function ownerOnly(): Promise<Response | null> {
 // POST { action: 'toggle', id, live }            → set an article live (production) or back to review
 // POST { action: 'resolve', ids }               → mark unanswered questions as handled
 // POST { action: 'audience', id, audience }      → support (bots may use it) or marketing (team only)
+// POST { action: 'key_create', ws, label } / { action: 'key_revoke', ws, id } → KB push keys
 export async function GET(request: Request) {
    const denied = await ownerOnly();
    if (denied) return denied;
@@ -35,11 +37,12 @@ export async function GET(request: Request) {
    const q = (sp.get('q') || '').trim().slice(0, 200);
    const a = sp.get('audience');
    const audience: KbAudienceFilter = a === 'support' || a === 'marketing' ? a : 'all';
-   const [{ docs, counts }, gaps] = await Promise.all([
+   const [{ docs, counts }, gaps, keys] = await Promise.all([
       listKbAdmin(ws, filter, q, audience),
       kbGapsFor(ws),
+      listPushKeys(ws),
    ]);
-   return NextResponse.json({ docs, counts: { ...counts, gaps: gaps.length }, gaps });
+   return NextResponse.json({ docs, counts: { ...counts, gaps: gaps.length }, gaps, keys });
 }
 
 export async function POST(request: Request) {
@@ -49,6 +52,27 @@ export async function POST(request: Request) {
    if (body?.action === 'resolve') {
       const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
       return NextResponse.json({ ok: true, resolved: await resolveGaps(ids) });
+   }
+   // Push keys (SC-437): let an outside team push KB articles into one product (always staging).
+   if (body?.action === 'key_create') {
+      const ws = typeof body.ws === 'string' ? body.ws : '';
+      if (!WORKSPACES.some((w) => w.slug === ws))
+         return NextResponse.json({ error: 'Unknown product' }, { status: 400 });
+      const user = await getOpsUser();
+      const label = typeof body.label === 'string' ? body.label.trim() : '';
+      const { key, token } = await createPushKey(
+         ws,
+         label || 'push key',
+         user?.username ?? 'owner'
+      );
+      return NextResponse.json({ ok: true, key, token });
+   }
+   if (body?.action === 'key_revoke') {
+      const ws = typeof body.ws === 'string' ? body.ws : '';
+      const id = typeof body.id === 'string' ? body.id : '';
+      if (!(await revokePushKey(ws, id)))
+         return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ ok: true });
    }
    if (body?.action === 'audience') {
       const id = typeof body.id === 'string' ? body.id : '';

@@ -57,6 +57,14 @@ const AUD_CLS: Record<Audience, string> = {
    support: 'border-sky-500/40 text-sky-700 dark:text-sky-300',
    marketing: 'border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300',
 };
+interface PushKey {
+   id: string;
+   label: string;
+   prefix: string;
+   created_at: string;
+   last_used_at: string | null;
+   revoked_at: string | null;
+}
 interface Counts {
    all: number;
    live: number;
@@ -87,6 +95,9 @@ export function KbManager() {
    const [rows, setRows] = useState<Row[]>([]);
    const [gaps, setGaps] = useState<Gap[]>([]);
    const [counts, setCounts] = useState<Counts | null>(null);
+   const [keys, setKeys] = useState<PushKey[]>([]);
+   const [keysOpen, setKeysOpen] = useState(false);
+   const [freshKey, setFreshKey] = useState<string | null>(null);
    const [denied, setDenied] = useState(false);
    const [busy, setBusy] = useState<string | null>(null);
    const [draft, setDraft] = useState<{
@@ -126,6 +137,7 @@ export function KbManager() {
       setRows(d.docs);
       setGaps(d.gaps);
       setCounts(d.counts);
+      setKeys(d.keys ?? []);
    }, [ws, filter, q, aud]);
    useEffect(() => {
       const t = setTimeout(load, 200);
@@ -199,6 +211,19 @@ export function KbManager() {
                ? 'Marketing: team only, never sent to bots'
                : 'Support: bots may use it'
          );
+      load();
+   };
+
+   const createKey = async () => {
+      const label = window.prompt('Who is this key for? (e.g. "Trainerstack docs, Saikiran")');
+      if (label === null) return;
+      const d = await post({ action: 'key_create', ws, label });
+      if (d?.token) setFreshKey(d.token);
+      load();
+   };
+   const revokeKey = async (k: PushKey) => {
+      if (!window.confirm(`Revoke "${k.label}"? It stops working at once.`)) return;
+      if (await post({ action: 'key_revoke', ws, id: k.id })) toast.success('Key revoked');
       load();
    };
 
@@ -279,6 +304,12 @@ export function KbManager() {
                   <option value="support">Support (bots)</option>
                   <option value="marketing">Marketing (team)</option>
                </select>
+               <Button size="sm" variant="outline" onClick={() => setKeysOpen(true)}>
+                  Push keys
+                  {keys.filter((k) => !k.revoked_at).length
+                     ? ` (${keys.filter((k) => !k.revoked_at).length})`
+                     : ''}
+               </Button>
                <Button
                   size="sm"
                   onClick={() =>
@@ -536,6 +567,71 @@ export function KbManager() {
                      Save for review
                   </Button>
                   <Button onClick={() => saveDraft(true)}>Save and go live</Button>
+               </DialogFooter>
+            </DialogContent>
+         </Dialog>
+
+         <Dialog
+            open={keysOpen}
+            onOpenChange={(o) => {
+               setKeysOpen(o);
+               if (!o) setFreshKey(null);
+            }}
+         >
+            <DialogContent className="sm:max-w-lg">
+               <DialogHeader>
+                  <DialogTitle>
+                     Push keys · {WORKSPACES.find((w) => w.slug === ws)?.name}
+                  </DialogTitle>
+               </DialogHeader>
+               <p className="text-sm text-muted-foreground">
+                  Lets an outside team push KB articles into this product only. Everything they push
+                  lands in Needs review; nothing goes live until you switch it on.
+               </p>
+               {freshKey && (
+                  <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
+                     <p className="font-medium">Copy this key now. It won&apos;t be shown again.</p>
+                     <code className="block break-all rounded bg-background px-2 py-1 font-mono">
+                        {freshKey}
+                     </code>
+                     <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                           navigator.clipboard
+                              .writeText(freshKey)
+                              .then(() => toast.success('Copied'))
+                        }
+                     >
+                        Copy
+                     </Button>
+                  </div>
+               )}
+               <ul className="divide-y rounded-md border text-sm">
+                  {keys.length === 0 && <li className="p-3 text-muted-foreground">No keys yet.</li>}
+                  {keys.map((k) => (
+                     <li key={k.id} className="flex flex-wrap items-center gap-2 p-3">
+                        <div className="min-w-0 flex-1">
+                           <p className="truncate font-medium">{k.label}</p>
+                           <p className="text-xs text-muted-foreground">
+                              <code className="font-mono">{k.prefix}…</code> ·{' '}
+                              {k.revoked_at
+                                 ? `revoked ${ago(k.revoked_at)}`
+                                 : k.last_used_at
+                                   ? `last used ${ago(k.last_used_at)}`
+                                   : 'never used'}
+                           </p>
+                        </div>
+                        {!k.revoked_at && (
+                           <Button size="sm" variant="ghost" onClick={() => revokeKey(k)}>
+                              Revoke
+                           </Button>
+                        )}
+                     </li>
+                  ))}
+               </ul>
+               <DialogFooter>
+                  <Button onClick={createKey}>Create key</Button>
                </DialogFooter>
             </DialogContent>
          </Dialog>

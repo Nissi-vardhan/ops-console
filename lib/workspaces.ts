@@ -80,6 +80,14 @@ export const WORKSPACES: Workspace[] = [
       docTitle: 'MrZeroCode — Knowledge Base',
       prefix: 'MZ',
    },
+   {
+      slug: 'trainerstack',
+      name: 'Trainerstack',
+      blurb: 'Trainerstack.io (external team, Saikiran). Pushes its own KB docs through a push key.',
+      status: 'active',
+      docTitle: 'Trainerstack — Knowledge Base',
+      prefix: 'TS',
+   },
 ];
 
 // Tailwind chip classes per status, with dark: variants so they read in both themes.
