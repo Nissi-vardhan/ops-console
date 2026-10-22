@@ -673,6 +673,8 @@ export interface OpsDoc {
    intern_visible?: boolean;
    /** Set on a staged edit of a production doc; promoting it replaces that doc. */
    draft_of?: string | null;
+   /** KB articles: 'support' (bots may use it) or 'marketing' (team only). */
+   kb_audience?: 'support' | 'marketing';
    created_by: string | null;
    created_at: string;
    updated_at: string;
@@ -681,21 +683,22 @@ export interface OpsDoc {
 export async function listOpsDocs(): Promise<OpsDoc[]> {
    return query<OpsDoc>(
       `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
-              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of
+              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of,
+              d.kb_audience
          FROM ops_docs d LEFT JOIN ops_interns n ON n.id = d.author_intern_id
         ORDER BY d.pinned DESC, d.updated_at DESC`
    );
 }
 
-// Read-only KB feed for /api/kb: category 'KB' docs of ONE workspace, optionally
-// approved-only. Version dedupe happens in lib/kb-select.ts.
+// Read-only KB feed for /api/kb: category 'KB' docs of ONE workspace, support articles only
+// (marketing articles never reach the bots), optionally approved-only. Version dedupe happens in lib/kb-select.ts.
 export async function listKbDocs(
    workspace: string,
    approvedOnly: boolean
 ): Promise<Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'>[]> {
    return query<Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'>>(
       `SELECT id, title, body, updated_at FROM ops_docs
-        WHERE category = 'KB' AND workspace = $1
+        WHERE category = 'KB' AND workspace = $1 AND kb_audience = 'support'
           AND ($2::boolean = false OR review_stage = 'approved')
         ORDER BY updated_at DESC`,
       [workspace, approvedOnly]
@@ -715,7 +718,7 @@ export async function searchKbDocs(
               ts_rank(setweight(to_tsvector('english', title), 'A') || to_tsvector('english', body),
                       replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery) AS rank
          FROM ops_docs
-        WHERE category = 'KB' AND workspace = $1
+        WHERE category = 'KB' AND workspace = $1 AND kb_audience = 'support'
           AND ($2::boolean = false OR review_stage = 'approved')
           AND (setweight(to_tsvector('english', title), 'A') || to_tsvector('english', body))
               @@ replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery
@@ -728,7 +731,8 @@ export async function searchKbDocs(
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
    return queryOne<OpsDoc>(
       `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
-              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of
+              d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of,
+              d.kb_audience
          FROM ops_docs d LEFT JOIN ops_interns n ON n.id = d.author_intern_id WHERE d.id = $1`,
       [id]
    );
@@ -890,11 +894,12 @@ export async function createOpsDoc(input: {
    pinned?: boolean;
    workspace?: string | null;
    created_by?: string | null;
+   kb_audience?: string | null;
 }): Promise<OpsDoc> {
    const rows = await query<OpsDoc>(
-      `INSERT INTO ops_docs (title, body, category, pinned, workspace, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6)
-     RETURNING id, title, body, category, pinned, workspace, created_by, created_at, updated_at`,
+      `INSERT INTO ops_docs (title, body, category, pinned, workspace, created_by, kb_audience)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     RETURNING id, title, body, category, pinned, workspace, created_by, created_at, updated_at, kb_audience`,
       [
          input.title,
          input.body ?? '',
@@ -902,12 +907,24 @@ export async function createOpsDoc(input: {
          input.pinned ?? false,
          input.workspace ?? null,
          await validUserId(input.created_by),
+         input.kb_audience === 'marketing' ? 'marketing' : 'support',
       ]
    );
    return rows[0];
 }
 
+// kb_audience is not here on purpose: changing who an article is for changes what the bots
+// see, so it goes through the owner-only Knowledge Base page (setKbAudience).
 const DOC_FIELDS = new Set(['title', 'body', 'category', 'pinned', 'workspace']);
+
+export async function setKbAudience(id: string, audience: 'support' | 'marketing') {
+   const rows = await query<{ id: string }>(
+      `UPDATE ops_docs SET kb_audience = $2, updated_at = now()
+        WHERE (id = $1 OR draft_of = $1) AND category = 'KB' RETURNING id`,
+      [id, audience]
+   );
+   return rows.length > 0;
+}
 const TEXT_FIELDS = ['title', 'body', 'category'] as const;
 
 /** Production = approved. Everything else (no review yet, in review, changes) is staging. */
@@ -941,9 +958,17 @@ export async function updateOpsDoc(
          return getOpsDoc(existing.id);
       }
       const rows = await query<{ id: string }>(
-         `INSERT INTO ops_docs (title, body, category, pinned, workspace, created_by, review_stage, draft_of)
-          VALUES ($1, $2, $3, false, $4, $5, 'review', $6) RETURNING id`,
-         [next.title, next.body, next.category, current.workspace ?? null, current.created_by, id]
+         `INSERT INTO ops_docs (title, body, category, pinned, workspace, created_by, review_stage, draft_of, kb_audience)
+          VALUES ($1, $2, $3, false, $4, $5, 'review', $6, $7) RETURNING id`,
+         [
+            next.title,
+            next.body,
+            next.category,
+            current.workspace ?? null,
+            current.created_by,
+            id,
+            current.kb_audience ?? 'support',
+         ]
       );
       await query(
          'INSERT INTO ops_doc_links (doc_id, issue_id) SELECT $1, issue_id FROM ops_doc_links WHERE doc_id = $2 ON CONFLICT DO NOTHING',

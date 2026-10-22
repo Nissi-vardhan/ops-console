@@ -4,7 +4,8 @@ import { getOpsUser } from '@/lib/ops-session';
 import { askKb } from '@/lib/ops-ask';
 import { WORKSPACES } from '@/lib/workspaces';
 
-// POST /api/ops/ask { question, workspace: <slug>|'all', staging?: boolean }
+// POST /api/ops/ask { question, workspace: <slug>|'all', staging?: boolean, audience?: 'support'|'marketing' }
+// support = only what bots may say; marketing = also the team-only marketing articles.
 // Answers from KB articles only (production unless staging is set). Signed-in team
 // members and the CLI bearer; members only search the workspaces they belong to.
 export async function POST(request: Request) {
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
          staging: body?.staging === true,
          allowed,
          askedBy: user?.username || user?.email || 'session',
+         audience: body?.audience === 'marketing' ? 'marketing' : 'support',
       });
       return NextResponse.json(res);
    } catch (e) {

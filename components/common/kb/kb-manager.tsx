@@ -40,6 +40,7 @@ interface Row {
    live: boolean;
    draft_of: string | null;
    has_video: boolean;
+   audience: Audience;
    updated_at: string;
 }
 interface Gap {
@@ -47,7 +48,15 @@ interface Gap {
    times: number;
    last_at: string;
    ids: string[];
+   audience: Audience;
 }
+// SC-436: support = bots may use it; marketing = team only (positioning, personas, campaigns).
+type Audience = 'support' | 'marketing';
+const AUD_LABEL: Record<Audience, string> = { support: 'Support', marketing: 'Marketing' };
+const AUD_CLS: Record<Audience, string> = {
+   support: 'border-sky-500/40 text-sky-700 dark:text-sky-300',
+   marketing: 'border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300',
+};
 interface Counts {
    all: number;
    live: number;
@@ -74,14 +83,18 @@ export function KbManager() {
    const [ws, setWs] = useState('chesslang');
    const [filter, setFilter] = useState<Filter>('all');
    const [q, setQ] = useState('');
+   const [aud, setAud] = useState<'all' | Audience>('all');
    const [rows, setRows] = useState<Row[]>([]);
    const [gaps, setGaps] = useState<Gap[]>([]);
    const [counts, setCounts] = useState<Counts | null>(null);
    const [denied, setDenied] = useState(false);
    const [busy, setBusy] = useState<string | null>(null);
-   const [draft, setDraft] = useState<{ title: string; body: string; gapIds: string[] } | null>(
-      null
-   );
+   const [draft, setDraft] = useState<{
+      title: string;
+      body: string;
+      gapIds: string[];
+      audience: Audience;
+   } | null>(null);
    const [toDelete, setToDelete] = useState<Row | null>(null);
    const [ask, setAsk] = useState('');
    const [replies, setReplies] = useState<Reply[]>([]);
@@ -104,7 +117,7 @@ export function KbManager() {
    const load = useCallback(async () => {
       const f = filter === 'gaps' ? 'all' : filter;
       const r = await fetch(
-         `/api/ops/kb-admin?ws=${ws}&filter=${f}&q=${encodeURIComponent(q.trim())}`,
+         `/api/ops/kb-admin?ws=${ws}&filter=${f}&audience=${aud}&q=${encodeURIComponent(q.trim())}`,
          { cache: 'no-store' }
       ).catch(() => null);
       if (r?.status === 403 || r?.status === 401) return setDenied(true);
@@ -113,7 +126,7 @@ export function KbManager() {
       setRows(d.docs);
       setGaps(d.gaps);
       setCounts(d.counts);
-   }, [ws, filter, q]);
+   }, [ws, filter, q, aud]);
    useEffect(() => {
       const t = setTimeout(load, 200);
       return () => clearTimeout(t);
@@ -164,6 +177,7 @@ export function KbManager() {
             body: draft.body,
             category: 'KB',
             workspace: ws,
+            kb_audience: draft.audience,
          }),
       }).catch(() => null);
       const d = r ? await r.json().catch(() => null) : null;
@@ -172,6 +186,19 @@ export function KbManager() {
       if (draft.gapIds.length) await post({ action: 'resolve', ids: draft.gapIds });
       toast.success(goLive ? 'Article is live' : 'Saved to Needs review');
       setDraft(null);
+      load();
+   };
+
+   const setAudience = async (row: Row, audience: Audience) => {
+      setBusy(row.id);
+      const d = await post({ action: 'audience', id: row.id, audience });
+      setBusy(null);
+      if (d)
+         toast.success(
+            audience === 'marketing'
+               ? 'Marketing: team only, never sent to bots'
+               : 'Support: bots may use it'
+         );
       load();
    };
 
@@ -242,7 +269,27 @@ export function KbManager() {
                      className="h-9 pl-8"
                   />
                </div>
-               <Button size="sm" onClick={() => setDraft({ title: '', body: '', gapIds: [] })}>
+               <select
+                  value={aud}
+                  onChange={(e) => setAud(e.target.value as 'all' | Audience)}
+                  className="min-h-9 rounded-md border bg-background px-2 text-sm"
+                  aria-label="Audience"
+               >
+                  <option value="all">Support + Marketing</option>
+                  <option value="support">Support (bots)</option>
+                  <option value="marketing">Marketing (team)</option>
+               </select>
+               <Button
+                  size="sm"
+                  onClick={() =>
+                     setDraft({
+                        title: '',
+                        body: '',
+                        gapIds: [],
+                        audience: aud === 'marketing' ? 'marketing' : 'support',
+                     })
+                  }
+               >
                   <Plus className="size-4" /> New article
                </Button>
             </div>
@@ -282,13 +329,19 @@ export function KbManager() {
                                  <p className="text-sm [overflow-wrap:anywhere]">{g.question}</p>
                                  <p className="text-xs text-muted-foreground">
                                     Asked {g.times}× · last {ago(g.last_at)}
+                                    {g.audience === 'marketing' && ' · from Marketing'}
                                  </p>
                               </div>
                               <Button
                                  size="sm"
                                  variant="outline"
                                  onClick={() =>
-                                    setDraft({ title: g.question, body: '', gapIds: g.ids })
+                                    setDraft({
+                                       title: g.question,
+                                       body: '',
+                                       gapIds: g.ids,
+                                       audience: g.audience ?? 'support',
+                                    })
                                  }
                               >
                                  Write article
@@ -327,6 +380,17 @@ export function KbManager() {
                                  Updated {ago(r.updated_at)}
                               </p>
                            </Link>
+                           <select
+                              value={r.audience}
+                              disabled={busy === r.id}
+                              onChange={(e) => setAudience(r, e.target.value as Audience)}
+                              className={`h-7 shrink-0 rounded-full border bg-transparent px-2 text-xs ${AUD_CLS[r.audience]}`}
+                              aria-label="Who it's for"
+                              title="Support: bots may use it · Marketing: team only"
+                           >
+                              <option value="support">{AUD_LABEL.support}</option>
+                              <option value="marketing">{AUD_LABEL.marketing}</option>
+                           </select>
                            <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                               <Switch
                                  checked={r.live}
@@ -435,6 +499,25 @@ export function KbManager() {
                         onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                         placeholder="Title (e.g. the question customers ask)"
                      />
+                     <div className="flex flex-wrap gap-2 text-sm">
+                        {(['support', 'marketing'] as Audience[]).map((a) => (
+                           <label
+                              key={a}
+                              className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-md border px-3 ${
+                                 draft.audience === a ? AUD_CLS[a] : 'text-muted-foreground'
+                              }`}
+                           >
+                              <input
+                                 type="radio"
+                                 checked={draft.audience === a}
+                                 onChange={() => setDraft({ ...draft, audience: a })}
+                              />
+                              {a === 'support'
+                                 ? 'Support (bots may use it)'
+                                 : 'Marketing (team only)'}
+                           </label>
+                        ))}
+                     </div>
                      <Textarea
                         value={draft.body}
                         onChange={(e) => setDraft({ ...draft, body: e.target.value })}

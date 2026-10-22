@@ -17,10 +17,12 @@ interface Source {
    workspace: string | null;
    production: boolean;
 }
+type Audience = 'support' | 'marketing';
 interface Turn {
    q: string;
    workspace: string;
    staging: boolean;
+   audience: Audience;
    pending?: boolean;
    error?: string;
    answered?: boolean;
@@ -43,6 +45,8 @@ export function AskView() {
    const { orgId } = useParams<{ orgId: string }>();
    const [workspace, setWorkspace] = useState('all');
    const [staging, setStaging] = useState(false);
+   // SC-436: Support = only what the bots may say; Marketing = also team-only marketing articles.
+   const [audience, setAudience] = useState<Audience>('support');
    const [text, setText] = useState('');
    const [turns, setTurns] = useState<Turn[]>([]);
    const [gaps, setGaps] = useState<Gap[] | null>(null);
@@ -63,12 +67,12 @@ export function AskView() {
       const q = text.trim();
       if (q.length < 3) return;
       setText('');
-      const turn: Turn = { q, workspace, staging, pending: true };
+      const turn: Turn = { q, workspace, staging, audience, pending: true };
       setTurns((t) => [...t, turn]);
       const r = await fetch('/api/ops/ask', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ question: q, workspace, staging }),
+         body: JSON.stringify({ question: q, workspace, staging, audience }),
       }).catch(() => null);
       const d = r ? await r.json().catch(() => null) : null;
       setTurns((t) =>
@@ -109,6 +113,31 @@ export function AskView() {
                      </option>
                   ))}
                </select>
+               <div
+                  className="flex rounded-md border p-0.5 text-xs"
+                  role="group"
+                  aria-label="Answer for"
+               >
+                  {(['support', 'marketing'] as Audience[]).map((a) => (
+                     <button
+                        key={a}
+                        type="button"
+                        onClick={() => setAudience(a)}
+                        className={`min-h-8 rounded px-2.5 ${
+                           audience === a
+                              ? 'bg-muted font-medium text-foreground'
+                              : 'text-muted-foreground'
+                        }`}
+                        title={
+                           a === 'support'
+                              ? 'Answers the way the bots would (support articles only)'
+                              : 'Marketing ideas and copy, built on product facts plus marketing articles'
+                        }
+                     >
+                        {a === 'support' ? 'Support' : 'Marketing'}
+                     </button>
+                  ))}
+               </div>
                <label className="flex min-h-9 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <input
                      type="checkbox"
@@ -125,7 +154,8 @@ export function AskView() {
                      <div className="mt-16 text-center text-sm text-muted-foreground">
                         <CircleHelp className="mx-auto mb-2 size-7" />
                         Ask anything about our products. Answers come only from the knowledge base,
-                        with the articles they’re based on.
+                        with the articles they’re based on. Support answers the way the bots would;
+                        Marketing gives ideas and copy built on the same facts.
                      </div>
                   )}
                   {turns.map((t, i) => (
@@ -134,6 +164,7 @@ export function AskView() {
                            {t.q}
                            <div className="mt-0.5 text-[11px] text-muted-foreground">
                               {wsName(t.workspace)}
+                              {t.audience === 'marketing' ? ' · Marketing' : ''}
                               {t.staging ? ' · incl. staging' : ''}
                            </div>
                         </div>

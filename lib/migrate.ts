@@ -580,7 +580,16 @@ ALTER TABLE ops_intern_events ADD COLUMN IF NOT EXISTS original jsonb;-- Intern 
 ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS login_name text;
 ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS password_hash text;
 ALTER TABLE ops_interns ADD COLUMN IF NOT EXISTS password_set_at timestamptz;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_interns_login ON ops_interns (lower(login_name)) WHERE login_name IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_interns_login ON ops_interns (lower(login_name)) WHERE login_name IS NOT NULL;-- KB audiences (SC-436, 22 Oct 2026): one KB, each article labelled for who reads it.
+-- 'support' = product facts the bots may say (served by /api/kb); 'marketing' = positioning, personas,
+-- demo scripts, competitor notes, campaign ideas — for the team only, never served to bots.
+ALTER TABLE ops_docs ADD COLUMN IF NOT EXISTS kb_audience text NOT NULL DEFAULT 'support';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ops_docs_kb_audience_check') THEN
+    ALTER TABLE ops_docs ADD CONSTRAINT ops_docs_kb_audience_check CHECK (kb_audience IN ('support', 'marketing'));
+  END IF;
+END $$;
+ALTER TABLE ops_kb_questions ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'support';
 `;
 
 let migrated = false;

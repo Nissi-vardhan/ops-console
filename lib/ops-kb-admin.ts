@@ -13,6 +13,7 @@ export interface KbAdminRow {
    review_stage: string | null;
    draft_of: string | null;
    has_video: boolean;
+   audience: 'support' | 'marketing';
    updated_at: string;
 }
 
@@ -25,20 +26,29 @@ const snippetOf = (body: string) =>
       .trim()
       .slice(0, 180);
 
-export async function listKbAdmin(ws: string, filter: KbFilter, q: string) {
+export type KbAudienceFilter = 'all' | 'support' | 'marketing';
+
+export async function listKbAdmin(
+   ws: string,
+   filter: KbFilter,
+   q: string,
+   audience: KbAudienceFilter = 'all'
+) {
    const rows = await query<{
       id: string;
       title: string;
       body: string;
       review_stage: string | null;
       draft_of: string | null;
+      kb_audience: 'support' | 'marketing';
       updated_at: string;
    }>(
-      `SELECT id, title, body, review_stage, draft_of, updated_at FROM ops_docs
+      `SELECT id, title, body, review_stage, draft_of, kb_audience, updated_at FROM ops_docs
         WHERE category = 'KB' AND workspace = $1
           AND ($2 = '' OR title ILIKE '%' || $2 || '%' OR body ILIKE '%' || $2 || '%')
+          AND ($3 = 'all' OR kb_audience = $3)
         ORDER BY (review_stage = 'approved') ASC, updated_at DESC`,
-      [ws, q]
+      [ws, q, audience]
    );
    const all: KbAdminRow[] = rows.map((r) => ({
       id: r.id,
@@ -48,6 +58,7 @@ export async function listKbAdmin(ws: string, filter: KbFilter, q: string) {
       review_stage: r.review_stage,
       draft_of: r.draft_of,
       has_video: /videos\.chesslang\.com/.test(r.body),
+      audience: r.kb_audience,
       updated_at: r.updated_at,
    }));
    const counts = {
@@ -66,9 +77,15 @@ export async function listKbAdmin(ws: string, filter: KbFilter, q: string) {
 
 /** Unanswered questions for a product (or asked across all products), grouped by wording. */
 export async function kbGapsFor(ws: string) {
-   return query<{ question: string; times: number; last_at: string; ids: string[] }>(
+   return query<{
+      question: string;
+      times: number;
+      last_at: string;
+      ids: string[];
+      audience: 'support' | 'marketing';
+   }>(
       `SELECT (array_agg(question ORDER BY created_at DESC))[1] AS question, count(*)::int AS times, max(created_at) AS last_at,
-              array_agg(id::text) AS ids
+              array_agg(id::text) AS ids, (array_agg(audience ORDER BY created_at DESC))[1] AS audience
          FROM ops_kb_questions
         WHERE NOT answered AND resolved_at IS NULL AND (workspace = $1 OR workspace = 'all')
         GROUP BY lower(regexp_replace(trim(question), '\\s+', ' ', 'g'))

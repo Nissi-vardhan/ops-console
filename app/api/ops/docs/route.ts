@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       pinned: body?.pinned === true,
       workspace: typeof body?.workspace === 'string' ? body.workspace : null,
       created_by: body?.created_by ?? null,
+      kb_audience: body?.kb_audience === 'marketing' ? 'marketing' : 'support',
    });
    return NextResponse.json({ doc }, { status: 201 });
 }

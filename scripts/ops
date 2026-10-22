@@ -572,6 +572,7 @@ async function main() {
                   workspace: d.workspace,
                   draft_of: d.draft_of || null,
                   category: d.category,
+                  audience: d.category === 'KB' ? d.kb_audience || 'support' : null,
                   status: stageLabel(d.review_stage),
                   author: author(d),
                   intern_visible: !!d.intern_visible,
@@ -585,7 +586,7 @@ async function main() {
             if (!rows.length) console.log('no docs');
             for (const d of rows)
                console.log(
-                  `${d.id} · ${d.status}${d.draft_of ? ' (edit of a production doc)' : ''} · ${ws === 'all' ? (d.workspace || '–') + ' · ' : ''}${d.category} · ${d.author} · ${ist(d.created_at)} · ${d.title}`
+                  `${d.id} · ${d.status}${d.draft_of ? ' (edit of a production doc)' : ''} · ${ws === 'all' ? (d.workspace || '–') + ' · ' : ''}${d.category}${d.audience === 'marketing' ? ' (marketing)' : ''} · ${d.author} · ${ist(d.created_at)} · ${d.title}`
                );
             return;
          }

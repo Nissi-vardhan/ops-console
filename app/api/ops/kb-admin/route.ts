@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getOpsUser } from '@/lib/ops-session';
-import { getOpsDoc, setDocReview } from '@/lib/ops-data';
-import { kbGapsFor, listKbAdmin, resolveGaps, type KbFilter } from '@/lib/ops-kb-admin';
+import { getOpsDoc, setDocReview, setKbAudience } from '@/lib/ops-data';
+import {
+   kbGapsFor,
+   listKbAdmin,
+   resolveGaps,
+   type KbAudienceFilter,
+   type KbFilter,
+} from '@/lib/ops-kb-admin';
 import { WORKSPACES } from '@/lib/workspaces';
 
 // Knowledge Base manager (SC-418). Owners only, signed in: the CLI/session bearer is
@@ -16,6 +22,7 @@ async function ownerOnly(): Promise<Response | null> {
 // GET  ?ws=<product>&filter=all|live|review&q=  → { docs, counts, gaps }
 // POST { action: 'toggle', id, live }            → set an article live (production) or back to review
 // POST { action: 'resolve', ids }               → mark unanswered questions as handled
+// POST { action: 'audience', id, audience }      → support (bots may use it) or marketing (team only)
 export async function GET(request: Request) {
    const denied = await ownerOnly();
    if (denied) return denied;
@@ -26,7 +33,12 @@ export async function GET(request: Request) {
    const f = sp.get('filter');
    const filter: KbFilter = f === 'live' || f === 'review' ? f : 'all';
    const q = (sp.get('q') || '').trim().slice(0, 200);
-   const [{ docs, counts }, gaps] = await Promise.all([listKbAdmin(ws, filter, q), kbGapsFor(ws)]);
+   const a = sp.get('audience');
+   const audience: KbAudienceFilter = a === 'support' || a === 'marketing' ? a : 'all';
+   const [{ docs, counts }, gaps] = await Promise.all([
+      listKbAdmin(ws, filter, q, audience),
+      kbGapsFor(ws),
+   ]);
    return NextResponse.json({ docs, counts: { ...counts, gaps: gaps.length }, gaps });
 }
 
@@ -37,6 +49,13 @@ export async function POST(request: Request) {
    if (body?.action === 'resolve') {
       const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
       return NextResponse.json({ ok: true, resolved: await resolveGaps(ids) });
+   }
+   if (body?.action === 'audience') {
+      const id = typeof body.id === 'string' ? body.id : '';
+      const audience = body.audience === 'marketing' ? 'marketing' : 'support';
+      if (!(await setKbAudience(id, audience)))
+         return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ ok: true, audience });
    }
    if (body?.action === 'toggle') {
       const id = typeof body.id === 'string' ? body.id : '';
