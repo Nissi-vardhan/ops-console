@@ -25,6 +25,7 @@ async function ownerOnly(): Promise<Response | null> {
 // POST { action: 'resolve', ids }               → mark unanswered questions as handled
 // POST { action: 'audience', id, audience }      → support (bots may use it) or marketing (team only)
 // POST { action: 'key_create', ws, label } / { action: 'key_revoke', ws, id } → KB push keys
+// POST { action: 'bulk_live', ws, ids } → make all those articles live (Needs review tab)
 export async function GET(request: Request) {
    const denied = await ownerOnly();
    if (denied) return denied;
@@ -80,6 +81,39 @@ export async function POST(request: Request) {
       if (!(await setKbAudience(id, audience)))
          return NextResponse.json({ error: 'Not found' }, { status: 404 });
       return NextResponse.json({ ok: true, audience });
+   }
+   // Bulk approve (owner only): make every listed article of one product live.
+   if (body?.action === 'bulk_live') {
+      const ws = typeof body.ws === 'string' ? body.ws : '';
+      const ids: string[] = Array.isArray(body.ids)
+         ? body.ids.filter((x: unknown) => typeof x === 'string')
+         : [];
+      if (!ids.length || ids.length > 200)
+         return NextResponse.json({ error: '1–200 articles' }, { status: 400 });
+      const user = await getOpsUser();
+      let done = 0;
+      const failed: string[] = [];
+      for (const id of ids) {
+         const doc = await getOpsDoc(id);
+         if (
+            !doc ||
+            doc.category !== 'KB' ||
+            doc.workspace !== ws ||
+            doc.review_stage === 'approved'
+         ) {
+            failed.push(id);
+            continue;
+         }
+         const res = await setDocReview(id, {
+            stage: 'approved',
+            note: 'Set live with "Make all live" on the Knowledge Base page',
+            author_name: user?.username ?? 'owner',
+            author_email: user?.email ?? '',
+         });
+         if (res) done++;
+         else failed.push(id);
+      }
+      return NextResponse.json({ ok: true, done, failed });
    }
    if (body?.action === 'toggle') {
       const id = typeof body.id === 'string' ? body.id : '';

@@ -201,6 +201,26 @@ export function KbManager() {
       load();
    };
 
+   const [bulkBusy, setBulkBusy] = useState(false);
+   const makeAllLive = async () => {
+      const ids = rows.filter((r) => !r.live).map((r) => r.id);
+      if (!ids.length) return;
+      if (
+         !window.confirm(
+            `Make ${ids.length} article${ids.length === 1 ? '' : 's'} live? Support articles become visible to the bots right away.`
+         )
+      )
+         return;
+      setBulkBusy(true);
+      const d = await post({ action: 'bulk_live', ws, ids });
+      setBulkBusy(false);
+      if (d)
+         toast.success(
+            `${d.done} made live${d.failed?.length ? `, ${d.failed.length} skipped` : ''}`
+         );
+      load();
+   };
+
    const setAudience = async (row: Row, audience: Audience) => {
       setBusy(row.id);
       const d = await post({ action: 'audience', id: row.id, audience });
@@ -341,6 +361,21 @@ export function KbManager() {
                   </button>
                ))}
             </div>
+
+            {filter === 'review' && rows.some((r) => !r.live) && (
+               <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+                  <span>
+                     {rows.filter((r) => !r.live).length} waiting
+                     {aud !== 'all' ? ` · ${AUD_LABEL[aud]} only` : ''}
+                     {q.trim() ? ' · matching your search' : ''}
+                  </span>
+                  <Button size="sm" className="ml-auto" disabled={bulkBusy} onClick={makeAllLive}>
+                     {bulkBusy
+                        ? 'Making live…'
+                        : `Make all live (${rows.filter((r) => !r.live).length})`}
+                  </Button>
+               </div>
+            )}
 
             <div className="flex-1 overflow-y-auto">
                {filter === 'gaps' ? (
