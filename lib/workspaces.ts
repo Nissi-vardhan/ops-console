@@ -88,6 +88,14 @@ export const WORKSPACES: Workspace[] = [
       docTitle: 'Trainerstack — Knowledge Base',
       prefix: 'TS',
    },
+   {
+      slug: 'chessmasters',
+      name: 'Chessmasters',
+      blurb: 'New Shortcastle product, launched Oct 2026 (parent task SC-439).',
+      status: 'active',
+      docTitle: 'Chessmasters — Knowledge Base',
+      prefix: 'CMS',
+   },
 ];
 
 // Tailwind chip classes per status, with dark: variants so they read in both themes.

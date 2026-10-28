@@ -30,6 +30,7 @@ const WORKSPACES = [
    'shortcastle',
    'mrzerocode',
    'trainerstack',
+   'chessmasters',
 ];
 const PHASES = ['plan', 'prepare', 'execute', 'verify', 'done'];
 const STATUSES = [
