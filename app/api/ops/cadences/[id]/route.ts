@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getOpsCadence, updateOpsCadence, deleteOpsCadence } from '@/lib/ops-data';
-import {
-   opsAuthorized,
-   requireRole,
-   accessibleWorkspaces,
-   workspaceAllowed,
-} from '@/lib/ops-guard';
+import { requireRole, accessibleWorkspaces, workspaceAllowed, requireStaff } from '@/lib/ops-guard';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    const cadence = await getOpsCadence((await params).id);
    if (!cadence) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    if (!workspaceAllowed(await accessibleWorkspaces(), cadence.workspace))

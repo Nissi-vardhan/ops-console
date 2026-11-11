@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-   opsAuthorized,
-   requireRole,
-   accessibleWorkspaces,
-   workspaceAllowed,
-} from '@/lib/ops-guard';
+import { opsAuthorized, requireRole, docAccessDenied } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { getOpsDoc } from '@/lib/ops-data';
 import { getShareByDoc, upsertShare, deleteShare } from '@/lib/ops-shares';
@@ -16,8 +11,7 @@ import { googleConfigured } from '@/lib/google-verify';
 // prevent cross-workspace IDOR. A missing doc keeps existing behavior (its
 // workspace resolves to null → treated as untagged → visible).
 async function docForbidden(id: string): Promise<boolean> {
-   const doc = await getOpsDoc(id);
-   return !workspaceAllowed(await accessibleWorkspaces(), doc?.workspace ?? null);
+   return (await docAccessDenied(id)) !== null;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { updateOpsProject } from '@/lib/ops-data';
-import { requireRole, accessibleWorkspaces, workspaceAllowed } from '@/lib/ops-guard';
+import { requireRole, accessibleWorkspaces, projectAccessDenied } from '@/lib/ops-guard';
 import { queryOne } from '@/lib/db';
 
 // PATCH /api/ops/projects/:id — update project fields (incl. workspace tag).
@@ -13,9 +13,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       [id]
    );
    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-   if (!workspaceAllowed(await accessibleWorkspaces(), existing.workspace))
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   const forbidden = await projectAccessDenied(id);
+   if (forbidden) return forbidden;
    const body = await request.json().catch(() => ({}));
+   if (body && typeof body.workspace === 'string') {
+      const allowed = await accessibleWorkspaces();
+      if (allowed !== null && !allowed.includes(body.workspace))
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   }
    const project = await updateOpsProject(id, body ?? {});
    if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({ project });

@@ -5,13 +5,19 @@ import {
    requireRole,
    accessibleWorkspaces,
    workspaceAllowed,
+   ownTasksOnly,
+   myProjectIds,
 } from '@/lib/ops-guard';
 
 export async function GET(request: Request) {
    if (!(await opsAuthorized(request)))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
    const allowed = await accessibleWorkspaces();
-   const projects = (await listOpsProjects()).filter((p) => workspaceAllowed(allowed, p.workspace));
+   const mine = await ownTasksOnly();
+   const own = mine ? await myProjectIds(mine) : null;
+   const projects = (await listOpsProjects()).filter(
+      (p) => workspaceAllowed(allowed, p.workspace) && (!own || own.has(p.id))
+   );
    return NextResponse.json({ projects });
 }
 
@@ -21,6 +27,12 @@ export async function POST(request: Request) {
    const body = await request.json().catch(() => null);
    const name = typeof body?.name === 'string' ? body.name.trim() : '';
    if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+   const allowed = await accessibleWorkspaces();
+   if (
+      allowed !== null &&
+      !workspaceAllowed(allowed, typeof body?.workspace === 'string' ? body.workspace : null)
+   )
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
    const project = await createOpsProject({
       name,
       description: body?.description,

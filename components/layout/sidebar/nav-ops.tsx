@@ -135,7 +135,7 @@ export function NavOps() {
       { name: 'Dashboard', icon: LayoutDashboard, url: `${base}/dashboard` },
       { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily`, staff: true },
       { name: 'Projects', icon: Box, url: `${base}/projects`, badge: counts.projectCount },
-      { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
+      { name: 'Cadences', icon: Radio, url: `${base}/cadences`, staff: true },
       { name: 'Workflows', icon: Workflow, url: `${base}/workflows`, staff: true },
       { name: 'Automations', icon: Bot, url: `${base}/automations`, staff: true },
       // Owners manage the product KBs (SC-418); everyone else keeps the search page.

@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getOpsDoc, updateOpsDoc, deleteOpsDoc } from '@/lib/ops-data';
-import {
-   opsAuthorized,
-   requireRole,
-   accessibleWorkspaces,
-   workspaceAllowed,
-} from '@/lib/ops-guard';
+import { opsAuthorized, requireRole, accessibleWorkspaces, docAccessDenied } from '@/lib/ops-guard';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
    if (!(await opsAuthorized(request)))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
    const doc = await getOpsDoc((await params).id);
    if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-   if (!workspaceAllowed(await accessibleWorkspaces(), doc.workspace))
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   const forbidden = await docAccessDenied(doc.id);
+   if (forbidden) return forbidden;
    return NextResponse.json({ doc });
 }
 
@@ -23,9 +18,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
    const id = (await params).id;
    const existing = await getOpsDoc(id);
    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-   if (!workspaceAllowed(await accessibleWorkspaces(), existing.workspace))
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   const forbidden = await docAccessDenied(existing.id);
+   if (forbidden) return forbidden;
    const body = await request.json().catch(() => ({}));
+   // Can't move a doc into a workspace the caller isn't in.
+   if (body && typeof body.workspace === 'string') {
+      const allowed = await accessibleWorkspaces();
+      if (allowed !== null && !allowed.includes(body.workspace))
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   }
    const doc = await updateOpsDoc(id, body ?? {});
    if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({ doc });
@@ -37,7 +38,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
    const id = (await params).id;
    const existing = await getOpsDoc(id);
    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-   if (!workspaceAllowed(await accessibleWorkspaces(), existing.workspace))
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   const forbidden = await docAccessDenied(existing.id);
+   if (forbidden) return forbidden;
    return NextResponse.json({ ok: await deleteOpsDoc(id) });
 }

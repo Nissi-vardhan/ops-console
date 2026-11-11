@@ -69,7 +69,11 @@ async function visibleKeys(
    const docIds = hits.filter((h) => h.kind === 'doc').map((h) => h.id);
    const issueIds = hits.filter((h) => h.kind === 'issue').map((h) => h.id);
    const rows = await query<{ key: string }>(
-      `SELECT 'doc:' || id AS key FROM ops_docs WHERE id::text = ANY($1) AND workspace = ANY($3)
+      `SELECT 'doc:' || id AS key FROM ops_docs d WHERE id::text = ANY($1) AND workspace = ANY($3)
+          AND ($4::uuid IS NULL OR d.created_by = $4
+               OR EXISTS (SELECT 1 FROM ops_doc_links l JOIN ops_issues i ON i.id = l.issue_id
+                           WHERE l.doc_id IN (d.id, d.draft_of)
+                             AND (i.assignee_id = $4 OR i.created_by = $4)))
        UNION ALL
        SELECT 'issue:' || id FROM ops_issues WHERE id::text = ANY($2) AND workspace = ANY($3)
           AND ($4::uuid IS NULL OR assignee_id = $4 OR created_by = $4)`,

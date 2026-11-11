@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
-import { queryOne } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 import { getOpsUser } from '@/lib/ops-session';
 import { myWorkspaceSlugs } from '@/lib/ops-workspace-members';
 
@@ -117,13 +117,58 @@ export async function issueAccessDenied(issueId: string): Promise<Response | nul
    return taskVisible(await ownTasksOnly(), r) ? null : FORBIDDEN();
 }
 
-// Same for a doc.
+// A member works on: their own tasks, the docs they wrote or that are linked
+// to one of those tasks (and staged edits of those), and the projects that hold
+// one of those tasks or that they lead. These return the ids, for one user.
+const MY_TASKS = '(i.assignee_id = $1 OR i.created_by = $1)';
+export async function myDocIds(mine: string): Promise<Set<string>> {
+   const rows = await query<{ id: string }>(
+      `WITH mine AS (
+         SELECT d.id FROM ops_docs d WHERE d.created_by = $1
+         UNION
+         SELECT l.doc_id FROM ops_doc_links l JOIN ops_issues i ON i.id = l.issue_id
+          WHERE ${MY_TASKS})
+       SELECT id::text FROM mine
+       UNION
+       SELECT d.id::text FROM ops_docs d WHERE d.draft_of IN (SELECT id FROM mine)`,
+      [mine]
+   );
+   return new Set(rows.map((r) => r.id));
+}
+export async function myProjectIds(mine: string): Promise<Set<string>> {
+   const rows = await query<{ id: string }>(
+      `SELECT p.id::text FROM ops_projects p WHERE p.lead_id = $1
+       UNION
+       SELECT i.project_id::text FROM ops_issues i WHERE i.project_id IS NOT NULL AND ${MY_TASKS}`,
+      [mine]
+   );
+   return new Set(rows.map((r) => r.id));
+}
+
+// Same for a doc: wrong workspace, or (member) not one they work on.
 export async function docAccessDenied(docId: string): Promise<Response | null> {
    const allowed = await accessibleWorkspaces();
    if (allowed === null) return null;
-   const r = await queryOne<{ workspace: string | null }>(
-      'SELECT workspace FROM ops_docs WHERE id::text = $1',
+   const r = await queryOne<{ id: string; workspace: string | null }>(
+      'SELECT id::text, workspace FROM ops_docs WHERE id::text = $1',
       [docId]
    );
-   return r && !workspaceAllowed(allowed, r.workspace) ? FORBIDDEN() : null;
+   if (!r) return null;
+   if (!workspaceAllowed(allowed, r.workspace)) return FORBIDDEN();
+   const mine = await ownTasksOnly();
+   return mine && !(await myDocIds(mine)).has(r.id) ? FORBIDDEN() : null;
+}
+
+// Same for a project.
+export async function projectAccessDenied(projectId: string): Promise<Response | null> {
+   const allowed = await accessibleWorkspaces();
+   if (allowed === null) return null;
+   const r = await queryOne<{ id: string; workspace: string | null }>(
+      'SELECT id::text, workspace FROM ops_projects WHERE id::text = $1',
+      [projectId]
+   );
+   if (!r) return null;
+   if (!workspaceAllowed(allowed, r.workspace)) return FORBIDDEN();
+   const mine = await ownTasksOnly();
+   return mine && !(await myProjectIds(mine)).has(r.id) ? FORBIDDEN() : null;
 }

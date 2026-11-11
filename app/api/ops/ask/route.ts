@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { accessibleWorkspaces, opsAuthorized } from '@/lib/ops-guard';
+import { accessibleWorkspaces, requireStaff } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { askKb } from '@/lib/ops-ask';
 import { WORKSPACES } from '@/lib/workspaces';
@@ -9,8 +9,9 @@ import { WORKSPACES } from '@/lib/workspaces';
 // Answers from KB articles only (production unless staging is set). Signed-in team
 // members and the CLI bearer; members only search the workspaces they belong to.
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   // Ask reads whole product KBs, so it's staff-only (SC-614).
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    const body = await request.json().catch(() => null);
    const question = typeof body?.question === 'string' ? body.question.trim() : '';
    if (question.length < 3) return NextResponse.json({ error: 'Ask a question' }, { status: 400 });
