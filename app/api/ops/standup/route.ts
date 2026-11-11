@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized, opsBearerOk, safeEqual } from '@/lib/ops-guard';
+import { requireStaff, opsBearerOk, safeEqual } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { addStandup, listStandup, deleteStandup } from '@/lib/ops-standup';
 
@@ -33,8 +33,8 @@ function pinOk(request: Request): boolean {
 // Resume fields (session_id, cwd) are returned only to the CLI or to the owner
 // with the correct PIN; everyone else gets the text without them.
 export async function GET(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    const day = new URL(request.url).searchParams.get('day') || workDayIST();
    if (!DAY_RE.test(day)) return NextResponse.json({ error: 'bad date' }, { status: 400 });
 
@@ -51,8 +51,8 @@ export async function GET(request: Request) {
 
 // POST /api/ops/standup — append one entry: { text, session?, author?, day? }.
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    const b = await request.json().catch(() => null);
    const text = typeof b?.text === 'string' ? b.text.trim() : '';
    if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 });
@@ -70,8 +70,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/ops/standup?id=<uuid> — remove one entry (prune junk/mistakes).
 export async function DELETE(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    const body = await request.json().catch(() => ({}));
    const id =
       (typeof body?.id === 'string' ? body.id : '') ||

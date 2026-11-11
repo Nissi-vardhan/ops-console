@@ -59,9 +59,28 @@ function plainSnippet(content: string): string {
 
 const RRF_K = 60;
 
-export async function recall(q: string, limit = 12): Promise<RecallHit[]> {
+// Drop hits outside `allowed` (null = unrestricted). Untagged records count as
+// internal, so a restricted caller never sees them (SC-612).
+async function visibleKeys(hits: { kind: string; id: string }[], allowed: string[]) {
+   const docIds = hits.filter((h) => h.kind === 'doc').map((h) => h.id);
+   const issueIds = hits.filter((h) => h.kind === 'issue').map((h) => h.id);
+   const rows = await query<{ key: string }>(
+      `SELECT 'doc:' || id AS key FROM ops_docs WHERE id::text = ANY($1) AND workspace = ANY($3)
+       UNION ALL
+       SELECT 'issue:' || id FROM ops_issues WHERE id::text = ANY($2) AND workspace = ANY($3)`,
+      [docIds, issueIds, allowed]
+   );
+   return new Set(rows.map((r) => r.key));
+}
+
+export async function recall(
+   q: string,
+   limit = 12,
+   allowed: string[] | null = null
+): Promise<RecallHit[]> {
    const term = (q || '').trim();
    if (!term) return [];
+   if (allowed !== null && allowed.length === 0) return [];
 
    const [fts, sem] = await Promise.all([
       ftsRecall(term, 25),
@@ -108,18 +127,20 @@ export async function recall(q: string, limit = 12): Promise<RecallHit[]> {
       }
    });
 
-   return [...merged.values()]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map((h) => ({
-         kind: h.kind,
-         id: h.id,
-         ref: h.ref,
-         title: h.title,
-         category: h.category,
-         snippet: h.snippet,
-         rank: h.rank,
-         updated_at: h.updated_at,
-         via: [...h.via],
-      }));
+   let ranked = [...merged.values()].sort((a, b) => b.score - a.score);
+   if (allowed !== null) {
+      const ok = await visibleKeys(ranked, allowed);
+      ranked = ranked.filter((h) => ok.has(`${h.kind}:${h.id}`));
+   }
+   return ranked.slice(0, limit).map((h) => ({
+      kind: h.kind,
+      id: h.id,
+      ref: h.ref,
+      title: h.title,
+      category: h.category,
+      snippet: h.snippet,
+      rank: h.rank,
+      updated_at: h.updated_at,
+      via: [...h.via],
+   }));
 }

@@ -91,12 +91,15 @@ export function NavOps() {
    const myTasksUrl = `${base}/my-issues`;
    const [meId, setMeId] = useState<string | null>(null);
    const [isOwner, setIsOwner] = useState(false);
+   // Owner/admin see the console-wide pages; members only their products' (SC-612).
+   const [isStaff, setIsStaff] = useState(false);
    useEffect(() => {
       fetch('/api/ops/me', { cache: 'no-store' })
          .then((r) => (r.ok ? r.json() : null))
          .then((d) => {
             setMeId(d?.user?.id ?? null);
             setIsOwner(d?.user?.role === 'owner');
+            setIsStaff(d?.user?.role === 'owner' || d?.user?.role === 'admin');
          })
          .catch(() => {});
    }, []);
@@ -130,20 +133,20 @@ export function NavOps() {
 
    const flatItems = [
       { name: 'Dashboard', icon: LayoutDashboard, url: `${base}/dashboard` },
-      { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily` },
+      { name: 'Daily Update', icon: CalendarDays, url: `${base}/daily`, staff: true },
       { name: 'Projects', icon: Box, url: `${base}/projects`, badge: counts.projectCount },
       { name: 'Cadences', icon: Radio, url: `${base}/cadences` },
-      { name: 'Workflows', icon: Workflow, url: `${base}/workflows` },
-      { name: 'Automations', icon: Bot, url: `${base}/automations` },
+      { name: 'Workflows', icon: Workflow, url: `${base}/workflows`, staff: true },
+      { name: 'Automations', icon: Bot, url: `${base}/automations`, staff: true },
       // Owners manage the product KBs (SC-418); everyone else keeps the search page.
       isOwner
          ? { name: 'Knowledge Base', icon: Sparkles, url: `${base}/kb` }
          : { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
       { name: 'Docs', icon: FileText, url: `${base}/docs` },
-      { name: 'Infra', icon: Server, url: `${base}/infra` },
-      { name: 'Interns', icon: GraduationCap, url: `${base}/interns` },
+      { name: 'Infra', icon: Server, url: `${base}/infra`, staff: true },
+      { name: 'Interns', icon: GraduationCap, url: `${base}/interns`, staff: true },
       { name: 'Settings', icon: Settings, url: `${base}/settings/preferences` },
-   ];
+   ].filter((item) => isStaff || !('staff' in item));
 
    const activeMark = (url: string) => (
       <motion.span

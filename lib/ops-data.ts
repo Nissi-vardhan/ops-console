@@ -81,9 +81,23 @@ async function validProjectId(id?: string | null): Promise<string | null> {
       : null;
 }
 
-export async function listOpsMembers(): Promise<OpsMember[]> {
+// `allowed` (from accessibleWorkspaces): null = everyone; else the caller plus
+// users who are members of one of those workspaces (assignee picker, SC-612).
+export async function listOpsMembers(
+   allowed: string[] | null = null,
+   selfId?: string
+): Promise<OpsMember[]> {
+   if (allowed === null)
+      return query<OpsMember>(
+         'SELECT id, email, username, role FROM users WHERE active = true ORDER BY username'
+      );
    return query<OpsMember>(
-      'SELECT id, email, username, role FROM users WHERE active = true ORDER BY username'
+      `SELECT id, email, username, role FROM users u
+        WHERE active = true
+          AND (u.id::text = $2 OR EXISTS (SELECT 1 FROM ops_workspace_members m
+                WHERE m.user_id = u.id AND m.workspace = ANY($1)))
+        ORDER BY username`,
+      [allowed, selfId ?? '']
    );
 }
 
@@ -236,8 +250,7 @@ export async function queryOpsIssues(q: IssueQuery): Promise<OpsIssue[]> {
    if (q.since) add("i.updated_at >= (?::date)::timestamp AT TIME ZONE 'Asia/Kolkata'", q.since);
    if (q.parentId) add('i.parent_id = ?', q.parentId);
    if (q.roots) where.push('i.parent_id IS NULL');
-   if (q.allowedWorkspaces)
-      add('(i.workspace = ANY(?) OR i.workspace IS NULL)', q.allowedWorkspaces);
+   if (q.allowedWorkspaces) add('i.workspace = ANY(?)', q.allowedWorkspaces);
    const limit = Math.min(Math.max(Math.trunc(q.limit ?? 50), 1), 500);
    return query<OpsIssue>(
       `SELECT ${ISSUE_SELECT} FROM ops_issues i
@@ -812,21 +825,30 @@ export async function unlinkDocIssue(docId: string, issueRef: string): Promise<b
    return rows.length > 0;
 }
 
-export async function listDocLinkedIssues(docId: string): Promise<LinkedIssue[]> {
+// `allowed` (from accessibleWorkspaces): null = unrestricted, else only tasks in those workspaces.
+export async function listDocLinkedIssues(
+   docId: string,
+   allowed: string[] | null = null
+): Promise<LinkedIssue[]> {
    return query<LinkedIssue>(
       `SELECT i.id, i.identifier, i.title, i.status_id
        FROM ops_doc_links l JOIN ops_issues i ON i.id = l.issue_id
-       WHERE l.doc_id = $1 ORDER BY i.identifier`,
-      [docId]
+       WHERE l.doc_id = $1 AND ($2::text[] IS NULL OR i.workspace = ANY($2))
+       ORDER BY i.identifier`,
+      [docId, allowed]
    );
 }
 
-export async function listIssueLinkedDocs(issueId: string): Promise<LinkedDoc[]> {
+export async function listIssueLinkedDocs(
+   issueId: string,
+   allowed: string[] | null = null
+): Promise<LinkedDoc[]> {
    return query<LinkedDoc>(
       `SELECT d.id, d.title, d.category
        FROM ops_doc_links l JOIN ops_docs d ON d.id = l.doc_id
-       WHERE l.issue_id = $1 ORDER BY d.title`,
-      [issueId]
+       WHERE l.issue_id = $1 AND ($2::text[] IS NULL OR d.workspace = ANY($2))
+       ORDER BY d.title`,
+      [issueId, allowed]
    );
 }
 

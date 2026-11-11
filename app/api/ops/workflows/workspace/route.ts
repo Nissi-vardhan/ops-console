@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { requireStaff } from '@/lib/ops-guard';
 import { setWorkflowWorkspace, bulkSetWorkflowWorkspace } from '@/lib/ops-workflows';
 import { WORKSPACES } from '@/lib/workspaces';
 
@@ -9,8 +9,8 @@ const VALID = new Set(WORKSPACES.map((w) => w.slug));
 // Accepts EITHER a single { id, workspace } (workspace null/"" clears) OR a bulk
 // { map: { [workflowId]: slug } }. Unknown slugs are ignored.
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
 
    let body: unknown;
    try {

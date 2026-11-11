@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { requireStaff } from '@/lib/ops-guard';
 import { getDailyUpdate } from '@/lib/ops-digest';
 import { sendLarkText, larkConfigured } from '@/lib/lark';
 
@@ -10,8 +10,8 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Is Lark wired? Used by the Daily Update UI to show/hide the "Send to Lark" button.
 export async function GET(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    return NextResponse.json({ configured: larkConfigured() });
 }
 
@@ -19,8 +19,8 @@ export async function GET(request: Request) {
 // ?regen=1 refreshes an un-edited update from the logs first (the nightly job
 // uses this); a hand-edited update is posted as-is so edits are never lost.
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    if (!larkConfigured()) {
       return NextResponse.json(
          { error: "Lark isn't set up yet — add the bot's webhook URL (LARK_WEBHOOK_URL)." },

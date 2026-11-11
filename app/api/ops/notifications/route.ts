@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { requireStaff } from '@/lib/ops-guard';
 import { getPending } from '@/lib/ops-pending';
 import { listRecentComments } from '@/lib/ops-comments';
 import { recentFailures, n8nConfigured } from '@/lib/n8n';
@@ -15,8 +15,8 @@ interface Item {
 
 // Aggregated notifications feed: open blockers + recent comments + failed n8n runs.
 export async function GET(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
 
    const items: Item[] = [];
 

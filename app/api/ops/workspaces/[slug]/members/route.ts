@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOpsUser } from '@/lib/ops-session';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, accessibleWorkspaces } from '@/lib/ops-guard';
 import { workspaceBySlug } from '@/lib/workspaces';
 import {
    listWorkspaceMembers,
@@ -28,6 +28,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
    const { slug } = await params;
    if (!workspaceBySlug(slug))
       return NextResponse.json({ error: 'Unknown workspace' }, { status: 404 });
+   const allowed = await accessibleWorkspaces();
+   if (allowed !== null && !allowed.includes(slug))
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
    return NextResponse.json({ members: await listWorkspaceMembers(slug) });
 }
 

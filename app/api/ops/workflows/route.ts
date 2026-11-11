@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { requireStaff } from '@/lib/ops-guard';
 import { listWorkflows, n8nBase, n8nConfigured } from '@/lib/n8n';
 import { getWorkflowWorkspaceMap } from '@/lib/ops-workflows';
 
 // GET /api/ops/workflows → slim list of n8n workflows (key stays server-side).
 export async function GET(request: Request) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    if (!n8nConfigured())
       return NextResponse.json({ configured: false, workflows: [], base: n8nBase() });
    try {

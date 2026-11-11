@@ -6,7 +6,7 @@ import {
    clearDocReview,
    isProductionDoc,
 } from '@/lib/ops-data';
-import { opsAuthorized } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole, docAccessDenied } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 
 // Production KB (SC-356): only the owner, signed in to the console, can promote a doc
@@ -21,6 +21,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
    if (!(await opsAuthorized(request)))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
    const id = (await params).id;
+   const forbidden = await docAccessDenied(id);
+   if (forbidden) return forbidden;
    const doc = await getOpsDoc(id);
    if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    return NextResponse.json({
@@ -32,9 +34,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 // POST /api/ops/docs/:id/review — set stage: { stage: review|changes|approved|note, note? }
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const id = (await params).id;
+   const forbidden = await docAccessDenied(id);
+   if (forbidden) return forbidden;
    const body = await request.json().catch(() => ({}));
    const stage = String(body?.stage ?? '').toLowerCase();
    const doc = await getOpsDoc(id);
@@ -58,9 +62,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
 // DELETE /api/ops/docs/:id/review — reset the doc's review (clear stage + history).
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-   if (!(await opsAuthorized(request)))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const denied = await requireRole(request, 'member');
+   if (denied) return denied;
    const id = (await params).id;
+   const forbidden = await docAccessDenied(id);
+   if (forbidden) return forbidden;
    if (isProductionDoc(await getOpsDoc(id)) && !(await isOwner()))
       return NextResponse.json({ error: 'Only the owner can change production' }, { status: 403 });
    const cleared = await clearDocReview(id);

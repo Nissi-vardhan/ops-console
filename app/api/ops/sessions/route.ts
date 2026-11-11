@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { opsAuthorized, opsBearerOk, safeEqual } from '@/lib/ops-guard';
+import { opsBearerOk, requireStaff, safeEqual } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { recordSession, listSessions } from '@/lib/ops-sessions';
 import { getOpsIssue, resolveOpsIssueId } from '@/lib/ops-data';
@@ -46,9 +46,8 @@ export async function GET(request: Request) {
 // POST /api/ops/sessions — record the current session (CLI/bearer or any signed-in
 // session). Body: { session_id, cwd?, folder?, host?, author?, title?, issue? }
 export async function POST(request: Request) {
-   if (!(await opsAuthorized(request))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-   }
+   const denied = await requireStaff(request);
+   if (denied) return denied;
    const b = await request.json().catch(() => null);
    const id = typeof b?.session_id === 'string' ? b.session_id.trim() : '';
    if (!id) return NextResponse.json({ error: 'session_id required' }, { status: 400 });

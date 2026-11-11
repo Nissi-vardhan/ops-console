@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { opsAuthorized, requireRole } from '@/lib/ops-guard';
+import { opsAuthorized, requireRole, docAccessDenied, issueAccessDenied } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 import { putObject, storageConfigured } from '@/lib/storage';
 import { createAttachment, listAttachments, listIssueAttachments } from '@/lib/ops-attachments';
@@ -17,6 +17,8 @@ export async function GET(request: Request) {
    if (issueRef) {
       const issueId = await resolveOpsIssueId(issueRef);
       if (!issueId) return NextResponse.json({ error: 'task not found' }, { status: 404 });
+      const forbidden = await issueAccessDenied(issueId);
+      if (forbidden) return forbidden;
       return NextResponse.json({
          attachments: await listIssueAttachments(issueId),
          storageConfigured: storageConfigured(),
@@ -24,6 +26,8 @@ export async function GET(request: Request) {
    }
    const docId = sp.get('doc') ?? '';
    if (!docId) return NextResponse.json({ error: 'doc or issue required' }, { status: 400 });
+   const forbidden = await docAccessDenied(docId);
+   if (forbidden) return forbidden;
    return NextResponse.json({
       attachments: await listAttachments(docId),
       storageConfigured: storageConfigured(),
@@ -46,6 +50,9 @@ export async function POST(request: Request) {
    const issueRef = (form?.get('issue_id') as string) || null;
    const issueId = issueRef ? await resolveOpsIssueId(issueRef) : null;
    if (issueRef && !issueId) return NextResponse.json({ error: 'task not found' }, { status: 404 });
+   const forbidden =
+      (issueId && (await issueAccessDenied(issueId))) || (docId && (await docAccessDenied(docId)));
+   if (forbidden) return forbidden;
    if (!(file instanceof File)) return NextResponse.json({ error: 'no file' }, { status: 400 });
 
    const buf = Buffer.from(await file.arrayBuffer());

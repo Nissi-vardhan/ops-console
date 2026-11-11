@@ -46,7 +46,7 @@ async function candidates(
          FROM ops_docs d
         WHERE d.category = 'KB' AND d.draft_of IS NULL
           AND ($2 = 'all' OR d.workspace = $2)
-          AND ($3::text[] IS NULL OR d.workspace IS NULL OR d.workspace = ANY($3))
+          AND ($3::text[] IS NULL OR d.workspace = ANY($3))
           AND ($4 OR d.review_stage = 'approved')
           AND ($5 = 'marketing' OR d.kb_audience = 'support')
         ORDER BY rank DESC, d.updated_at DESC`,

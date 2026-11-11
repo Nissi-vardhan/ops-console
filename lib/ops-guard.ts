@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
+import { queryOne } from '@/lib/db';
 import { getOpsUser } from '@/lib/ops-session';
 import { myWorkspaceSlugs } from '@/lib/ops-workspace-members';
 
@@ -64,13 +65,45 @@ export async function accessibleWorkspaces(): Promise<string[] | null> {
 
 // True if a record with the given workspace tag is visible to a caller whose
 // accessible workspaces are `allowed`. `allowed === null` means unrestricted.
-// Untagged records (null/empty workspace) are visible to everyone — this
-// matches the existing "All" UI behavior for records without a workspace.
+// Untagged records (null/empty workspace) are internal: only unrestricted callers
+// (owner, CLI) see them (SC-612 — a member must see only their own products' data).
 export function workspaceAllowed(
    allowed: string[] | null,
    recordWorkspace: string | null | undefined
 ): boolean {
    if (allowed === null) return true;
-   if (!recordWorkspace) return true;
+   if (!recordWorkspace) return false;
    return allowed.includes(recordWorkspace);
+}
+
+// Console-wide data that belongs to no single product (infra list, n8n workflows,
+// daily updates, standups, pending/cadence snapshots, notifications): owner/admin
+// or the CLI only. Members and viewers get 403 (SC-612).
+export async function requireStaff(request: Request): Promise<Response | null> {
+   return requireRole(request, 'admin');
+}
+
+const FORBIDDEN = () => NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+// 403 Response if the caller may not see this task's workspace (uuid, already
+// resolved), else null. A missing task is left to the caller's own 404.
+export async function issueAccessDenied(issueId: string): Promise<Response | null> {
+   const allowed = await accessibleWorkspaces();
+   if (allowed === null) return null;
+   const r = await queryOne<{ workspace: string | null }>(
+      'SELECT workspace FROM ops_issues WHERE id = $1',
+      [issueId]
+   );
+   return r && !workspaceAllowed(allowed, r.workspace) ? FORBIDDEN() : null;
+}
+
+// Same for a doc.
+export async function docAccessDenied(docId: string): Promise<Response | null> {
+   const allowed = await accessibleWorkspaces();
+   if (allowed === null) return null;
+   const r = await queryOne<{ workspace: string | null }>(
+      'SELECT workspace FROM ops_docs WHERE id::text = $1',
+      [docId]
+   );
+   return r && !workspaceAllowed(allowed, r.workspace) ? FORBIDDEN() : null;
 }

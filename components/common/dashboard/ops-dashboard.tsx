@@ -209,10 +209,15 @@ const PENDING_LABEL: Record<PendingStatus, string> = {
 function PendingPanel({ className = '' }: { className?: string }) {
    const [p, setP] = useState<PendingSnapshot | null>(null);
    const [loaded, setLoaded] = useState(false);
+   const [hidden, setHidden] = useState(false);
    useEffect(() => {
       let live = true;
       fetch('/api/ops/pending', { cache: 'no-store' })
-         .then((r) => (r.ok ? r.json() : null))
+         .then((r) => {
+            // Members can't read the console-wide snapshot (SC-612): drop the card.
+            if (r.status === 403 && live) setHidden(true);
+            return r.ok ? r.json() : null;
+         })
          .then((d) => {
             if (live) {
                setP(d?.pending ?? null);
@@ -229,6 +234,7 @@ function PendingPanel({ className = '' }: { className?: string }) {
    const cadences = (p?.cadences ?? []).filter((c) => c.pending.length > 0);
    const openBlockers = blockers.filter((b) => b.status !== 'done').length;
 
+   if (hidden) return null;
    return (
       <Card className={className}>
          <div className="mb-3 flex items-center justify-between">
