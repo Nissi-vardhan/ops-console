@@ -4,6 +4,7 @@ import {
    opsAuthorized,
    requireRole,
    accessibleWorkspaces,
+   ownTasksOnly,
    docAccessDenied,
    issueAccessDenied,
 } from '@/lib/ops-guard';
@@ -18,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
    const forbidden = await docAccessDenied(id);
    if (forbidden) return forbidden;
    return NextResponse.json({
-      issues: await listDocLinkedIssues(id, await accessibleWorkspaces()),
+      issues: await listDocLinkedIssues(id, await accessibleWorkspaces(), await ownTasksOnly()),
    });
 }
 
@@ -38,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
    if (!ok) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
    return NextResponse.json({
       ok: true,
-      issues: await listDocLinkedIssues(id, await accessibleWorkspaces()),
+      issues: await listDocLinkedIssues(id, await accessibleWorkspaces(), await ownTasksOnly()),
    });
 }
 
@@ -56,6 +57,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
    await unlinkDocIssue(id, issue);
    return NextResponse.json({
       ok: true,
-      issues: await listDocLinkedIssues(id, await accessibleWorkspaces()),
+      issues: await listDocLinkedIssues(id, await accessibleWorkspaces(), await ownTasksOnly()),
    });
 }

@@ -18,6 +18,9 @@ import {
    requireRole,
    accessibleWorkspaces,
    workspaceAllowed,
+   issueAccessDenied,
+   ownTasksOnly,
+   taskVisible,
 } from '@/lib/ops-guard';
 import { JOURNEY_PHASES } from '@/lib/journey';
 
@@ -26,11 +29,10 @@ async function resolve(raw: string): Promise<string | null> {
    return resolveOpsIssueId(raw);
 }
 
-// True if the caller may not access the issue's workspace. Assumes `id` is an
-// already-resolved uuid that exists; returns 403-worthy on cross-workspace.
+// True if the caller may not access this task (wrong workspace, or a member's
+// task that isn't theirs). Assumes `id` is an already-resolved uuid.
 async function issueForbidden(id: string): Promise<boolean> {
-   const issue = await getOpsIssue(id);
-   return !workspaceAllowed(await accessibleWorkspaces(), issue?.workspace ?? null);
+   return (await issueAccessDenied(id)) !== null;
 }
 
 function byPhase(steps: OpsTaskStep[]): Record<string, OpsTaskStep[]> {
@@ -48,10 +50,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
    if (!id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    const issue = await getOpsIssue(id);
    if (!issue) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-   if (!workspaceAllowed(await accessibleWorkspaces(), issue.workspace))
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   if (await issueForbidden(id)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
    const steps = await listIssueSteps(id);
-   const children = await listChildIssues(id);
+   const allowed = await accessibleWorkspaces();
+   const mine = await ownTasksOnly();
+   const children = (await listChildIssues(id)).filter(
+      (c) => workspaceAllowed(allowed, c.workspace) && taskVisible(mine, c)
+   );
    return NextResponse.json({ issue, steps, byPhase: byPhase(steps), children });
 }
 
@@ -62,6 +67,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
    if (!id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
    if (await issueForbidden(id)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
    const body = await request.json().catch(() => ({}));
+   // Can't move a task into a workspace the caller isn't in.
+   if (body && typeof body.workspace === 'string') {
+      const allowed = await accessibleWorkspaces();
+      if (allowed !== null && !allowed.includes(body.workspace))
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   }
    const metaError = taskMetaError(body);
    if (metaError) return NextResponse.json({ error: metaError }, { status: 400 });
    // { parent: "CL-400" } links this task under a parent; { parent: null } unlinks.

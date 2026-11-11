@@ -85,16 +85,36 @@ export async function requireStaff(request: Request): Promise<Response | null> {
 
 const FORBIDDEN = () => NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-// 403 Response if the caller may not see this task's workspace (uuid, already
-// resolved), else null. A missing task is left to the caller's own 404.
+// Members and viewers see only the tasks assigned to them or created by them
+// (SC-613); owner, admin and the CLI see every task in their workspaces.
+// Returns the user id to restrict to, or null for no per-user restriction.
+export async function ownTasksOnly(): Promise<string | null> {
+   const u = await getOpsUser();
+   if (!u || u.role === 'owner' || u.role === 'admin') return null;
+   return u.id;
+}
+
+export function taskVisible(
+   mine: string | null,
+   task: { assignee_id?: string | null; created_by?: string | null }
+): boolean {
+   return mine === null || task.assignee_id === mine || task.created_by === mine;
+}
+
+// 403 Response if the caller may not see this task (uuid, already resolved):
+// wrong workspace, or a member's task that isn't theirs. A missing task is left
+// to the caller's own 404.
 export async function issueAccessDenied(issueId: string): Promise<Response | null> {
    const allowed = await accessibleWorkspaces();
    if (allowed === null) return null;
-   const r = await queryOne<{ workspace: string | null }>(
-      'SELECT workspace FROM ops_issues WHERE id = $1',
-      [issueId]
-   );
-   return r && !workspaceAllowed(allowed, r.workspace) ? FORBIDDEN() : null;
+   const r = await queryOne<{
+      workspace: string | null;
+      assignee_id: string | null;
+      created_by: string | null;
+   }>('SELECT workspace, assignee_id, created_by FROM ops_issues WHERE id = $1', [issueId]);
+   if (!r) return null;
+   if (!workspaceAllowed(allowed, r.workspace)) return FORBIDDEN();
+   return taskVisible(await ownTasksOnly(), r) ? null : FORBIDDEN();
 }
 
 // Same for a doc.

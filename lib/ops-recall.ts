@@ -61,14 +61,19 @@ const RRF_K = 60;
 
 // Drop hits outside `allowed` (null = unrestricted). Untagged records count as
 // internal, so a restricted caller never sees them (SC-612).
-async function visibleKeys(hits: { kind: string; id: string }[], allowed: string[]) {
+async function visibleKeys(
+   hits: { kind: string; id: string }[],
+   allowed: string[],
+   mine: string | null
+) {
    const docIds = hits.filter((h) => h.kind === 'doc').map((h) => h.id);
    const issueIds = hits.filter((h) => h.kind === 'issue').map((h) => h.id);
    const rows = await query<{ key: string }>(
       `SELECT 'doc:' || id AS key FROM ops_docs WHERE id::text = ANY($1) AND workspace = ANY($3)
        UNION ALL
-       SELECT 'issue:' || id FROM ops_issues WHERE id::text = ANY($2) AND workspace = ANY($3)`,
-      [docIds, issueIds, allowed]
+       SELECT 'issue:' || id FROM ops_issues WHERE id::text = ANY($2) AND workspace = ANY($3)
+          AND ($4::uuid IS NULL OR assignee_id = $4 OR created_by = $4)`,
+      [docIds, issueIds, allowed, mine]
    );
    return new Set(rows.map((r) => r.key));
 }
@@ -76,7 +81,8 @@ async function visibleKeys(hits: { kind: string; id: string }[], allowed: string
 export async function recall(
    q: string,
    limit = 12,
-   allowed: string[] | null = null
+   allowed: string[] | null = null,
+   mine: string | null = null
 ): Promise<RecallHit[]> {
    const term = (q || '').trim();
    if (!term) return [];
@@ -129,7 +135,7 @@ export async function recall(
 
    let ranked = [...merged.values()].sort((a, b) => b.score - a.score);
    if (allowed !== null) {
-      const ok = await visibleKeys(ranked, allowed);
+      const ok = await visibleKeys(ranked, allowed, mine);
       ranked = ranked.filter((h) => ok.has(`${h.kind}:${h.id}`));
    }
    return ranked.slice(0, limit).map((h) => ({

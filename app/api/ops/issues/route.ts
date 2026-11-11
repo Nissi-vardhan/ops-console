@@ -13,6 +13,8 @@ import {
    requireRole,
    accessibleWorkspaces,
    workspaceAllowed,
+   ownTasksOnly,
+   taskVisible,
 } from '@/lib/ops-guard';
 import { getOpsUser } from '@/lib/ops-session';
 
@@ -36,6 +38,7 @@ export async function GET(request: Request) {
    if (!(await opsAuthorized(request)))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
    const allowed = await accessibleWorkspaces();
+   const mine = await ownTasksOnly();
    const sp = new URL(request.url).searchParams;
    if (FILTER_PARAMS.some((k) => sp.has(k))) {
       const since = sp.get('since') || undefined;
@@ -59,9 +62,11 @@ export async function GET(request: Request) {
          roots: sp.get('roots') === '1',
          allowedWorkspaces: allowed,
       });
-      return NextResponse.json({ issues });
+      return NextResponse.json({ issues: issues.filter((i) => taskVisible(mine, i)) });
    }
-   const issues = (await listOpsIssues()).filter((i) => workspaceAllowed(allowed, i.workspace));
+   const issues = (await listOpsIssues()).filter(
+      (i) => workspaceAllowed(allowed, i.workspace) && taskVisible(mine, i)
+   );
    return NextResponse.json({ issues });
 }
 
@@ -82,6 +87,12 @@ export async function POST(request: Request) {
       if (pErr) return NextResponse.json({ error: pErr }, { status: 400 });
    }
    const sessionUser = await getOpsUser();
+   // A restricted caller creates only in their own workspaces, and as themselves.
+   const allowed = await accessibleWorkspaces();
+   const ws = typeof body?.workspace === 'string' ? body.workspace : null;
+   if (allowed !== null && !workspaceAllowed(allowed, ws))
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   if (allowed !== null && sessionUser) body.created_by = sessionUser.id;
    const issue = await createOpsIssue({
       title,
       description: body?.description,

@@ -533,8 +533,11 @@ export async function listChildIssues(parentId: string) {
       workspace: string | null;
       owner_session: string | null;
       updated_at: string;
+      assignee_id: string | null;
+      created_by: string | null;
    }>(
-      `SELECT id, identifier, title, status_id, workspace, owner_session, updated_at
+      `SELECT id, identifier, title, status_id, workspace, owner_session, updated_at,
+              assignee_id, created_by
          FROM ops_issues WHERE parent_id = $1 ORDER BY created_at`,
       [parentId]
    );
@@ -826,16 +829,19 @@ export async function unlinkDocIssue(docId: string, issueRef: string): Promise<b
 }
 
 // `allowed` (from accessibleWorkspaces): null = unrestricted, else only tasks in those workspaces.
+// `mine` (from ownTasksOnly): only tasks assigned to or created by that user.
 export async function listDocLinkedIssues(
    docId: string,
-   allowed: string[] | null = null
+   allowed: string[] | null = null,
+   mine: string | null = null
 ): Promise<LinkedIssue[]> {
    return query<LinkedIssue>(
       `SELECT i.id, i.identifier, i.title, i.status_id
        FROM ops_doc_links l JOIN ops_issues i ON i.id = l.issue_id
        WHERE l.doc_id = $1 AND ($2::text[] IS NULL OR i.workspace = ANY($2))
+         AND ($3::uuid IS NULL OR i.assignee_id = $3 OR i.created_by = $3)
        ORDER BY i.identifier`,
-      [docId, allowed]
+      [docId, allowed, mine]
    );
 }
 
