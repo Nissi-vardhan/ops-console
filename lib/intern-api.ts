@@ -15,8 +15,13 @@ import { portalInternId } from '@/lib/intern-portal';
 // docs of his workspace KB, and the KB docs he wrote. Internal tracking (reviews,
 // ratings, timing stats, EOD docs) is never exposed. Task updates are mirrored
 // to his Lark group (assign / start / stuck / submit).
+//
+// Member keys (TDB-277): an employee with a console account uses the same API with an
+// `opsu_` key, bound to one workspace. "His tasks" are then the console tasks assigned to
+// him there, his docs are the ones he created, and no intern stats or Lark posts are made.
 
 export const KEY_PREFIX = 'opsi_';
+export const USER_KEY_PREFIX = 'opsu_';
 const CLOSED = ['done', 'canceled'];
 const SUBMITTED = 'technical-review';
 
@@ -27,7 +32,11 @@ export interface InternRow {
    active: boolean;
    lark_webhook: string;
    lark_secret: string;
+   /** 'user' = a console member with a member key (TDB-277); id is then users.id. */
+   kind?: 'intern' | 'user';
 }
+
+const isUser = (p: InternRow) => p.kind === 'user';
 
 export class InternApiError extends Error {
    constructor(
@@ -92,6 +101,72 @@ export async function revokeInternKey(internId: string, keyId: string): Promise<
    return r.length > 0;
 }
 
+/** New member key for a console user in one workspace. Returned once; only its hash is stored. */
+export async function createUserKey(
+   userId: string,
+   workspace: string
+): Promise<{ id: string; token: string; prefix: string }> {
+   const token = USER_KEY_PREFIX + randomBytes(24).toString('base64url');
+   const prefix = token.slice(0, USER_KEY_PREFIX.length + 6);
+   const r = await queryOne<{ id: string }>(
+      'INSERT INTO ops_user_keys (user_id, workspace, token_hash, prefix) VALUES ($1, $2, $3, $4) RETURNING id',
+      [userId, workspace, sha(token), prefix]
+   );
+   return { id: r!.id, token, prefix };
+}
+
+export async function listUserKeys(userId: string) {
+   return query<{
+      id: string;
+      workspace: string;
+      prefix: string;
+      created_at: string;
+      last_used_at: string | null;
+      revoked_at: string | null;
+   }>(
+      'SELECT id, workspace, prefix, created_at, last_used_at, revoked_at FROM ops_user_keys WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+   );
+}
+
+export async function revokeUserKey(userId: string, keyId: string): Promise<boolean> {
+   const r = await query<{ id: string }>(
+      'UPDATE ops_user_keys SET revoked_at = now() WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL RETURNING id',
+      [keyId, userId]
+   );
+   return r.length > 0;
+}
+
+/** The console member behind an `opsu_` key: active, console access, and still allowed in the key's workspace. */
+async function authUserKey(token: string): Promise<InternRow | null> {
+   const row = await queryOne<{
+      id: string;
+      username: string;
+      workspace: string;
+      key_id: string;
+      last_used_at: string | null;
+   }>(
+      `SELECT u.id, u.username, k.workspace, k.id AS key_id, k.last_used_at
+         FROM ops_user_keys k JOIN users u ON u.id = k.user_id
+        WHERE k.token_hash = $1 AND k.revoked_at IS NULL AND u.active AND u.ops_access
+          AND (u.role IN ('owner', 'admin')
+               OR EXISTS (SELECT 1 FROM ops_workspace_members m WHERE m.user_id = u.id AND m.workspace = k.workspace))`,
+      [sha(token)]
+   );
+   if (!row) return null;
+   if (!row.last_used_at || Date.now() - Date.parse(row.last_used_at) > 60_000)
+      await query('UPDATE ops_user_keys SET last_used_at = now() WHERE id = $1', [row.key_id]);
+   return {
+      id: row.id,
+      name: row.username,
+      workspace: row.workspace,
+      active: true,
+      lark_webhook: '',
+      lark_secret: '',
+      kind: 'user',
+   };
+}
+
 /** The intern behind a request's Bearer key, or null. */
 export async function authIntern(
    request: Request,
@@ -113,8 +188,9 @@ export async function authIntern(
          'SELECT id, name, workspace, active, lark_webhook, lark_secret FROM ops_interns WHERE id = $1',
          [id]
       );
-      return row?.active ? row : null;
+      return row?.active ? { ...row, kind: 'intern' } : null;
    }
+   if (token.startsWith(USER_KEY_PREFIX) && token.length >= 20) return authUserKey(token);
    if (!token.startsWith(KEY_PREFIX) || token.length < 20) return null;
    const row = await queryOne<InternRow & { key_id: string; last_used_at: string | null }>(
       `SELECT n.id, n.name, n.workspace, n.active, n.lark_webhook, n.lark_secret, k.id AS key_id, k.last_used_at
@@ -125,7 +201,7 @@ export async function authIntern(
    if (!row || !row.active) return null;
    if (!row.last_used_at || Date.now() - Date.parse(row.last_used_at) > 60_000)
       await query('UPDATE ops_intern_keys SET last_used_at = now() WHERE id = $1', [row.key_id]);
-   return row;
+   return { ...row, kind: 'intern' };
 }
 
 /* ----------------------------------- lark ----------------------------------- */
@@ -184,7 +260,20 @@ function taskSummary(t: MyTaskRow) {
    };
 }
 
+// A member's tasks: the console tasks assigned to him in the key's workspace.
+const USER_TASK_SELECT = `SELECT i.id AS issue_id, i.identifier, i.title, i.status_id, i.priority_id,
+        '' AS backlog_code, CASE WHEN i.priority_id = 'no-priority' THEN '' ELSE i.priority_id END AS priority,
+        i.created_at AS assigned_at, NULL::timestamptz AS closed_at, i.updated_at
+   FROM ops_issues i WHERE i.assignee_id = $1 AND i.workspace = $2`;
+
 export async function myTasks(intern: InternRow, which: 'open' | 'all') {
+   if (isUser(intern)) {
+      const rows = await query<MyTaskRow>(
+         `${USER_TASK_SELECT} ${which === 'open' ? 'AND i.status_id <> ALL($3)' : ''} ORDER BY i.seq`,
+         which === 'open' ? [intern.id, intern.workspace, CLOSED] : [intern.id, intern.workspace]
+      );
+      return rows.map(taskSummary);
+   }
    const rows = await query<MyTaskRow>(
       `SELECT t.issue_id, i.identifier, i.title, i.status_id, i.priority_id, t.backlog_code, t.priority,
               t.assigned_at, t.closed_at, i.updated_at
@@ -199,6 +288,17 @@ export async function myTasks(intern: InternRow, which: 'open' | 'all') {
 /** His assignment for a task ref, or a 404 (never reveal whether others' tasks exist). */
 async function myAssignment(intern: InternRow, ref: string): Promise<MyTaskRow> {
    const issueId = await resolveOpsIssueId(ref);
+   if (isUser(intern)) {
+      const own = issueId
+         ? await queryOne<MyTaskRow>(`${USER_TASK_SELECT} AND i.id = $3`, [
+              intern.id,
+              intern.workspace,
+              issueId,
+           ])
+         : null;
+      if (!own) throw new InternApiError('task not found', 404);
+      return own;
+   }
    const row = issueId
       ? await queryOne<MyTaskRow>(
            `SELECT t.issue_id, i.identifier, i.title, i.status_id, i.priority_id, t.backlog_code, t.priority,
@@ -218,7 +318,7 @@ export async function myTask(intern: InternRow, ref: string) {
    const issue = await getOpsIssue(t.issue_id);
    const files = await listIssueAttachments(t.issue_id);
    const updates = await query<{ kind: string; text: string; at: string }>(
-      'SELECT kind, text, at FROM ops_intern_updates WHERE issue_id = $1 AND intern_id = $2 ORDER BY at',
+      `SELECT kind, text, at FROM ops_intern_updates WHERE issue_id = $1 AND ${isUser(intern) ? 'user_id' : 'intern_id'} = $2 ORDER BY at`,
       [t.issue_id, intern.id]
    );
    return {
@@ -229,7 +329,9 @@ export async function myTask(intern: InternRow, ref: string) {
          name: f.filename,
          size: Number(f.size),
          type: f.content_type,
-         added_by: f.intern_id ? 'you' : 'reviewer',
+         added_by: (isUser(intern) ? f.created_by === intern.id : !!f.intern_id)
+            ? 'you'
+            : 'reviewer',
          added_at_ist: ist(f.created_at),
          url: `/v1/files/${f.id}`,
       })),
@@ -276,7 +378,7 @@ export async function act(intern: InternRow, ref: string, action: Action, text: 
    }
 
    await query(
-      'INSERT INTO ops_intern_updates (intern_id, issue_id, kind, text) VALUES ($1, $2, $3, $4)',
+      `INSERT INTO ops_intern_updates (${isUser(intern) ? 'user_id' : 'intern_id'}, issue_id, kind, text) VALUES ($1, $2, $3, $4)`,
       [intern.id, t.issue_id, action, msg.slice(0, 20_000)]
    );
    if (next && next !== status) await updateOpsIssue(t.issue_id, { status_id: next });
@@ -293,6 +395,9 @@ export async function act(intern: InternRow, ref: string, action: Action, text: 
       null,
       intern.name
    );
+
+   // Members (TDB-277) have no intern stats and no intern Lark group.
+   if (isUser(intern)) return myTask(intern, t.identifier);
 
    // The first "start" also feeds the internal timing stats.
    if (action === 'start') {
@@ -332,6 +437,13 @@ export async function assertCanAttachToTask(intern: InternRow, ref: string): Pro
 
 const DOC_COLS = `d.id, d.title, d.category, d.review_stage, d.created_at, d.updated_at,
    (d.author_intern_id = $1) AS mine`;
+// Members: same rule, keyed on the console author (created_by) instead of the intern author.
+const USER_DOC_COLS = `d.id, d.title, d.category, d.review_stage, d.created_at, d.updated_at,
+   (d.created_by = $1) AS mine`;
+const USER_DOC_VISIBLE = `d.workspace = $2 AND d.category <> 'EOD' AND d.created_by = $1 AND d.review_stage IS DISTINCT FROM 'approved'`;
+const docCols = (p: InternRow) => (isUser(p) ? USER_DOC_COLS : DOC_COLS);
+const docVisible = (p: InternRow) => (isUser(p) ? USER_DOC_VISIBLE : INTERN_DOC_VISIBLE);
+const authorCol = (p: InternRow) => (isUser(p) ? 'created_by' : 'author_intern_id');
 // Visible to the intern: his workspace, never internal EOD docs, and either his own or
 // explicitly shared with interns (approved internal docs stay hidden unless shared).
 // Interns never see the production KB (Nissi, 16 Oct): only their own docs while in staging.
@@ -366,8 +478,8 @@ const docOut = (d: DocRow) => ({
 
 export async function listKb(intern: InternRow, scope: 'mine' | 'all', q?: string) {
    const rows = await query<DocRow>(
-      `SELECT ${DOC_COLS} FROM ops_docs d
-        WHERE ${INTERN_DOC_VISIBLE} ${scope === 'mine' ? 'AND d.author_intern_id = $1' : ''}
+      `SELECT ${docCols(intern)} FROM ops_docs d
+        WHERE ${docVisible(intern)} ${scope === 'mine' ? `AND d.${authorCol(intern)} = $1` : ''}
           ${q ? `AND (d.title ILIKE $3 OR d.body ILIKE $3)` : ''}
         ORDER BY d.updated_at DESC LIMIT 500`,
       q ? [intern.id, intern.workspace, `%${q}%`] : [intern.id, intern.workspace]
@@ -378,7 +490,7 @@ export async function listKb(intern: InternRow, scope: 'mine' | 'all', q?: strin
 async function visibleDoc(intern: InternRow, id: string): Promise<DocRow> {
    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new InternApiError('doc not found', 404);
    const d = await queryOne<DocRow>(
-      `SELECT ${DOC_COLS}, d.body FROM ops_docs d WHERE d.id = $3 AND ${INTERN_DOC_VISIBLE}`,
+      `SELECT ${docCols(intern)}, d.body FROM ops_docs d WHERE d.id = $3 AND ${docVisible(intern)}`,
       [intern.id, intern.workspace, id]
    );
    if (!d) throw new InternApiError('doc not found', 404);
@@ -419,7 +531,7 @@ export async function createKbDoc(
    if (title.length < 3) throw new InternApiError('title is required');
    if (!body.trim()) throw new InternApiError('body is required (markdown)');
    const d = await queryOne<{ id: string }>(
-      `INSERT INTO ops_docs (title, body, category, workspace, review_stage, author_intern_id)
+      `INSERT INTO ops_docs (title, body, category, workspace, review_stage, ${authorCol(intern)})
        VALUES ($1, $2, $3, $4, 'review', $5) RETURNING id`,
       [title.slice(0, 300), body.slice(0, 500_000), category, intern.workspace, intern.id]
    );
@@ -471,8 +583,12 @@ export async function canReadFile(intern: InternRow, fileId: string): Promise<bo
       `SELECT EXISTS (
           SELECT 1 FROM ops_attachments a
            WHERE a.id = $3 AND (
-             a.issue_id IN (SELECT issue_id FROM ops_intern_tasks WHERE intern_id = $1)
-             OR a.doc_id IN (SELECT d.id FROM ops_docs d WHERE ${INTERN_DOC_VISIBLE})
+             a.issue_id IN (${
+                isUser(intern)
+                   ? 'SELECT id FROM ops_issues WHERE assignee_id = $1 AND workspace = $2'
+                   : 'SELECT issue_id FROM ops_intern_tasks WHERE intern_id = $1'
+             })
+             OR a.doc_id IN (SELECT d.id FROM ops_docs d WHERE ${docVisible(intern)})
            )
        ) AS ok`,
       [intern.id, intern.workspace, fileId]

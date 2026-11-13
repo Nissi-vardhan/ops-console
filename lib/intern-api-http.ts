@@ -84,7 +84,8 @@ export async function uploadFile(
    const att = await createAttachment({
       issue_id: target.issue_id ?? null,
       doc_id: target.doc_id ?? null,
-      intern_id: intern.id,
+      intern_id: intern.kind === 'user' ? null : intern.id,
+      created_by: intern.kind === 'user' ? intern.id : null,
       filename: name.slice(0, 200),
       content_type: ct,
       size: buf.length,

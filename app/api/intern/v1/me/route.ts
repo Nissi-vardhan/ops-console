@@ -6,6 +6,7 @@ export async function GET(request: Request) {
    return withIntern(request, async (intern) => ({
       name: intern.name,
       workspace: intern.workspace,
+      key_type: intern.kind === 'user' ? 'member' : 'intern',
       now_ist: ist(new Date()),
    }));
 }

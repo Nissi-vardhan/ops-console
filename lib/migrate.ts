@@ -609,6 +609,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_docs_external_ref
   ON ops_docs (workspace, external_ref) WHERE external_ref IS NOT NULL AND draft_of IS NULL;
 `;
 
+// Member keys for the Task API (TDB-277, 13 Nov 2026): an employee with a console account
+// (e.g. Sai) uses the same /v1 API as interns, scoped to one workspace and to the tasks
+// assigned to him in the console. No intern record, ratings or timing stats.
+const MEMBER_API_SQL = `
+CREATE TABLE IF NOT EXISTS ops_user_keys (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  workspace    text NOT NULL,
+  token_hash   text NOT NULL UNIQUE,
+  prefix       text NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  last_used_at timestamptz,
+  revoked_at   timestamptz
+);
+ALTER TABLE ops_intern_updates ALTER COLUMN intern_id DROP NOT NULL;
+ALTER TABLE ops_intern_updates ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE CASCADE;
+`;
+
 let migrated = false;
 
 export async function runMigrations(): Promise<void> {
@@ -620,6 +638,7 @@ export async function runMigrations(): Promise<void> {
    await pool.query(AUTOMATION_SQL);
    await pool.query(INTERN_API_SQL);
    await pool.query(LARK_INBOX_SQL);
+   await pool.query(MEMBER_API_SQL);
    await seedAutomationsOnce();
    migrated = true;
    console.log('[migrate] ops schema ensured');

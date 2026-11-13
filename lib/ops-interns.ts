@@ -134,6 +134,7 @@ function summarize(intern: Intern, tasks: InternTaskFull[]): InternSummary {
    const lark_webhook = safe.lark_webhook;
    delete safe.lark_webhook;
    delete safe.lark_secret;
+   delete (safe as { password_hash?: unknown }).password_hash; // never send the login hash out
    const openTasks = mine
       .filter((t) => !t.closed_at)
       .sort((a, b) => (a.assigned_at < b.assigned_at ? 1 : -1));

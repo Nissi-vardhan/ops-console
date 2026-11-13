@@ -73,6 +73,11 @@ Usage:
   ops file get <file-id> [--out <path>]                   download one file (default: its own name in the current
                                                           folder; never overwrites)
 
+Member Task API keys (TDB-277; owner/admin): the /v1 API for an employee, on his console tasks
+  ops key new <email> --ws <slug>                         new key (printed once: run it in your own terminal)
+  ops key list <email>                                    his keys: id, prefix, workspace, active/revoked, last use
+  ops key revoke <email> <key-id>                         revoke a key (stops at once)
+
 Interns (tracked people, no console login; owner/admin):
   ops intern add "<name>" [--ws <slug>]                   add an intern (default workspace trainerdb)
   ops intern list                                         interns, open task, performance + overall
@@ -385,6 +390,30 @@ async function main() {
             owner_session: String(owner),
          });
          console.log(`${issue.identifier} owner: ${issue.owner_session}`);
+         return;
+      }
+      case 'key': {
+         // Member keys for the Task API (TDB-277). The full key is shown once, here only.
+         const [sub, who, keyId] = pos;
+         if (sub === 'new') {
+            const email = need(who, 'member email');
+            const ws = need(flags.ws, '--ws <slug>');
+            const r = await api('POST', `/users/${encodeURIComponent(email)}/keys`, { workspace: String(ws) });
+            console.log(`Task API key for ${r.user} in ${r.workspace} (shown once, keep it private):\n\n${r.token}\n`);
+            console.log(`Key id ${r.id}. Base URL https://tasks.shortcastle.com/v1 · header: Authorization: Bearer <key>`);
+         } else if (sub === 'list') {
+            const email = need(who, 'member email');
+            const r = await api('GET', `/users/${encodeURIComponent(email)}/keys`);
+            if (!r.keys.length) console.log(`${r.user}: no keys`);
+            for (const k of r.keys)
+               console.log(
+                  [k.id, k.prefix + '…', k.workspace, k.revoked_at ? 'revoked' : 'active', 'made ' + ist(k.created_at), 'used ' + ist(k.last_used_at)].join(' · ')
+               );
+         } else if (sub === 'revoke') {
+            const email = need(who, 'member email');
+            await api('DELETE', `/users/${encodeURIComponent(email)}/keys/${encodeURIComponent(need(keyId, 'key id'))}`);
+            console.log('revoked');
+         } else die('usage: ops key new <email> --ws <slug> | ops key list <email> | ops key revoke <email> <key-id>');
          return;
       }
       case 'stage': {

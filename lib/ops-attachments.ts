@@ -60,9 +60,10 @@ export async function listAttachments(docId: string): Promise<Attachment[]> {
 /** Files attached to a task (e.g. the brief PDF, or the intern's closing report). */
 export async function listIssueAttachments(
    issueId: string
-): Promise<(Attachment & { created_at: string })[]> {
-   return query<Attachment & { created_at: string }>(
-      `SELECT id, doc_id::text, issue_id::text, intern_id::text, filename, content_type, size, object_key, created_at
+): Promise<(Attachment & { created_at: string; created_by: string | null })[]> {
+   return query<Attachment & { created_at: string; created_by: string | null }>(
+      `SELECT id, doc_id::text, issue_id::text, intern_id::text, filename, content_type, size, object_key, created_at,
+              created_by::text
          FROM ops_attachments WHERE issue_id = $1 ORDER BY created_at`,
       [issueId]
    );
