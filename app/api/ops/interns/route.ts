@@ -22,7 +22,12 @@ export async function POST(request: Request) {
          workspace: typeof body?.workspace === 'string' ? body.workspace : undefined,
          notes: typeof body?.notes === 'string' ? body.notes : undefined,
       });
-      return NextResponse.json({ intern }, { status: 201 });
+      // Only plain fields: never the Lark webhook/secret or the login hash.
+      const { id, name: n, workspace, active, notes, created_at } = intern;
+      return NextResponse.json(
+         { intern: { id, name: n, workspace, active, notes, created_at } },
+         { status: 201 }
+      );
    } catch (e) {
       if (e instanceof InternError)
          return NextResponse.json({ error: e.message }, { status: e.status });
