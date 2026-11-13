@@ -1,8 +1,8 @@
 # Task API v1: guide for team members
 
-For a team member who works their console tasks from code or scripts, such as Sai on TrainerDB. It's the same API the interns used, but your key belongs to your own console account. "Your tasks" are the console tasks assigned to you in one product.
+For a team member who works their console tasks from code or scripts, such as Sai on TrainerDB. Your key belongs to your own console account. "Your tasks" are the console tasks assigned to you in one product.
 
-- **Base URL:** `https://tasks.shortcastle.com/v1`. `https://ops.shortcastle.com/v1` works too.
+- **Base URL:** `https://ops.shortcastle.com/v1`
 - **Auth:** send your personal key on every request as `Authorization: Bearer <your-key>`.
    - The key starts with `opsu_` and works for one product (e.g. TrainerDB).
    - Keep it secret. If it leaks, ask Nissi to revoke it, and a new one can be issued.
@@ -175,7 +175,7 @@ Errors come back as `{ "error": "message" }` with a status code:
 ## 6. Examples (curl)
 
 ```bash
-KEY="<your-key>"; API="https://tasks.shortcastle.com/v1"
+KEY="<your-key>"; API="https://ops.shortcastle.com/v1"
 
 curl -s -H "Authorization: Bearer $KEY" "$API/me"
 curl -s -H "Authorization: Bearer $KEY" "$API/tasks"

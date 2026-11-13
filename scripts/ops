@@ -400,7 +400,7 @@ async function main() {
             const ws = need(flags.ws, '--ws <slug>');
             const r = await api('POST', `/users/${encodeURIComponent(email)}/keys`, { workspace: String(ws) });
             console.log(`Task API key for ${r.user} in ${r.workspace} (shown once, keep it private):\n\n${r.token}\n`);
-            console.log(`Key id ${r.id}. Base URL https://tasks.shortcastle.com/v1 · header: Authorization: Bearer <key>`);
+            console.log(`Key id ${r.id}. Base URL ${BASE}/v1 · header: Authorization: Bearer <key>`);
          } else if (sub === 'list') {
             const email = need(who, 'member email');
             const r = await api('GET', `/users/${encodeURIComponent(email)}/keys`);
