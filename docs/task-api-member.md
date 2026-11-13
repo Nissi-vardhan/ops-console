@@ -23,28 +23,27 @@ The console and the API show the same tasks. Anything you post through the API a
 ## 1. How a task moves
 
 ```
-assigned ──start──▶ in_progress ──close (summary)──▶ submitted ──(reviewed)──▶ done
+assigned ──start──▶ in_progress ──close (summary)──▶ done
                        │   ▲
                  stuck │   │ unstuck
                 (reason)▼   │
                        stuck
 ```
 
-| Stage         | Meaning                                                    |
-| ------------- | ---------------------------------------------------------- |
-| `assigned`    | Assigned to you, not started yet.                          |
-| `in_progress` | You are working on it.                                     |
-| `stuck`       | You can't continue. Every stuck needs a reason.            |
-| `submitted`   | You closed it with a summary and it is waiting for review. |
-| `done`        | Reviewed and finished.                                     |
-| `canceled`    | No longer needed.                                          |
+| Stage         | Meaning                                                 |
+| ------------- | ------------------------------------------------------- |
+| `assigned`    | Assigned to you, not started yet.                       |
+| `in_progress` | You are working on it.                                  |
+| `stuck`       | You can't continue. Every stuck needs a reason.         |
+| `done`        | You closed it with a summary. Finished; no review step. |
+| `canceled`    | No longer needed.                                       |
 
 **Updates you post:**
 
 - `start`: when you begin.
 - `progress`: whenever you have something worth recording. Use it as often as you like.
 - `stuck`: with the reason. Then `unstuck` when you can continue.
-- `close`: with a proper summary covering what you did, what you found, what's left and links. This submits the task for review.
+- `close`: with a proper summary covering what you did, what you found, what's left and links. The task is then done; there is no review step for tasks.
 
 If the task was long, attach a report file (PDF) before or after closing.
 
@@ -104,9 +103,9 @@ Body: `{ "text": "optional: what unblocked you" }`. Moves the task back to `in_p
 
 ### `POST /tasks/{id}/close`
 
-Body: `{ "text": "summary (markdown, at least 20 characters)" }`. Moves the task to `submitted`.
+Body: `{ "text": "summary (markdown, at least 20 characters)" }`. Moves the task straight to `done`.
 
-After that, only `progress` notes are accepted until the task is reviewed.
+A done task accepts no further updates; ask Nissi to reopen it if needed. (`submitted` only appears if someone sets a task to review in the console; then only `progress` notes are accepted.)
 
 ### `POST /tasks/{id}/files`
 
@@ -161,14 +160,14 @@ Downloads a file on one of your tasks, or on a doc you can read. Send your key w
 
 Errors come back as `{ "error": "message" }` with a status code:
 
-| Code      | When                                                                                             |
-| --------- | ------------------------------------------------------------------------------------------------ |
-| 400       | Missing or invalid input, e.g. no reason on `stuck`, or a summary that's too short on `close`.   |
-| 401       | Missing, wrong or revoked key.                                                                   |
-| 403       | You tried to edit a doc you didn't write.                                                        |
-| 404       | The task, doc or file doesn't exist, isn't assigned to you, or is in another product.            |
-| 409       | Not allowed in the current stage, e.g. `start` on a submitted task, or `unstuck` when not stuck. |
-| 413 / 415 | The file is too large, or its type isn't allowed.                                                |
+| Code      | When                                                                                           |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| 400       | Missing or invalid input, e.g. no reason on `stuck`, or a summary that's too short on `close`. |
+| 401       | Missing, wrong or revoked key.                                                                 |
+| 403       | You tried to edit a doc you didn't write.                                                      |
+| 404       | The task, doc or file doesn't exist, isn't assigned to you, or is in another product.          |
+| 409       | Not allowed in the current stage, e.g. any update on a done task, or `unstuck` when not stuck. |
+| 413 / 415 | The file is too large, or its type isn't allowed.                                              |
 
 ---
 

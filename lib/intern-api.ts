@@ -372,7 +372,8 @@ export async function act(intern: InternRow, ref: string, action: Action, text: 
    } else if (action === 'close') {
       if (msg.length < 20)
          throw new InternApiError('a summary is required (at least 20 characters)');
-      next = SUBMITTED;
+      // Members (SC-627, Nissi 13 Nov) close straight to done: no review step. Interns submit for review.
+      next = isUser(intern) ? 'done' : SUBMITTED;
    } else {
       throw new InternApiError(`action must be one of: ${ACTIONS.join(', ')}`);
    }
@@ -387,7 +388,7 @@ export async function act(intern: InternRow, ref: string, action: Action, text: 
       progress: 'progress',
       stuck: 'stuck',
       unstuck: 'resumed',
-      close: 'submitted',
+      close: isUser(intern) ? 'done' : 'submitted',
    }[action];
    await appendIssueProgress(
       t.issue_id,
