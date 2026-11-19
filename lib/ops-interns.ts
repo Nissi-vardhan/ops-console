@@ -179,6 +179,12 @@ export async function assignInternTask(
    const intern = await findIntern(internRef);
    if (!intern) throw new InternError(`no intern "${internRef}"`, 404);
    if (!intern.active) throw new InternError(`${intern.name} is inactive`);
+   // A switched-off intern no longer holds tasks (TDB-281): release them so they can be given on.
+   await query(
+      `UPDATE ops_intern_tasks t SET closed_at = now() FROM ops_interns n
+        WHERE n.id = t.intern_id AND NOT n.active AND t.issue_id = $1 AND t.closed_at IS NULL`,
+      [issueId]
+   );
    const taken = await queryOne<{ name: string }>(
       `SELECT n.name FROM ops_intern_tasks t JOIN ops_interns n ON n.id = t.intern_id
         WHERE t.issue_id = $1 AND t.closed_at IS NULL`,
@@ -372,6 +378,12 @@ export async function updateIntern(
       vals.push(intern.id);
       await query(`UPDATE ops_interns SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals);
    }
+   // Switching an intern off releases his open tasks (TDB-281), so they can go to someone else.
+   if (patch.active === false)
+      await query(
+         'UPDATE ops_intern_tasks SET closed_at = now() WHERE intern_id = $1 AND closed_at IS NULL',
+         [intern.id]
+      );
    return findIntern(intern.id);
 }
 
@@ -399,7 +411,7 @@ export async function activeInternNames(workspace: string): Promise<string[]> {
 export async function currentInternOn(issueId: string): Promise<string | null> {
    const r = await queryOne<{ name: string }>(
       `SELECT n.name FROM ops_intern_tasks t JOIN ops_interns n ON n.id = t.intern_id
-        WHERE t.issue_id = $1 AND t.closed_at IS NULL LIMIT 1`,
+        WHERE t.issue_id = $1 AND t.closed_at IS NULL AND n.active LIMIT 1`,
       [issueId]
    );
    return r?.name ?? null;
