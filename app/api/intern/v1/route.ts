@@ -22,6 +22,8 @@ export async function GET() {
          'PATCH /v1/kb/{id}               {"title"?,"body"?,"category"?}',
          'POST  /v1/kb/{id}/files         multipart file',
          'GET   /v1/files/{id}',
+         'GET   /v1/interns                 (member keys) interns you can hand tasks to',
+         'POST  /v1/tasks/{id}/intern     {"intern"} (member keys) hand your task to an intern',
       ],
    });
 }

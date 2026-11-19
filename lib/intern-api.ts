@@ -427,6 +427,14 @@ export async function act(intern: InternRow, ref: string, action: Action, text: 
    return myTask(intern, t.identifier);
 }
 
+/** A member's own open task (TDB-281: he may hand it to an intern); returns the issue id. */
+export async function assertMyOpenTask(p: InternRow, ref: string): Promise<string> {
+   if (!isUser(p)) throw new InternApiError('only member keys can hand tasks to interns', 403);
+   const t = await myAssignment(p, ref);
+   if (CLOSED.includes(t.status_id)) throw new InternApiError('this task is finished', 409);
+   return t.issue_id;
+}
+
 /** Can the intern attach a file to this task? (open, not finished) */
 export async function assertCanAttachToTask(intern: InternRow, ref: string): Promise<string> {
    const t = await myAssignment(intern, ref);

@@ -16,6 +16,7 @@ import { Comments } from '@/components/common/comments';
 import { isIssueRef } from '@/mock-data/issues';
 import { useInternMode } from '@/components/intern-mode';
 import { InternTaskPanel } from './intern-task-panel';
+import { HandToIntern } from './hand-to-intern';
 
 /**
  * Issue detail page: rich description, sub-issues, activity feed and a
@@ -204,7 +205,10 @@ export default function IssueDetails() {
             {intern ? (
                <InternTaskPanel issue={issue} />
             ) : (
-               <IssuePropertiesPanel issue={issue} detail={detail} />
+               <>
+                  <IssuePropertiesPanel issue={issue} detail={detail} />
+                  <HandToIntern issueRef={issue.identifier} />
+               </>
             )}
          </aside>
       </div>

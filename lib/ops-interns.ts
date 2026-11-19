@@ -383,3 +383,44 @@ export async function internUpdatesFor(issueId: string) {
       [issueId]
    );
 }
+
+/* ------------- members hand their tasks to interns (TDB-281) ------------- */
+
+/** Active interns of one workspace (names only), for the "Hand to intern" picker. */
+export async function activeInternNames(workspace: string): Promise<string[]> {
+   const rows = await query<{ name: string }>(
+      'SELECT name FROM ops_interns WHERE active AND workspace = $1 ORDER BY name',
+      [workspace]
+   );
+   return rows.map((r) => r.name);
+}
+
+/** The intern currently holding a task (open assignment), or null. */
+export async function currentInternOn(issueId: string): Promise<string | null> {
+   const r = await queryOne<{ name: string }>(
+      `SELECT n.name FROM ops_intern_tasks t JOIN ops_interns n ON n.id = t.intern_id
+        WHERE t.issue_id = $1 AND t.closed_at IS NULL LIMIT 1`,
+      [issueId]
+   );
+   return r?.name ?? null;
+}
+
+/**
+ * A member hands one of his tasks to an intern of the same product. The caller has already
+ * checked the task is his; here the intern must be active and in the task's workspace.
+ */
+export async function memberAssignInternTask(
+   internRef: string,
+   issueId: string
+): Promise<InternTask> {
+   const [intern, issue] = await Promise.all([
+      findIntern(internRef),
+      queryOne<{ workspace: string | null }>('SELECT workspace FROM ops_issues WHERE id = $1', [
+         issueId,
+      ]),
+   ]);
+   if (!intern || !intern.active) throw new InternError(`no active intern "${internRef}"`, 404);
+   if (!issue?.workspace || intern.workspace !== issue.workspace)
+      throw new InternError(`${intern.name} is not an intern of this product`, 403);
+   return assignInternTask(intern.id, issueId);
+}
