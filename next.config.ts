@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
    /* config options here */
+   // SC-675: built with the Dockerfile (standalone server), like Shortcastle CRM and the tracker.
+   output: 'standalone',
    devIndicators: false,
    poweredByHeader: false, // don't advertise the stack
    serverExternalPackages: ['pg'],
