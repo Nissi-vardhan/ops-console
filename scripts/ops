@@ -192,6 +192,18 @@ function oneOf(v, list, what) {
    return v;
 }
 
+// A doc id may be given short (its first 8+ characters, as `ops kb list` shows them): expand it (SC-705).
+async function docId(ref) {
+   const r = String(ref).trim().toLowerCase();
+   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(r)) return r;
+   if (r.length < 6) die(`doc id "${ref}" is too short: give at least 6 characters`);
+   const { docs } = await api('GET', '/docs');
+   const hits = docs.filter((d) => d.id.startsWith(r));
+   if (!hits.length) die(`no doc whose id starts with "${ref}"`);
+   if (hits.length > 1) die(`"${ref}" matches ${hits.length} docs: give more characters`);
+   return hits[0].id;
+}
+
 function readBody(src) {
    if (src === '-') return fs.readFileSync(0, 'utf8');
    try {
@@ -673,7 +685,7 @@ async function main() {
             return;
          }
          if (sub === 'update') {
-            const id = need(pos[1], 'doc id (from ops kb list)');
+            const id = await docId(need(pos[1], 'doc id (from ops kb list)'));
             const patch = {};
             if (flags.title) patch.title = String(flags.title);
             if (flags.body) patch.body = readBody(String(flags.body)).trim();
@@ -692,7 +704,7 @@ async function main() {
             return;
          }
          if (sub === 'show') {
-            const id = need(pos[1], 'doc id (from ops kb list)');
+            const id = await docId(need(pos[1], 'doc id (from ops kb list)'));
             const { doc } = await api('GET', `/docs/${encodeURIComponent(id)}`);
             const { issues } = await api('GET', `/docs/${encodeURIComponent(id)}/links`);
             const tasks = (issues || []).map((i) => i.identifier).filter(Boolean);

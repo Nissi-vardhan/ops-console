@@ -745,6 +745,7 @@ export async function searchKbDocs(
 }
 
 export async function getOpsDoc(id: string): Promise<OpsDoc | null> {
+   if (!UUID_RE.test(id)) return null; // a short or malformed id is "not found", not a DB error (SC-705)
    return queryOne<OpsDoc>(
       `SELECT d.id, d.title, d.body, d.category, d.pinned, d.review_stage, d.workspace, d.created_by,
               d.created_at, d.updated_at, d.author_intern_id, n.name AS author_intern_name, d.intern_visible, d.draft_of,
@@ -1023,6 +1024,7 @@ export async function updateOpsDoc(
 }
 
 export async function deleteOpsDoc(id: string): Promise<boolean> {
+   if (!UUID_RE.test(id)) return false;
    const rows = await query<{ id: string }>('DELETE FROM ops_docs WHERE id = $1 RETURNING id', [
       id,
    ]);
