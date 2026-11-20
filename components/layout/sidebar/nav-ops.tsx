@@ -16,6 +16,7 @@ import {
    ChevronRight,
    GraduationCap,
    Bot,
+   ClipboardList,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -143,6 +144,7 @@ export function NavOps() {
          ? { name: 'Knowledge Base', icon: Sparkles, url: `${base}/kb` }
          : { name: 'Knowledge', icon: Sparkles, url: `${base}/knowledge` },
       { name: 'Docs', icon: FileText, url: `${base}/docs` },
+      { name: 'SOP', icon: ClipboardList, url: `${base}/sop` },
       { name: 'Infra', icon: Server, url: `${base}/infra`, staff: true },
       { name: 'Interns', icon: GraduationCap, url: `${base}/interns`, staff: true },
       { name: 'Settings', icon: Settings, url: `${base}/settings/preferences` },

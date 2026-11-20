@@ -47,7 +47,8 @@ interface Doc {
 
 /* -------------------------------- view ---------------------------------- */
 
-export function DocsView() {
+// `only` (SC-701): show just one doc type, e.g. the SOP tab; new docs there get that type.
+export function DocsView({ only }: { only?: string } = {}) {
    const [docs, setDocs] = useState<Doc[]>([]);
    const [selId, setSelId] = useState<string | null>(null);
    const [loading, setLoading] = useState(true);
@@ -64,7 +65,7 @@ export function DocsView() {
    const intern = useInternMode();
    const [draft, setDraft] = useState<{ title: string; category: string; body: string }>({
       title: '',
-      category: 'Doc',
+      category: only ?? 'Doc',
       body: '',
    });
    const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,22 +74,30 @@ export function DocsView() {
    const confirm = useConfirm();
    const activeWorkspace = useActiveWorkspaceStore((s) => s.active);
 
-   const load = useCallback(async (keep?: string) => {
-      const d = await fetch('/api/ops/docs', { cache: 'no-store' })
-         .then((r) => (r.ok ? r.json() : null))
-         .catch(() => null);
-      const list: Doc[] = d?.docs ?? [];
-      setDocs(list);
-      const urlDoc =
-         typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('doc')
-            : null;
-      setSelId((cur) => {
-         const want = keep ?? cur ?? urlDoc ?? null;
-         return want && list.some((x) => x.id === want) ? want : (list[0]?.id ?? null);
-      });
-      setLoading(false);
-   }, []);
+   const load = useCallback(
+      async (keep?: string) => {
+         const d = await fetch('/api/ops/docs', { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+         const list: Doc[] = d?.docs ?? [];
+         setDocs(list);
+         const urlDoc =
+            typeof window !== 'undefined'
+               ? new URLSearchParams(window.location.search).get('doc')
+               : null;
+         setSelId((cur) => {
+            const want = keep ?? cur ?? urlDoc ?? null;
+            if (want && list.some((x) => x.id === want)) return want;
+            // On a one-type page (SOP tab) open the first doc of that type, not any doc.
+            const first = only
+               ? list.find((x) => (x.category || '').toLowerCase() === only.toLowerCase())
+               : list[0];
+            return first?.id ?? null;
+         });
+         setLoading(false);
+      },
+      [only]
+   );
    useEffect(() => {
       load();
    }, [load]);
@@ -140,7 +149,7 @@ export function DocsView() {
    };
 
    const startNew = () => {
-      setDraft({ title: '', category: 'Doc', body: '' });
+      setDraft({ title: '', category: only ?? 'Doc', body: '' });
       setSelId(null);
       setEditing(true);
       setMobileList(false);
@@ -257,13 +266,14 @@ export function DocsView() {
       for (const d of docs) {
          // Scope to the active workspace (untagged docs show under "All").
          if (!inActiveWorkspace(d.workspace, activeWorkspace)) continue;
+         if (only && (d.category || '').toLowerCase() !== only.toLowerCase()) continue;
          if (q && !`${d.title} ${d.category}`.toLowerCase().includes(q)) continue;
          const prod = d.review_stage === 'approved';
          if ((layer === 'production' && !prod) || (layer === 'staging' && prod)) continue;
          (g[d.category || 'Doc'] ??= []).push(d);
       }
       return Object.entries(g);
-   }, [docs, filter, activeWorkspace, layer]);
+   }, [docs, filter, activeWorkspace, layer, only]);
    const pendingDraft = useMemo(
       () => (selected ? (docs.find((x) => x.draft_of === selected.id) ?? null) : null),
       [docs, selected]
