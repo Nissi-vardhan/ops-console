@@ -68,6 +68,11 @@ Usage:
                                                           staging = everything else (--pending: in review or
                                                           changes requested). --ws all = the main KB
   ops kb show <doc-id> [--json]                           one doc: layer, author, linked tasks, full body
+  ops kb new --ws <slug> --type SOP --title "<title>" --body <file|-> [--task <OPS-n>]
+                                                          a standing doc (e.g. an SOP), linked to a task; prints its URL
+  ops kb update <doc-id> [--title "<t>"] [--body <file|->] [--type SOP] [--task <OPS-n>]
+                                                          edit a doc in place (staging; production docs get a staged edit)
+  ops kb list ... --type SOP                              only docs of that type
   ops files <OPS-n> [--json]                              files attached to a task and to its linked docs
                                                           (intern submissions included): id, name, type, size, when
   ops file get <file-id> [--out <path>]                   download one file (default: its own name in the current
@@ -398,22 +403,41 @@ async function main() {
          if (sub === 'new') {
             const email = need(who, 'member email');
             const ws = need(flags.ws, '--ws <slug>');
-            const r = await api('POST', `/users/${encodeURIComponent(email)}/keys`, { workspace: String(ws) });
-            console.log(`Task API key for ${r.user} in ${r.workspace} (shown once, keep it private):\n\n${r.token}\n`);
-            console.log(`Key id ${r.id}. Base URL ${BASE}/v1 · header: Authorization: Bearer <key>`);
+            const r = await api('POST', `/users/${encodeURIComponent(email)}/keys`, {
+               workspace: String(ws),
+            });
+            console.log(
+               `Task API key for ${r.user} in ${r.workspace} (shown once, keep it private):\n\n${r.token}\n`
+            );
+            console.log(
+               `Key id ${r.id}. Base URL ${BASE}/v1 · header: Authorization: Bearer <key>`
+            );
          } else if (sub === 'list') {
             const email = need(who, 'member email');
             const r = await api('GET', `/users/${encodeURIComponent(email)}/keys`);
             if (!r.keys.length) console.log(`${r.user}: no keys`);
             for (const k of r.keys)
                console.log(
-                  [k.id, k.prefix + '…', k.workspace, k.revoked_at ? 'revoked' : 'active', 'made ' + ist(k.created_at), 'used ' + ist(k.last_used_at)].join(' · ')
+                  [
+                     k.id,
+                     k.prefix + '…',
+                     k.workspace,
+                     k.revoked_at ? 'revoked' : 'active',
+                     'made ' + ist(k.created_at),
+                     'used ' + ist(k.last_used_at),
+                  ].join(' · ')
                );
          } else if (sub === 'revoke') {
             const email = need(who, 'member email');
-            await api('DELETE', `/users/${encodeURIComponent(email)}/keys/${encodeURIComponent(need(keyId, 'key id'))}`);
+            await api(
+               'DELETE',
+               `/users/${encodeURIComponent(email)}/keys/${encodeURIComponent(need(keyId, 'key id'))}`
+            );
             console.log('revoked');
-         } else die('usage: ops key new <email> --ws <slug> | ops key list <email> | ops key revoke <email> <key-id>');
+         } else
+            die(
+               'usage: ops key new <email> --ws <slug> | ops key list <email> | ops key revoke <email> <key-id>'
+            );
          return;
       }
       case 'stage': {
@@ -593,6 +617,11 @@ async function main() {
                .filter((d) => !by || author(d).toLowerCase().includes(by))
                .filter(
                   (d) =>
+                     !flags.type ||
+                     (d.category || '').toLowerCase() === String(flags.type).toLowerCase()
+               )
+               .filter(
+                  (d) =>
                      !flags.since ||
                      new Date(d.created_at) >= new Date(`${flags.since}T00:00:00+05:30`)
                )
@@ -619,6 +648,47 @@ async function main() {
                console.log(
                   `${d.id} · ${d.status}${d.draft_of ? ' (edit of a production doc)' : ''} · ${ws === 'all' ? (d.workspace || '–') + ' · ' : ''}${d.category}${d.audience === 'marketing' ? ' (marketing)' : ''} · ${d.author} · ${ist(d.created_at)} · ${d.title}`
                );
+            return;
+         }
+         // SOPs and other standing docs (CMS-565, Nissi 20 Nov): create one with a type, or update it.
+         if (sub === 'new') {
+            const ws = oneOf(need(flags.ws, '--ws <slug>'), WORKSPACES, 'workspace');
+            const title = need(flags.title, '--title "<title>"');
+            const body = readBody(need(flags.body, '--body <file|->')).trim();
+            if (!body) die('--body is empty');
+            const type = flags.type ? String(flags.type) : 'Doc';
+            const category = type.toLowerCase() === 'sop' ? 'SOP' : type;
+            const { doc } = await api('POST', '/docs', {
+               title: String(title),
+               body,
+               category,
+               workspace: ws,
+            });
+            if (flags.task)
+               await api('POST', `/docs/${encodeURIComponent(doc.id)}/links`, {
+                  issue: String(flags.task),
+               });
+            console.log(`${doc.id} · ${category} · ${ws} · ${doc.title}`);
+            console.log(`${BASE}/shortcastle/docs?doc=${doc.id}`);
+            return;
+         }
+         if (sub === 'update') {
+            const id = need(pos[1], 'doc id (from ops kb list)');
+            const patch = {};
+            if (flags.title) patch.title = String(flags.title);
+            if (flags.body) patch.body = readBody(String(flags.body)).trim();
+            if (flags.type)
+               patch.category =
+                  String(flags.type).toLowerCase() === 'sop' ? 'SOP' : String(flags.type);
+            if (!Object.keys(patch).length)
+               die('nothing to update: give --title, --body <file|-> or --type');
+            const { doc } = await api('PATCH', `/docs/${encodeURIComponent(id)}`, patch);
+            if (flags.task)
+               await api('POST', `/docs/${encodeURIComponent(id)}/links`, {
+                  issue: String(flags.task),
+               });
+            console.log(`${doc.id} · ${doc.category} · updated · ${doc.title}`);
+            console.log(`${BASE}/shortcastle/docs?doc=${doc.id}`);
             return;
          }
          if (sub === 'show') {
@@ -708,17 +778,29 @@ async function main() {
             api('GET', `/attachments?issue=${ref}`),
             api('GET', `/issues/${ref}/links`),
          ]);
-         const rows = attachments.map((a) => ({ ...a, from: a.intern_id ? 'task (intern)' : 'task' }));
+         const rows = attachments.map((a) => ({
+            ...a,
+            from: a.intern_id ? 'task (intern)' : 'task',
+         }));
          for (const d of docs || []) {
             const r = await api('GET', `/attachments?doc=${encodeURIComponent(d.id)}`);
             for (const a of r.attachments) rows.push({ ...a, from: `doc ${d.id} · ${d.title}` });
          }
          if (flags.json) {
-            console.log(JSON.stringify(rows.map(({ object_key: _k, ...r }) => r), null, 2));
+            console.log(
+               JSON.stringify(
+                  rows.map(({ object_key: _k, ...r }) => r),
+                  null,
+                  2
+               )
+            );
             return;
          }
          if (!rows.length) return console.log('no files');
-         const kb = (n) => (Number(n) >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+         const kb = (n) =>
+            Number(n) >= 1048576
+               ? `${(n / 1048576).toFixed(1)} MB`
+               : `${Math.max(1, Math.round(n / 1024))} KB`;
          for (const r of rows)
             console.log(
                `${r.id} · ${r.filename} · ${r.content_type} · ${kb(r.size)} · ${r.created_at ? ist(r.created_at) + ' IST' : '–'} · ${r.from}`
@@ -744,7 +826,9 @@ async function main() {
          if (fs.existsSync(out)) die(`${out} already exists; pass --out <path>`);
          const buf = Buffer.from(await res.arrayBuffer());
          fs.writeFileSync(out, buf);
-         console.log(`saved ${out} (${buf.length} bytes, ${res.headers.get('content-type') || 'unknown type'})`);
+         console.log(
+            `saved ${out} (${buf.length} bytes, ${res.headers.get('content-type') || 'unknown type'})`
+         );
          return;
       }
       case 'eod': {
@@ -765,12 +849,16 @@ async function main() {
          if (flags.fix) {
             if (flags.rating === undefined && flags.notes === undefined)
                die('ops review --fix needs --rating and/or --notes');
-            const { event } = await api('PATCH', `/issues/${encodeURIComponent(id)}/intern/events`, {
-               event_id: flags.event || null,
-               rating: flags.rating === undefined ? null : Number(flags.rating),
-               body: flags.notes,
-               by: session(),
-            });
+            const { event } = await api(
+               'PATCH',
+               `/issues/${encodeURIComponent(id)}/intern/events`,
+               {
+                  event_id: flags.event || null,
+                  rating: flags.rating === undefined ? null : Number(flags.rating),
+                  body: flags.notes,
+                  by: session(),
+               }
+            );
             const was = event.original?.rating;
             console.log(
                `corrected review ${event.id} · rating ${was != null && was !== event.rating ? `${was} → ` : ''}${event.rating} · ${event.outcome}`
