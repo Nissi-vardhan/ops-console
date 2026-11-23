@@ -729,6 +729,8 @@ export async function searchKbDocs(
    q: string,
    limit: number
 ): Promise<(Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'> & { rank: number })[]> {
+   // People often split compound words ("data base"); the articles use the joined form (CL-985).
+   q = q.replace(/\bdata\s+bases?\b/gi, 'database').replace(/\bwhite\s+board\b/gi, 'whiteboard');
    return query<Pick<OpsDoc, 'id' | 'title' | 'body' | 'updated_at'> & { rank: number }>(
       `SELECT id, title, body, updated_at,
               ts_rank(setweight(to_tsvector('english', title), 'A') || to_tsvector('english', body),
