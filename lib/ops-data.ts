@@ -958,6 +958,14 @@ export async function setKbAudience(id: string, audience: 'support' | 'marketing
 }
 const TEXT_FIELDS = ['title', 'body', 'category'] as const;
 
+// Auto-publish (CLO-171, Chesslang One decision 24 Nov 2026): body edits to these live articles
+// go live straight away instead of waiting as a staged edit. Only for data that changes every
+// week (the weekly promo code). The list lives in code, so adding a doc needs a reviewed push.
+const AUTO_PUBLISH_DOC_IDS = new Set([
+   '8d440d97-7e75-4cf3-8798-2feb496c0df0', // Chesslang One — Current offer
+]);
+export const isAutoPublishDoc = (id: string) => AUTO_PUBLISH_DOC_IDS.has(id);
+
 /** Production = approved. Everything else (no review yet, in review, changes) is staging. */
 export const isProductionDoc = (d: Pick<OpsDoc, 'review_stage'> | null | undefined) =>
    d?.review_stage === 'approved';
@@ -970,6 +978,26 @@ export async function updateOpsDoc(
    if (!current) return null;
    // Editing the text of a production doc never changes production directly: the
    // edit is saved as a staged draft (one per production doc) until it's promoted.
+   // A body-only edit of an auto-publish article updates the live text and records it in the
+   // review history (CLO-171); title or type changes still go through a staged edit.
+   if (
+      isProductionDoc(current) &&
+      isAutoPublishDoc(id) &&
+      typeof patch.body === 'string' &&
+      !('title' in patch) &&
+      !('category' in patch)
+   ) {
+      await query('UPDATE ops_docs SET body = $1, updated_at = now() WHERE id = $2', [
+         patch.body,
+         id,
+      ]);
+      await query(
+         `INSERT INTO ops_doc_reviews (doc_id, stage, note, author_name, author_email)
+          VALUES ($1, 'note', 'Auto-published body update (CLO-171)', 'auto-publish', '')`,
+         [id]
+      );
+      return getOpsDoc(id);
+   }
    if (isProductionDoc(current) && TEXT_FIELDS.some((k) => k in patch)) {
       const next = {
          title: typeof patch.title === 'string' ? patch.title : current.title,
