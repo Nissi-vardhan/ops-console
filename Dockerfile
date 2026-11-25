@@ -28,6 +28,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# SC-744: keep idle connections open longer than the proxy does (Traefik default 90 s). Node's 5 s default
+# closes a connection just as the proxy reuses it, so an occasional POST got a 502.
+ENV KEEP_ALIVE_TIMEOUT=120000
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
